@@ -9,10 +9,6 @@ local AnimationsModule = Animations or require("../Engine/Animations")
 local ProfileCard = {}
 ProfileCard.__index = ProfileCard
 
-local function get_theme_color(token, default)
-    return ThemeModule.Get(token, default)
-end
-
 local function format_uptime(sec)
     sec = math.max(0, math.floor(sec or 0))
     local h = math.floor(sec / 3600)
@@ -381,14 +377,11 @@ function ProfileCard:UpdateLayout()
     self.AvatarImg.Visible = vis and hasImg
 
     local textMaxW = math.max(40, cw - 52)
-    local fitName = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(self.DisplayName, textMaxW, 13) or self.DisplayName
-    local fitHandle = MetricsModule and MetricsModule.Fit and MetricsModule.Fit("@" .. self.Username, textMaxW, 11) or ("@" .. self.Username)
-
-    self.NameText.Text = fitName
+    self.NameText.Text = MetricsModule.Fit(self.DisplayName, textMaxW, 13)
     self.NameText.Position = Vector2.new(cx + 46, cy + 9)
     self.NameText.Visible = vis
 
-    self.HandleText.Text = fitHandle
+    self.HandleText.Text = MetricsModule.Fit("@" .. self.Username, textMaxW, 11)
     self.HandleText.Position = Vector2.new(cx + 46, cy + 25)
     self.HandleText.Visible = vis
 
@@ -466,6 +459,8 @@ function ProfileCard:SetVisible(visible)
     if not visible then
         self.Open = false
         self.OpenAnim = 0
+        self.Hovered = false
+        self.HoverAnim = 0
     end
     self:UpdateLayout()
 end
@@ -474,13 +469,13 @@ function ProfileCard:UpdateTheme(t)
     if not self.Enabled or not self.CardBg then return end
     t = t or {}
     local bgCol = self.Open
-        and (t["Tab.ActiveBg"] or get_theme_color("Tab.ActiveBg", Color3.fromRGB(33, 33, 34)))
-        or (t["Tab.HoverBg"] or get_theme_color("Tab.HoverBg", Color3.fromRGB(23, 23, 24)))
-    local borderCol = t["Card.Border"] or t.Border or get_theme_color("Card.Border", Color3.fromRGB(38, 38, 42))
-    local ctrlCol = t["Control.Background"] or get_theme_color("Control.Background", Color3.fromRGB(48, 48, 52))
-    local titleCol = t["Text.Title"] or get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
-    local mutedCol = t["Text.Muted"] or get_theme_color("Text.Muted", Color3.fromRGB(161, 161, 161))
-    local accentCol = t["Accent.Blue"] or get_theme_color("Accent.Blue", Color3.fromRGB(0, 145, 255))
+        and (t["Tab.ActiveBg"] or ThemeModule.Get("Tab.ActiveBg", Color3.fromRGB(33, 33, 34)))
+        or (t["Tab.HoverBg"] or ThemeModule.Get("Tab.HoverBg", Color3.fromRGB(23, 23, 24)))
+    local borderCol = t["Card.Border"] or t.Border or ThemeModule.Get("Card.Border", Color3.fromRGB(38, 38, 42))
+    local ctrlCol = t["Control.Background"] or ThemeModule.Get("Control.Background", Color3.fromRGB(48, 48, 52))
+    local titleCol = t["Text.Title"] or ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+    local mutedCol = t["Text.Muted"] or ThemeModule.Get("Text.Muted", Color3.fromRGB(161, 161, 161))
+    local accentCol = t["Accent.Blue"] or ThemeModule.Get("Accent.Blue", Color3.fromRGB(0, 145, 255))
 
     self.CardBg.Color = bgCol
     self.AvatarBg.Color = ctrlCol
@@ -488,7 +483,7 @@ function ProfileCard:UpdateTheme(t)
     self.NameText.Color = titleCol
     self.HandleText.Color = mutedCol
 
-    self.PopBg.Color = t["Card.Background"] or t.Dialog or get_theme_color("Card.Background", Color3.fromRGB(24, 24, 27))
+    self.PopBg.Color = t["Card.Background"] or t.Dialog or ThemeModule.Get("Card.Background", Color3.fromRGB(24, 24, 27))
     self.PopBorder.Color = borderCol
     self.PopName.Color = titleCol
     self.PopHandle.Color = mutedCol

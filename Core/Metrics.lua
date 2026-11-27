@@ -37,8 +37,7 @@ local function resolve_size(size, scale)
     return math.max(1, math.floor(base * s + 0.5))
 end
 
--- Empirically measured Matcha Drawing.Fonts.System glyph advance ratios (at Size = 16, 20x repetitions)
-local CHAR_WIDTHS = {
+local chars = {
     [" "] = 0.250,
     ["i"] = 0.223, ["j"] = 0.227, ["l"] = 0.223, ["I"] = 0.227,
     ["!"] = 0.227, [";"] = 0.227, [":"] = 0.223, ["'"] = 0.223, [","] = 0.227, ["."] = 0.223, ["|"] = 0.227,
@@ -65,11 +64,11 @@ local CHAR_WIDTHS = {
 
 function metrics.Measure(text, size, scale)
     local str = tostring(text or "")
-    if str == "" then return 0, resolve_size(size, scale) end
     local s = resolve_size(size, scale)
+    if str == "" then return 0, s end
     local w = 0
     for i = 1, #str do
-        w = w + s * (CHAR_WIDTHS[str:sub(i, i)] or 0.458)
+        w = w + s * (chars[str:sub(i, i)] or 0.458)
     end
     return math.floor(w + 0.5), s
 end
