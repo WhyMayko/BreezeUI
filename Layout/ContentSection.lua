@@ -23,32 +23,36 @@ local ColorpickerModule = Colorpicker or require("../Components/Colorpicker")
 local ContentSection = {}
 ContentSection.__index = ContentSection
 
-local CONTAINER_KEYS = { RowBg = true, Visual = true, Border = true, Background = true, HeaderBg = true }
+local SKIP_CLIP_KEYS = { Section = true, Parent = true, Window = true, Pool = true, Env = true, Values = true, VisibleItems = true, Config = true, Callback = true }
 
-local function clip_drawing(obj, clipTop, clipBottom, isContainer)
+local function clip_drawing(obj, clipTop, clipBottom)
     if not obj or not obj.Visible or not obj.Position then return end
     local y = obj.Position.Y
     local sz = obj.Size
-    local h = (type(sz) == "number") and sz or (sz and sz.Y) or 14
-    if isContainer and type(sz) ~= "number" then
+    local isVec = (type(sz) == "table" or type(sz) == "userdata")
+    local h = isVec and (sz.Y or 14) or (type(sz) == "number" and sz or 14)
+    if isVec and obj.Filled ~= nil and h >= 24 then
         local vt = math.max(y, clipTop)
         local vb = math.min(y + h, clipBottom)
         local vh = math.max(0, vb - vt)
         obj.Position = Vector2.new(obj.Position.X, vt)
-        obj.Size = Vector2.new(obj.Size.X, vh)
+        obj.Size = Vector2.new(sz.X, vh)
         obj.Visible = vh > 4
     else
         obj.Visible = (y >= clipTop - 1) and (y + h <= clipBottom + 1)
     end
 end
 
-local function clip_control(ctrl, clipTop, clipBottom)
-    for k, v in pairs(ctrl) do
-        if type(v) == "table" or type(v) == "userdata" then
-            if k == "KeyPicker" or k == "ColorPicker" then
-                clip_control(v, clipTop, clipBottom)
-            elseif k ~= "Section" and k ~= "Parent" and k ~= "Window" and k ~= "Pool" and v.Position ~= nil and v.Visible ~= nil then
-                clip_drawing(v, clipTop, clipBottom, CONTAINER_KEYS[k] == true)
+local function clip_control(tbl, clipTop, clipBottom, visited)
+    visited = visited or {}
+    if visited[tbl] then return end
+    visited[tbl] = true
+    for k, v in pairs(tbl) do
+        if not SKIP_CLIP_KEYS[k] and (type(v) == "table" or type(v) == "userdata") then
+            if v.Position ~= nil and v.Visible ~= nil then
+                clip_drawing(v, clipTop, clipBottom)
+            elseif type(v) == "table" then
+                clip_control(v, clipTop, clipBottom, visited)
             end
         end
     end
