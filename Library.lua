@@ -14804,6 +14804,7 @@ function Window:Destroy()
         if NotifyModule and NotifyModule.Destroy then NotifyModule.Destroy() end
         if DialogModule and DialogModule.Destroy then DialogModule.Destroy() end
         if OverlayModule and OverlayModule.Destroy then OverlayModule.Destroy() end
+        if self.Env and self.Env._cleanupRuntime then self.Env:_cleanupRuntime() end
     end
     if self._lastInputBlocked then
         setrobloxinput(true)
@@ -14931,6 +14932,8 @@ BreezeUI.OverlaySubsystem = OverlayModule
 BreezeUI.ThemeManager = ThemeModule
 BreezeUI.SaveManager = SettingsModule
 BreezeUI.UnloadCallbacks = {}
+BreezeUI._connections = {}
+BreezeUI.Unloaded = false
 
 BreezeUI.Components = {
     Toggle = ToggleModule,
@@ -15139,6 +15142,7 @@ end
 
 -- Window Construction
 function BreezeUI:CreateWindow(config)
+    self.Unloaded = false
     self.Destroyed = false
     self._destroyed = false
 
@@ -15165,12 +15169,61 @@ function BreezeUI:CreateWindow(config)
     return win
 end
 
--- Destruction
-function BreezeUI:Destroy()
+function BreezeUI:IsLoaded()
+    if self.Unloaded or self.Destroyed then return false end
+    local win = self._activeWindow
+    if not win or win.Destroyed then return false end
+    local cur = UI and UI.GetValue and UI.GetValue("breeze_ui_state")
+    if cur == "unload" or (win._uiStateToken and cur ~= nil and cur ~= "" and cur ~= win._uiStateToken) then
+        return false
+    end
+    return true
+end
+
+function BreezeUI:OnUnload(cb)
+    assert(type(cb) == "function", "OnUnload requires callback function!")
+    table.insert(self.UnloadCallbacks, cb)
+end
+
+function BreezeUI:GiveConnection(conn)
+    if conn then table.insert(self._connections, conn) end
+    return conn
+end
+
+function BreezeUI:Connect(signal, fn)
+    assert(signal and signal.Connect and type(fn) == "function", "Connect requires signal and callback!")
+    local conn = signal:Connect(function(...)
+        if not self:IsLoaded() then return end
+        fn(...)
+    end)
+    return self:GiveConnection(conn)
+end
+
+function BreezeUI:_cleanupRuntime()
+    if self.Unloaded then return end
+    self.Unloaded = true
     self.Destroyed = true
     self._destroyed = true
+
+    for _, conn in ipairs(self._connections) do
+        if conn and conn.Disconnect then
+            conn:Disconnect()
+        end
+    end
+    self._connections = {}
+
+    local cbs = self.UnloadCallbacks
+    self.UnloadCallbacks = {}
+    for _, cb in ipairs(cbs) do
+        pcall(cb)
+    end
+end
+
+-- Destruction
+function BreezeUI:Destroy()
+    self:_cleanupRuntime()
     for _, win in ipairs(self._windows) do
-        if win.Destroy then
+        if win.Destroy and not win.Destroyed then
             win:Destroy()
         end
     end
@@ -15195,6 +15248,10 @@ function BreezeUI:Destroy()
     if IconsModule.ClearCache then
         IconsModule.ClearCache()
     end
+end
+
+function BreezeUI:Unload()
+    self:Destroy()
 end
 
 -- Export global library handle for scripts running inside Matcha

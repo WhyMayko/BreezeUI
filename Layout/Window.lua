@@ -2104,6 +2104,7 @@ function Window:Destroy()
         if NotifyModule and NotifyModule.Destroy then NotifyModule.Destroy() end
         if DialogModule and DialogModule.Destroy then DialogModule.Destroy() end
         if OverlayModule and OverlayModule.Destroy then OverlayModule.Destroy() end
+        if self.Env and self.Env._cleanupRuntime then self.Env:_cleanupRuntime() end
     end
     if self._lastInputBlocked then
         setrobloxinput(true)
