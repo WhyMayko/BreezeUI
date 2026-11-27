@@ -2,12 +2,7 @@
 -- Keybind component supporting both inline Toggle KeyPicker badges and standalone WindUI section rows.
 
 local ThemeModule = Theme or require("../Layout/Theme")
-
-local MetricsModule = Metrics
-if not MetricsModule then
-    local ok, mod = pcall(function() return require("../Core/Metrics") end)
-    if ok then MetricsModule = mod end
-end
+local MetricsModule = Metrics or require("../Core/Metrics")
 
 local Keybind = {}
 Keybind.__index = Keybind

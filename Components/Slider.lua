@@ -2,12 +2,7 @@
 -- 100% WindUI-identical slider component: card container, capsule pill thumb, icons support, and dual layouts.
 
 local ThemeModule = Theme or require("../Layout/Theme")
-
-local IconsModule = Icons
-if not IconsModule then
-    local ok, mod = pcall(function() return require("../Subsystems/Icons") end)
-    if ok then IconsModule = mod end
-end
+local IconsModule = Icons or require("../Subsystems/Icons")
 
 local Slider = {}
 Slider.__index = Slider

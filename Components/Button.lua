@@ -2,18 +2,8 @@
 -- WindUI-identical action button with icon support, Justify, Tags badges, color support, and System font.
 
 local ThemeModule = Theme or require("../Layout/Theme")
-
-local IconsModule = Icons
-if not IconsModule then
-    local ok, mod = pcall(function() return require("../Subsystems/Icons") end)
-    if ok then IconsModule = mod end
-end
-
-local MetricsModule = Metrics
-if not MetricsModule then
-    local ok, mod = pcall(function() return require("../Core/Metrics") end)
-    if ok then MetricsModule = mod end
-end
+local IconsModule = Icons or require("../Subsystems/Icons")
+local MetricsModule = Metrics or require("../Core/Metrics")
 
 local Button = {}
 Button.__index = Button

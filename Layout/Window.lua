@@ -9,47 +9,13 @@ local ThemeModule = Theme or require("./Theme")
 local SidebarModule = Sidebar or require("./Sidebar")
 local ClampingModule = Clamping or require("../Engine/Clamping")
 
-local DragModule = Drag
-if not DragModule then
-    local ok, mod = pcall(function() return require("../Engine/Drag") end)
-    if ok then DragModule = mod end
-end
-
-local AnimationsModule = Animations
-if not AnimationsModule then
-    local ok, mod = pcall(function() return require("../Engine/Animations") end)
-    if ok then AnimationsModule = mod end
-end
-
-local InputHandlerModule = InputHandler
-if not InputHandlerModule then
-    local ok, mod = pcall(function() return require("../Engine/InputHandler") end)
-    if ok then InputHandlerModule = mod end
-end
-
-local IconsModule = Icons
-if not IconsModule then
-    local ok, mod = pcall(function() return require("../Subsystems/Icons") end)
-    if ok then IconsModule = mod end
-end
-
-local NotifyModule = Notify
-if not NotifyModule then
-    local ok, mod = pcall(function() return require("../Subsystems/Notify") end)
-    if ok then NotifyModule = mod end
-end
-
-local DialogModule = Dialog
-if not DialogModule then
-    local ok, mod = pcall(function() return require("../Subsystems/Dialog") end)
-    if ok then DialogModule = mod end
-end
-
-local OverlayModule = Overlay
-if not OverlayModule then
-    local ok, mod = pcall(function() return require("../Subsystems/Overlay") end)
-    if ok then OverlayModule = mod end
-end
+local DragModule = Drag or require("../Engine/Drag")
+local AnimationsModule = Animations or require("../Engine/Animations")
+local InputHandlerModule = InputHandler or require("../Engine/InputHandler")
+local IconsModule = Icons or require("../Subsystems/Icons")
+local NotifyModule = Notify or require("../Subsystems/Notify")
+local DialogModule = Dialog or require("../Subsystems/Dialog")
+local OverlayModule = Overlay or require("../Subsystems/Overlay")
 
 local Window = {}
 Window.__index = Window

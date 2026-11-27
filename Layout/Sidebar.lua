@@ -8,12 +8,7 @@ local MetricsModule = Metrics or require("../Core/Metrics")
 local ThemeModule = Theme or require("./Theme")
 local TabModule = Tab or require("./Tab")
 local ProfileCardModule = ProfileCard or require("./ProfileCard")
-
-local IconsModule = Icons
-if not IconsModule then
-    local ok, mod = pcall(function() return require("../Subsystems/Icons") end)
-    if ok then IconsModule = mod end
-end
+local IconsModule = Icons or require("../Subsystems/Icons")
 
 local Sidebar = {}
 Sidebar.__index = Sidebar

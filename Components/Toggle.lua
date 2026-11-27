@@ -3,18 +3,8 @@
 
 local Keybind = Keybind or require("./Keybind")
 local ThemeModule = Theme or require("../Layout/Theme")
-
-local AnimationsModule = Animations
-if not AnimationsModule then
-    local ok, mod = pcall(function() return require("../Engine/Animations") end)
-    if ok then AnimationsModule = mod end
-end
-
-local IconsModule = Icons
-if not IconsModule then
-    local ok, mod = pcall(function() return require("../Subsystems/Icons") end)
-    if ok then IconsModule = mod end
-end
+local AnimationsModule = Animations or require("../Engine/Animations")
+local IconsModule = Icons or require("../Subsystems/Icons")
 
 local Toggle = {}
 Toggle.__index = Toggle
@@ -220,16 +210,10 @@ function Toggle:Set(val)
         self.CheckIcon.Visible = self.Visible and boolVal
     end
 
-    if AnimationsModule and AnimationsModule.RegisterAnimation and self.Visible then
-        AnimationsModule.RegisterAnimation("Toggle_" .. tostring(self), {
-            Current = self.AnimProgress or target,
-            Target = target,
-            Lambda = 20,
-            Epsilon = 0.01,
-            OnUpdate = function(v)
-                self:_applyAnimVisual(v)
-            end,
-        })
+    if self.Visible then
+        AnimationsModule.Tween("Toggle_" .. tostring(self), self.AnimProgress or target, target, 20, function(v)
+            self:_applyAnimVisual(v)
+        end)
     else
         self:_applyAnimVisual(target)
     end

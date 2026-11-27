@@ -6,11 +6,7 @@ local MetaModule = Meta or require("../Core/Meta")
 local GeometryModule = Geometry or require("../Core/Geometry")
 local MetricsModule = Metrics or require("../Core/Metrics")
 local ThemeModule = Theme or require("./Theme")
-local IconsModule = Icons
-if not IconsModule then
-    local ok, mod = pcall(function() return require("../Subsystems/Icons") end)
-    if ok then IconsModule = mod end
-end
+local IconsModule = Icons or require("../Subsystems/Icons")
 
 local ToggleModule = Toggle or require("../Components/Toggle")
 local SliderModule = Slider or require("../Components/Slider")

@@ -105,7 +105,6 @@ end
 function ProfileCard:_initDrawings()
     local pool = self.Pool
     if not pool then return end
-    local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
     local bg = pool:Get("Square")
     bg.Filled = true
@@ -126,7 +125,6 @@ function ProfileCard:_initDrawings()
 
     local avInit = pool:Get("Text")
     avInit.Size = 14
-    avInit.Font = fontUI
     avInit.Text = string.upper(string.sub(self.DisplayName, 1, 1))
     avInit.ZIndex = 6
     avInit.Visible = true
@@ -142,7 +140,6 @@ function ProfileCard:_initDrawings()
 
     local nameTxt = pool:Get("Text")
     nameTxt.Size = 13
-    nameTxt.Font = fontUI
     nameTxt.ZIndex = 6
     nameTxt.Visible = true
     self.NameText = nameTxt
@@ -150,7 +147,6 @@ function ProfileCard:_initDrawings()
 
     local handleTxt = pool:Get("Text")
     handleTxt.Size = 11
-    handleTxt.Font = fontUI
     handleTxt.ZIndex = 6
     handleTxt.Visible = true
     self.HandleText = handleTxt
@@ -176,7 +172,6 @@ function ProfileCard:_initDrawings()
 
     local pName = pool:Get("Text")
     pName.Size = 13
-    pName.Font = fontUI
     pName.ZIndex = 32
     pName.Visible = false
     self.PopName = pName
@@ -184,7 +179,6 @@ function ProfileCard:_initDrawings()
 
     local pHandle = pool:Get("Text")
     pHandle.Size = 11
-    pHandle.Font = fontUI
     pHandle.ZIndex = 32
     pHandle.Visible = false
     self.PopHandle = pHandle
@@ -200,7 +194,6 @@ function ProfileCard:_initDrawings()
 
     local pTagTxt = pool:Get("Text")
     pTagTxt.Size = 10
-    pTagTxt.Font = fontUI
     pTagTxt.ZIndex = 32
     pTagTxt.Visible = false
     self.PopTagText = pTagTxt
@@ -245,7 +238,6 @@ end
 function ProfileCard:_rebuildRows()
     local pool = self.Pool
     if not pool then return end
-    local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
     for _, r in ipairs(self.PopRows) do
         if r.LabelDraw then r.LabelDraw.Visible = false end
@@ -257,7 +249,6 @@ function ProfileCard:_rebuildRows()
     for _, spec in ipairs(specs) do
         local lDraw = pool:Get("Text")
         lDraw.Size = 11
-        lDraw.Font = fontUI
         lDraw.Text = spec.Label
         lDraw.ZIndex = 32
         lDraw.Visible = false
@@ -265,7 +256,6 @@ function ProfileCard:_rebuildRows()
 
         local vDraw = pool:Get("Text")
         vDraw.Size = 11
-        vDraw.Font = fontUI
         vDraw.Text = spec.Value
         vDraw.ZIndex = 32
         vDraw.Visible = false
