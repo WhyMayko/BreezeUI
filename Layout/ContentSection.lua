@@ -39,7 +39,7 @@ local function clip_drawing(obj, clipTop, clipBottom)
         obj.Size = Vector2.new(sz.X, vh)
         obj.Visible = vh > 4
     else
-        obj.Visible = (y >= clipTop - 1) and (y + h <= clipBottom + 1)
+        obj.Visible = (y >= clipTop + 6) and (y + h <= clipBottom - 6)
     end
 end
 
@@ -446,7 +446,7 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
         end
         local tVis = self.Visible
         if clipTop and clipBottom then
-            tVis = tVis and (currentY >= clipTop) and (currentY + self.TextSize <= clipBottom)
+            tVis = tVis and (currentY >= clipTop + 6) and (currentY + self.TextSize <= clipBottom - 6)
         end
         self.TitleText.Visible = tVis
         currentY = currentY + math.max(18, self.TextSize + 6)
@@ -458,7 +458,7 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
         end
         local dVis = self.Visible
         if clipTop and clipBottom then
-            dVis = dVis and (currentY >= clipTop) and (currentY + 12 <= clipBottom)
+            dVis = dVis and (currentY >= clipTop + 6) and (currentY + 12 <= clipBottom - 6)
         end
         self.DescText.Visible = dVis
     end
@@ -467,7 +467,7 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
         local hdrH = math.max(20, self.HeaderHeight or 22)
         local hdrVis = self.Visible
         if clipTop and clipBottom then
-            hdrVis = hdrVis and (innerY >= clipTop) and (innerY + 14 <= clipBottom)
+            hdrVis = hdrVis and (innerY >= clipTop + 6) and (innerY + 14 <= clipBottom - 6)
         end
         self._headerRect = hdrVis and { X = innerX, Y = innerY, W = usableW, H = hdrH } or nil
         if self.ChevronImg then
