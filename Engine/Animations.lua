@@ -3,6 +3,7 @@
 
 local Animations = {
     ActiveAnimations = {},
+    _targets = {},
     TargetFPS = 20,
     IdleTimer = 0,
     IdleTimeout = 1.0,
@@ -32,6 +33,16 @@ function Animations.Tween(id, current, target, lambda, apply)
         OnUpdate = apply,
         OnComplete = function() apply(target) end,
     })
+end
+
+function Animations.TweenProp(obj, prop, target, lambda)
+    if not obj then return end
+    local id = tostring(obj) .. ":" .. prop
+    if Animations._targets[id] == target then return end
+    Animations._targets[id] = target
+    Animations.Tween(id, obj[prop] or target, target, lambda or 20, function(v)
+        obj[prop] = v
+    end)
 end
 
 function Animations.NotifyInput()
@@ -81,6 +92,7 @@ end
 
 function Animations.Reset()
     Animations.ActiveAnimations = {}
+    Animations._targets = {}
     Animations.TargetFPS = 20
     Animations.IdleTimer = Animations.IdleTimeout
     Animations.CurrentFocusedWidget = nil
