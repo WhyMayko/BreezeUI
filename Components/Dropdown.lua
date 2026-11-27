@@ -2,6 +2,7 @@
 -- Responsive WindUI dropdown with pooled zero-leak popup, viewport clamping/flipping, hover highlight, and System font.
 
 local ThemeModule = Theme or require("../Layout/Theme")
+local AnimationsModule = Animations or require("../Engine/Animations")
 
 local IconsModule = Icons
 if not IconsModule then
@@ -103,6 +104,7 @@ function Dropdown.new(section, id, config)
         MaxVisibleItems = cfg.MaxVisibleItems or 7,
         IsScrollingPopup = false,
         PopupScrollThumb = nil,
+        OpenAnim = 1,
     }, Dropdown)
 
     self:_resolveDynamicValues()
@@ -476,16 +478,13 @@ function Dropdown:_layoutPopup()
     local popX = self.Position.X + self.Size.X - popW - 14
     local popY = self.Position.Y + self.Size.Y + 4
 
-    -- Smart boundary clamping & upward flip (Obsidian V2 viewport discipline)
     local maxBoundY = 1040
     local minBoundX, maxBoundX = 8, 1912
-    pcall(function()
-        local cam = workspace and workspace.CurrentCamera
-        if cam and cam.ViewportSize and cam.ViewportSize.Y > 0 then
-            maxBoundY = cam.ViewportSize.Y - 8
-            maxBoundX = cam.ViewportSize.X - 8
-        end
-    end)
+    local cam = workspace and workspace.CurrentCamera
+    if cam and cam.ViewportSize and cam.ViewportSize.Y > 0 then
+        maxBoundY = cam.ViewportSize.Y - 8
+        maxBoundX = cam.ViewportSize.X - 8
+    end
     if win and win.Position and win.Size then
         minBoundX = win.Position.X + 8
         maxBoundX = math.min(maxBoundX, win.Position.X + win.Size.X - 8)
@@ -494,6 +493,8 @@ function Dropdown:_layoutPopup()
         popY = self.Position.Y - popH - 4
     end
     popX = math.clamp(popX, minBoundX, math.max(minBoundX, maxBoundX - popW))
+    local anim = self.OpenAnim or 1
+    popY = popY - math.floor((1 - anim) * 6 + 0.5)
 
     local listTop = popY + 4 + searchH
     local searchRect = self.SearchEnabled and { X = popX + 6, Y = popY + 6, W = popW - 12, H = 22 } or nil
@@ -525,12 +526,14 @@ function Dropdown:_layoutPopup()
         self.PopupBg.Color = ThemeModule.Get("Card.Background", Color3.fromRGB(24, 24, 29))
         self.PopupBg.Position = Vector2.new(popX, popY)
         self.PopupBg.Size = Vector2.new(popW, popH)
+        self.PopupBg.Transparency = 0.2 + anim * 0.8
         self.PopupBg.Visible = true
     end
     if self.PopupBorder then
         self.PopupBorder.Color = ThemeModule.Get("Card.Border", Color3.fromRGB(48, 48, 56))
         self.PopupBorder.Position = Vector2.new(popX, popY)
         self.PopupBorder.Size = Vector2.new(popW, popH)
+        self.PopupBorder.Transparency = anim
         self.PopupBorder.Visible = true
     end
     if self.SearchBg and self.SearchText and searchRect then
@@ -670,8 +673,14 @@ function Dropdown:Open()
     self.ScrollOffset = 0
     self.Opened = true
     self.IsOpen = true
+    self.OpenAnim = 0
     if win then win.OpenDropdown = self end
     self:_layoutPopup()
+    AnimationsModule.Tween("dd_open_" .. tostring(self), 0, 1, 22, function(v)
+        if not self.Opened then return end
+        self.OpenAnim = v
+        self:_layoutPopup()
+    end)
 end
 
 function Dropdown:Close()

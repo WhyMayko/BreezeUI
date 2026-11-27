@@ -23,6 +23,17 @@ function Animations.RegisterAnimation(id, animConfig)
     Animations.IdleTimer = 0
 end
 
+function Animations.Tween(id, current, target, lambda, apply)
+    Animations.RegisterAnimation(id, {
+        Current = current,
+        Target = target,
+        Lambda = lambda or 20,
+        Epsilon = 0.01,
+        OnUpdate = apply,
+        OnComplete = function() apply(target) end,
+    })
+end
+
 function Animations.NotifyInput()
     Animations.IdleTimer = 0
     Animations.TargetFPS = 60

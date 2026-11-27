@@ -48,6 +48,7 @@ function ProfileCard.new(sidebar, config)
         Open = false,
         OpenAnim = 0,
         Hovered = false,
+        HoverAnim = 0,
         Height = 48,
 
         DisplayName = cfg.DisplayName or dname,
@@ -355,25 +356,10 @@ end
 
 function ProfileCard:_animatePopover(opening)
     self.Open = opening
-    if AnimationsModule and AnimationsModule.RegisterAnimation then
-        AnimationsModule.RegisterAnimation("profile_popover_" .. tostring(self), {
-            Current = self.OpenAnim,
-            Target = opening and 1 or 0,
-            Lambda = opening and 18 or 22,
-            Epsilon = 0.01,
-            OnUpdate = function(v)
-                self.OpenAnim = v
-                self:UpdateLayout()
-            end,
-            OnComplete = function()
-                self.OpenAnim = opening and 1 or 0
-                self:UpdateLayout()
-            end,
-        })
-    else
-        self.OpenAnim = opening and 1 or 0
+    AnimationsModule.Tween("profile_pop_" .. tostring(self), self.OpenAnim, opening and 1 or 0, opening and 18 or 22, function(v)
+        self.OpenAnim = v
         self:UpdateLayout()
-    end
+    end)
 end
 
 function ProfileCard:GetPopoverRect()
@@ -388,9 +374,11 @@ function ProfileCard:UpdateLayout()
     local vis = (self.Sidebar and self.Sidebar.Visible == true) and (self.Window and self.Window.Visible == true) and (not self.Window.Minimized)
     local cx, cy, cw, ch = self:GetCardRect()
 
+    local hoverAlpha = self.Open and 1 or (self.HoverAnim or 0)
     self.CardBg.Position = Vector2.new(cx, cy)
     self.CardBg.Size = Vector2.new(cw, ch)
-    self.CardBg.Visible = vis and (self.Hovered or self.Open)
+    self.CardBg.Transparency = hoverAlpha
+    self.CardBg.Visible = vis and (self.Open or self.Hovered or hoverAlpha > 0.02)
 
     local initChar = string.upper(string.sub(self.DisplayName, 1, 1))
     local ix, iy = MetricsModule.AlignCenter(cx + 6, cy + 8, 32, 32, initChar, 14)
@@ -568,7 +556,10 @@ function ProfileCard:Update(mx, my, m1Clicked, dt)
     if overCard ~= self.Hovered then
         self.Hovered = overCard
         self:UpdateTheme(ThemeModule.GetCurrent and ThemeModule.GetCurrent() or {})
-        self:UpdateLayout()
+        AnimationsModule.Tween("profile_hover_" .. tostring(self), self.HoverAnim, overCard and 1 or 0, 22, function(v)
+            self.HoverAnim = v
+            self:UpdateLayout()
+        end)
     end
 
     if m1Clicked then

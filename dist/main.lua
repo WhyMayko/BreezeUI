@@ -2078,6 +2078,17 @@ function Animations.RegisterAnimation(id, animConfig)
     Animations.IdleTimer = 0
 end
 
+function Animations.Tween(id, current, target, lambda, apply)
+    Animations.RegisterAnimation(id, {
+        Current = current,
+        Target = target,
+        Lambda = lambda or 20,
+        Epsilon = 0.01,
+        OnUpdate = apply,
+        OnComplete = function() apply(target) end,
+    })
+end
+
 function Animations.NotifyInput()
     Animations.IdleTimer = 0
     Animations.TargetFPS = 60
@@ -6516,6 +6527,7 @@ DropdownModule = (function()
 -- Responsive WindUI dropdown with pooled zero-leak popup, viewport clamping/flipping, hover highlight, and System font.
 
 local ThemeModule = Theme or ThemeModule
+local AnimationsModule = Animations or AnimationsModule
 
 local IconsModule = Icons
 if not IconsModule then
@@ -6617,6 +6629,7 @@ function Dropdown.new(section, id, config)
         MaxVisibleItems = cfg.MaxVisibleItems or 7,
         IsScrollingPopup = false,
         PopupScrollThumb = nil,
+        OpenAnim = 1,
     }, Dropdown)
 
     self:_resolveDynamicValues()
@@ -6990,16 +7003,13 @@ function Dropdown:_layoutPopup()
     local popX = self.Position.X + self.Size.X - popW - 14
     local popY = self.Position.Y + self.Size.Y + 4
 
-    -- Smart boundary clamping & upward flip (Obsidian V2 viewport discipline)
     local maxBoundY = 1040
     local minBoundX, maxBoundX = 8, 1912
-    pcall(function()
-        local cam = workspace and workspace.CurrentCamera
-        if cam and cam.ViewportSize and cam.ViewportSize.Y > 0 then
-            maxBoundY = cam.ViewportSize.Y - 8
-            maxBoundX = cam.ViewportSize.X - 8
-        end
-    end)
+    local cam = workspace and workspace.CurrentCamera
+    if cam and cam.ViewportSize and cam.ViewportSize.Y > 0 then
+        maxBoundY = cam.ViewportSize.Y - 8
+        maxBoundX = cam.ViewportSize.X - 8
+    end
     if win and win.Position and win.Size then
         minBoundX = win.Position.X + 8
         maxBoundX = math.min(maxBoundX, win.Position.X + win.Size.X - 8)
@@ -7008,6 +7018,8 @@ function Dropdown:_layoutPopup()
         popY = self.Position.Y - popH - 4
     end
     popX = math.clamp(popX, minBoundX, math.max(minBoundX, maxBoundX - popW))
+    local anim = self.OpenAnim or 1
+    popY = popY - math.floor((1 - anim) * 6 + 0.5)
 
     local listTop = popY + 4 + searchH
     local searchRect = self.SearchEnabled and { X = popX + 6, Y = popY + 6, W = popW - 12, H = 22 } or nil
@@ -7039,12 +7051,14 @@ function Dropdown:_layoutPopup()
         self.PopupBg.Color = ThemeModule.Get("Card.Background", Color3.fromRGB(24, 24, 29))
         self.PopupBg.Position = Vector2.new(popX, popY)
         self.PopupBg.Size = Vector2.new(popW, popH)
+        self.PopupBg.Transparency = 0.2 + anim * 0.8
         self.PopupBg.Visible = true
     end
     if self.PopupBorder then
         self.PopupBorder.Color = ThemeModule.Get("Card.Border", Color3.fromRGB(48, 48, 56))
         self.PopupBorder.Position = Vector2.new(popX, popY)
         self.PopupBorder.Size = Vector2.new(popW, popH)
+        self.PopupBorder.Transparency = anim
         self.PopupBorder.Visible = true
     end
     if self.SearchBg and self.SearchText and searchRect then
@@ -7184,8 +7198,14 @@ function Dropdown:Open()
     self.ScrollOffset = 0
     self.Opened = true
     self.IsOpen = true
+    self.OpenAnim = 0
     if win then win.OpenDropdown = self end
     self:_layoutPopup()
+    AnimationsModule.Tween("dd_open_" .. tostring(self), 0, 1, 22, function(v)
+        if not self.Opened then return end
+        self.OpenAnim = v
+        self:_layoutPopup()
+    end)
 end
 
 function Dropdown:Close()
@@ -10807,6 +10827,7 @@ local GeometryModule = Geometry or GeometryModule
 local MetricsModule = Metrics or MetricsModule
 local ThemeModule = Theme or ThemeModule
 local ContentSectionModule = ContentSection or ContentSectionModule
+local AnimationsModule = Animations or AnimationsModule
 
 local IconsModule = Icons
 if not IconsModule then
@@ -10865,6 +10886,7 @@ function Tab.new(config, window, parentSection)
         -- State flags
         IsActive = false,
         IsHovered = false,
+        HoverAnim = 0,
         SidebarVisible = true,
         FilteredOut = false,
         Visible = true,
@@ -11006,7 +11028,8 @@ function Tab:UpdateVisualState()
         local titleCol = get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
         if self.Capsule then
             self.Capsule.Color = activeBg
-            self.Capsule.Visible = true
+            self.Capsule.Transparency = 1.0
+            self.Capsule.Visible = self.SidebarVisible ~= false
         end
         if self.TitleVisual then
             self.TitleVisual.Color = titleCol
@@ -11016,12 +11039,13 @@ function Tab:UpdateVisualState()
         if self.TabIcon then
             self.TabIcon.Transparency = 1.0
         end
-    elseif self.IsHovered then
+    elseif self.IsHovered or (self.HoverAnim or 0) > 0.02 then
         local hoverBg = get_theme_color("Tab.HoverBg", Color3.fromRGB(26, 26, 31))
         local titleCol = get_theme_color("Text.Title", Color3.fromRGB(240, 240, 245))
         if self.Capsule then
             self.Capsule.Color = hoverBg
-            self.Capsule.Visible = true
+            self.Capsule.Transparency = self.HoverAnim or 1.0
+            self.Capsule.Visible = self.SidebarVisible ~= false
         end
         if self.TitleVisual then
             self.TitleVisual.Color = titleCol
@@ -11050,7 +11074,10 @@ end
 function Tab:SetHovered(hovered)
     if self.IsHovered ~= hovered then
         self.IsHovered = hovered
-        self:UpdateVisualState()
+        AnimationsModule.Tween("tab_hover_" .. tostring(self), self.HoverAnim or 0, hovered and 1 or 0, 22, function(v)
+            self.HoverAnim = v
+            self:UpdateVisualState()
+        end)
     end
 end
 
@@ -11528,6 +11555,7 @@ function ProfileCard.new(sidebar, config)
         Open = false,
         OpenAnim = 0,
         Hovered = false,
+        HoverAnim = 0,
         Height = 48,
 
         DisplayName = cfg.DisplayName or dname,
@@ -11835,25 +11863,10 @@ end
 
 function ProfileCard:_animatePopover(opening)
     self.Open = opening
-    if AnimationsModule and AnimationsModule.RegisterAnimation then
-        AnimationsModule.RegisterAnimation("profile_popover_" .. tostring(self), {
-            Current = self.OpenAnim,
-            Target = opening and 1 or 0,
-            Lambda = opening and 18 or 22,
-            Epsilon = 0.01,
-            OnUpdate = function(v)
-                self.OpenAnim = v
-                self:UpdateLayout()
-            end,
-            OnComplete = function()
-                self.OpenAnim = opening and 1 or 0
-                self:UpdateLayout()
-            end,
-        })
-    else
-        self.OpenAnim = opening and 1 or 0
+    AnimationsModule.Tween("profile_pop_" .. tostring(self), self.OpenAnim, opening and 1 or 0, opening and 18 or 22, function(v)
+        self.OpenAnim = v
         self:UpdateLayout()
-    end
+    end)
 end
 
 function ProfileCard:GetPopoverRect()
@@ -11868,9 +11881,11 @@ function ProfileCard:UpdateLayout()
     local vis = (self.Sidebar and self.Sidebar.Visible == true) and (self.Window and self.Window.Visible == true) and (not self.Window.Minimized)
     local cx, cy, cw, ch = self:GetCardRect()
 
+    local hoverAlpha = self.Open and 1 or (self.HoverAnim or 0)
     self.CardBg.Position = Vector2.new(cx, cy)
     self.CardBg.Size = Vector2.new(cw, ch)
-    self.CardBg.Visible = vis and (self.Hovered or self.Open)
+    self.CardBg.Transparency = hoverAlpha
+    self.CardBg.Visible = vis and (self.Open or self.Hovered or hoverAlpha > 0.02)
 
     local initChar = string.upper(string.sub(self.DisplayName, 1, 1))
     local ix, iy = MetricsModule.AlignCenter(cx + 6, cy + 8, 32, 32, initChar, 14)
@@ -12048,7 +12063,10 @@ function ProfileCard:Update(mx, my, m1Clicked, dt)
     if overCard ~= self.Hovered then
         self.Hovered = overCard
         self:UpdateTheme(ThemeModule.GetCurrent and ThemeModule.GetCurrent() or {})
-        self:UpdateLayout()
+        AnimationsModule.Tween("profile_hover_" .. tostring(self), self.HoverAnim, overCard and 1 or 0, 22, function(v)
+            self.HoverAnim = v
+            self:UpdateLayout()
+        end)
     end
 
     if m1Clicked then

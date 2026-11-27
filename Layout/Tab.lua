@@ -7,6 +7,7 @@ local GeometryModule = Geometry or require("../Core/Geometry")
 local MetricsModule = Metrics or require("../Core/Metrics")
 local ThemeModule = Theme or require("./Theme")
 local ContentSectionModule = ContentSection or require("./ContentSection")
+local AnimationsModule = Animations or require("../Engine/Animations")
 
 local IconsModule = Icons
 if not IconsModule then
@@ -65,6 +66,7 @@ function Tab.new(config, window, parentSection)
         -- State flags
         IsActive = false,
         IsHovered = false,
+        HoverAnim = 0,
         SidebarVisible = true,
         FilteredOut = false,
         Visible = true,
@@ -206,7 +208,8 @@ function Tab:UpdateVisualState()
         local titleCol = get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
         if self.Capsule then
             self.Capsule.Color = activeBg
-            self.Capsule.Visible = true
+            self.Capsule.Transparency = 1.0
+            self.Capsule.Visible = self.SidebarVisible ~= false
         end
         if self.TitleVisual then
             self.TitleVisual.Color = titleCol
@@ -216,12 +219,13 @@ function Tab:UpdateVisualState()
         if self.TabIcon then
             self.TabIcon.Transparency = 1.0
         end
-    elseif self.IsHovered then
+    elseif self.IsHovered or (self.HoverAnim or 0) > 0.02 then
         local hoverBg = get_theme_color("Tab.HoverBg", Color3.fromRGB(26, 26, 31))
         local titleCol = get_theme_color("Text.Title", Color3.fromRGB(240, 240, 245))
         if self.Capsule then
             self.Capsule.Color = hoverBg
-            self.Capsule.Visible = true
+            self.Capsule.Transparency = self.HoverAnim or 1.0
+            self.Capsule.Visible = self.SidebarVisible ~= false
         end
         if self.TitleVisual then
             self.TitleVisual.Color = titleCol
@@ -250,7 +254,10 @@ end
 function Tab:SetHovered(hovered)
     if self.IsHovered ~= hovered then
         self.IsHovered = hovered
-        self:UpdateVisualState()
+        AnimationsModule.Tween("tab_hover_" .. tostring(self), self.HoverAnim or 0, hovered and 1 or 0, 22, function(v)
+            self.HoverAnim = v
+            self:UpdateVisualState()
+        end)
     end
 end
 
