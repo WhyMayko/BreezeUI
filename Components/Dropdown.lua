@@ -365,9 +365,10 @@ function Dropdown:_ensurePopupPrimitives()
 
     if not self.PopupScrollThumb then
         local st = pool:Get("Square")
-        st.Color = ThemeModule.Get("Control.Hover", Color3.fromRGB(80, 82, 92))
+        st.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(161, 161, 161))
         st.Filled = true
-        st.Corner = 2
+        st.Corner = 3
+        st.Transparency = 0.28
         st.ZIndex = 18
         st.Visible = false
         self.PopupScrollThumb = st
@@ -504,9 +505,9 @@ function Dropdown:_layoutPopup()
         local thumbY = listTop + math.floor(ratio * (trackH - thumbH))
         scrollTrack = { X = popX + popW - 12, Y = listTop, W = 12, H = trackH, ThumbH = thumbH }
         if self.PopupScrollThumb then
-            self.PopupScrollThumb.Color = ThemeModule.Get("Control.Hover", Color3.fromRGB(90, 92, 104))
-            self.PopupScrollThumb.Position = Vector2.new(popX + popW - 7, thumbY)
-            self.PopupScrollThumb.Size = Vector2.new(3, thumbH)
+            self.PopupScrollThumb.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(161, 161, 161))
+            self.PopupScrollThumb.Position = Vector2.new(popX + popW - 9, thumbY)
+            self.PopupScrollThumb.Size = Vector2.new(5, thumbH)
             self.PopupScrollThumb.Visible = true
         end
     elseif self.PopupScrollThumb then

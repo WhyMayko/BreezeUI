@@ -6879,9 +6879,10 @@ function Dropdown:_ensurePopupPrimitives()
 
     if not self.PopupScrollThumb then
         local st = pool:Get("Square")
-        st.Color = ThemeModule.Get("Control.Hover", Color3.fromRGB(80, 82, 92))
+        st.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(161, 161, 161))
         st.Filled = true
-        st.Corner = 2
+        st.Corner = 3
+        st.Transparency = 0.28
         st.ZIndex = 18
         st.Visible = false
         self.PopupScrollThumb = st
@@ -7018,9 +7019,9 @@ function Dropdown:_layoutPopup()
         local thumbY = listTop + math.floor(ratio * (trackH - thumbH))
         scrollTrack = { X = popX + popW - 12, Y = listTop, W = 12, H = trackH, ThumbH = thumbH }
         if self.PopupScrollThumb then
-            self.PopupScrollThumb.Color = ThemeModule.Get("Control.Hover", Color3.fromRGB(90, 92, 104))
-            self.PopupScrollThumb.Position = Vector2.new(popX + popW - 7, thumbY)
-            self.PopupScrollThumb.Size = Vector2.new(3, thumbH)
+            self.PopupScrollThumb.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(161, 161, 161))
+            self.PopupScrollThumb.Position = Vector2.new(popX + popW - 9, thumbY)
+            self.PopupScrollThumb.Size = Vector2.new(5, thumbH)
             self.PopupScrollThumb.Visible = true
         end
     elseif self.PopupScrollThumb then
@@ -11483,6 +11484,7 @@ ProfileCardModule = (function()
 local PoolModule = Pool or PoolModule
 local MetricsModule = Metrics or MetricsModule
 local ThemeModule = Theme or ThemeModule
+local AnimationsModule = Animations or AnimationsModule
 
 local ProfileCard = {}
 ProfileCard.__index = ProfileCard
@@ -11524,6 +11526,7 @@ function ProfileCard.new(sidebar, config)
         Pool = sidebar and sidebar.Pool or PoolModule,
         Enabled = enabled,
         Open = false,
+        OpenAnim = 0,
         Hovered = false,
         Height = 48,
 
@@ -11830,6 +11833,29 @@ function ProfileCard:_getTagConfig()
     return nil
 end
 
+function ProfileCard:_animatePopover(opening)
+    self.Open = opening
+    if AnimationsModule and AnimationsModule.RegisterAnimation then
+        AnimationsModule.RegisterAnimation("profile_popover_" .. tostring(self), {
+            Current = self.OpenAnim,
+            Target = opening and 1 or 0,
+            Lambda = opening and 18 or 22,
+            Epsilon = 0.01,
+            OnUpdate = function(v)
+                self.OpenAnim = v
+                self:UpdateLayout()
+            end,
+            OnComplete = function()
+                self.OpenAnim = opening and 1 or 0
+                self:UpdateLayout()
+            end,
+        })
+    else
+        self.OpenAnim = opening and 1 or 0
+        self:UpdateLayout()
+    end
+end
+
 function ProfileCard:GetPopoverRect()
     local cx, cy, cw = self:GetCardRect()
     local rowsH = #self.PopRows * 20
@@ -11868,17 +11894,21 @@ function ProfileCard:UpdateLayout()
     self.HandleText.Position = Vector2.new(cx + 46, cy + 25)
     self.HandleText.Visible = vis
 
-    -- Popover
+    -- Popover (exponential slide-up + fade animation)
     local tagCfg = self:_getTagConfig()
-    local popVis = vis and self.Open
+    local anim = self.OpenAnim or 0
+    local popVis = vis and (self.Open or anim > 0.02)
     local px, py, pw, ph = self:GetPopoverRect()
+    py = py + math.floor((1 - anim) * 10 + 0.5)
 
     self.PopBg.Position = Vector2.new(px, py)
     self.PopBg.Size = Vector2.new(pw, ph)
+    self.PopBg.Transparency = 0.15 + anim * 0.85
     self.PopBg.Visible = popVis
 
     self.PopBorder.Position = Vector2.new(px, py)
     self.PopBorder.Size = Vector2.new(pw, ph)
+    self.PopBorder.Transparency = anim
     self.PopBorder.Visible = popVis
 
     local tagStr = tagCfg and tostring(tagCfg.Text) or ""
@@ -11888,10 +11918,12 @@ function ProfileCard:UpdateLayout()
 
     self.PopName.Text = MetricsModule.Fit(self.DisplayName, pTextW, 13)
     self.PopName.Position = Vector2.new(px + 10, py + 9)
+    self.PopName.Transparency = anim
     self.PopName.Visible = popVis
 
     self.PopHandle.Text = MetricsModule.Fit("@" .. self.Username, pTextW, 11)
     self.PopHandle.Position = Vector2.new(px + 10, py + 25)
+    self.PopHandle.Transparency = anim
     self.PopHandle.Visible = popVis
 
     if tagCfg then
@@ -11901,10 +11933,12 @@ function ProfileCard:UpdateLayout()
         local ax, ay = MetricsModule.AlignCenter(tx, ty, tagW, th, tagStr, 10)
         self.PopTagBg.Position = Vector2.new(tx, ty)
         self.PopTagBg.Size = Vector2.new(tagW, th)
+        self.PopTagBg.Transparency = anim
         self.PopTagBg.Visible = popVis
 
         self.PopTagText.Text = tagStr
         self.PopTagText.Position = Vector2.new(ax, ay)
+        self.PopTagText.Transparency = anim
         self.PopTagText.Visible = popVis
     else
         self.PopTagBg.Visible = false
@@ -11913,15 +11947,18 @@ function ProfileCard:UpdateLayout()
 
     self.PopDivider.Position = Vector2.new(px + 10, py + 46)
     self.PopDivider.Size = Vector2.new(pw - 20, 1)
+    self.PopDivider.Transparency = anim
     self.PopDivider.Visible = popVis and (#self.PopRows > 0)
 
     local curY = py + 54
     for _, r in ipairs(self.PopRows) do
         local valStr = tostring(r.Value)
         r.LabelDraw.Position = Vector2.new(px + 10, curY)
+        r.LabelDraw.Transparency = anim
         r.LabelDraw.Visible = popVis
         r.ValueDraw.Text = valStr
         r.ValueDraw.Position = Vector2.new(MetricsModule.AlignRight(px, pw, valStr, 11, 10), curY)
+        r.ValueDraw.Transparency = anim
         r.ValueDraw.Visible = popVis
         curY = curY + 20
     end
@@ -11930,6 +11967,7 @@ end
 function ProfileCard:SetVisible(visible)
     if not visible then
         self.Open = false
+        self.OpenAnim = 0
     end
     self:UpdateLayout()
 end
@@ -12015,9 +12053,8 @@ function ProfileCard:Update(mx, my, m1Clicked, dt)
 
     if m1Clicked then
         if overCard then
-            self.Open = not self.Open
+            self:_animatePopover(not self.Open)
             self:UpdateTheme(ThemeModule.GetCurrent and ThemeModule.GetCurrent() or {})
-            self:UpdateLayout()
             if self.Callback then
                 task.spawn(self.Callback)
             end
@@ -12028,9 +12065,8 @@ function ProfileCard:Update(mx, my, m1Clicked, dt)
             if overPop then
                 return true
             end
-            self.Open = false
+            self:_animatePopover(false)
             self:UpdateTheme(ThemeModule.GetCurrent and ThemeModule.GetCurrent() or {})
-            self:UpdateLayout()
         end
     end
     return false
@@ -14500,6 +14536,10 @@ function Window:Update(rawDt)
         local dd = self.OpenDropdown
         local r = dd.PopupRect
         local st = r.ScrollTrack
+        local overScroll = st and mx >= st.X and mx <= st.X + st.W and my >= st.Y and my <= st.Y + st.H
+        if dd.PopupScrollThumb then
+            dd.PopupScrollThumb.Transparency = (overScroll or dd.IsScrollingPopup) and 0.85 or 0.28
+        end
         if dd.IsScrollingPopup then
             if m1Pressed and st then
                 local travel = math.max(1, st.H - st.ThumbH)

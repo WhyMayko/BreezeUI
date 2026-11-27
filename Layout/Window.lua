@@ -1806,6 +1806,10 @@ function Window:Update(rawDt)
         local dd = self.OpenDropdown
         local r = dd.PopupRect
         local st = r.ScrollTrack
+        local overScroll = st and mx >= st.X and mx <= st.X + st.W and my >= st.Y and my <= st.Y + st.H
+        if dd.PopupScrollThumb then
+            dd.PopupScrollThumb.Transparency = (overScroll or dd.IsScrollingPopup) and 0.85 or 0.28
+        end
         if dd.IsScrollingPopup then
             if m1Pressed and st then
                 local travel = math.max(1, st.H - st.ThumbH)
