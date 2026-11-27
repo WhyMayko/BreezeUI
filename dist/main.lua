@@ -9798,8 +9798,9 @@ local CONTAINER_KEYS = { RowBg = true, Visual = true, Border = true, Background 
 local function clip_drawing(obj, clipTop, clipBottom, isContainer)
     if not obj or not obj.Visible or not obj.Position then return end
     local y = obj.Position.Y
-    local h = (obj.Size and obj.Size.Y) or 14
-    if isContainer then
+    local sz = obj.Size
+    local h = (type(sz) == "number") and sz or (sz and sz.Y) or 14
+    if isContainer and type(sz) ~= "number" then
         local vt = math.max(y, clipTop)
         local vb = math.min(y + h, clipBottom)
         local vh = math.max(0, vb - vt)
