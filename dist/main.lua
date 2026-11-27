@@ -13054,6 +13054,7 @@ function Window:_createChrome()
     sTrack.Color = get_theme_color("Control.Background", Color3.fromRGB(48, 48, 52))
     sTrack.Filled = true
     sTrack.Corner = 4
+    sTrack.Transparency = 0.45
     sTrack.ZIndex = 7
     sTrack.Visible = false
     self.ScrollTrack = sTrack
@@ -13065,6 +13066,7 @@ function Window:_createChrome()
     sThumb.Color = get_theme_color("Text.Muted", Color3.fromRGB(161, 161, 161))
     sThumb.Filled = true
     sThumb.Corner = 4
+    sThumb.Transparency = 0.28
     sThumb.ZIndex = 8
     sThumb.Visible = false
     self.ScrollThumb = sThumb
@@ -14402,6 +14404,7 @@ function Window:Update(rawDt)
         local inGutter = mx >= px + sx - 26 and mx <= px + sx - 10
         local overThumb = inGutter and my >= thumbY - 4 and my <= thumbY + thumbH + 4
         local overTrack = inGutter and my >= trackTop and my <= trackTop + trackH
+        self.ScrollThumb.Transparency = (overThumb or overTrack or self.IsScrolling) and 0.85 or 0.28
 
         if self.IsScrolling then
             if m1Pressed then
