@@ -1,0 +1,4 @@
+﻿*.obf.lua
+*.py
+node_modules/
+
