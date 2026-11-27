@@ -369,7 +369,7 @@ function Dropdown:_ensurePopupPrimitives()
         local st = pool:Get("Square")
         st.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(161, 161, 161))
         st.Filled = true
-        st.Corner = 3
+        st.Corner = 4
         st.Transparency = 0.28
         st.ZIndex = 18
         st.Visible = false

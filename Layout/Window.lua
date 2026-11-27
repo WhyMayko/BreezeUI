@@ -359,7 +359,7 @@ function Window:_createChrome()
     sTrack.Size = Vector2.new(8, 40)
     sTrack.Color = get_theme_color("Control.Background", Color3.fromRGB(48, 48, 52))
     sTrack.Filled = true
-    sTrack.Corner = 4
+    sTrack.Corner = 6
     sTrack.Transparency = 0.45
     sTrack.ZIndex = 7
     sTrack.Visible = false
@@ -371,7 +371,7 @@ function Window:_createChrome()
     sThumb.Size = Vector2.new(8, 40)
     sThumb.Color = get_theme_color("Text.Muted", Color3.fromRGB(161, 161, 161))
     sThumb.Filled = true
-    sThumb.Corner = 4
+    sThumb.Corner = 6
     sThumb.Transparency = 0.28
     sThumb.ZIndex = 8
     sThumb.Visible = false
@@ -1470,6 +1470,14 @@ function Window:_getMouse()
     return nil
 end
 
+function Window:_tweenAlpha(obj, key, active, low, high)
+    if not obj or self[key] == active then return end
+    self[key] = active
+    AnimationsModule.Tween(key .. "_" .. tostring(self), obj.Transparency or low, active and high or low, 20, function(v)
+        obj.Transparency = v
+    end)
+end
+
 function Window:Update(rawDt)
     if self.Destroyed or not self.Running then return end
     local curState = UI.GetValue(UI_STATE_KEY)
@@ -1682,7 +1690,7 @@ function Window:Update(rawDt)
     local isResizeArea = canResizeNow and mx >= rx and mx <= px + sx + 16 and my >= ry and my <= py + sy + 16
 
     if self.ResizeIcon and not self.Minimized then
-        self.ResizeIcon.Transparency = (isResizeArea or self.IsResizing) and 0.78 or 0.25
+        self:_tweenAlpha(self.ResizeIcon, "_resizeHover", isResizeArea or self.IsResizing, 0.25, 0.78)
     end
 
     if self.IsResizing then
@@ -1710,7 +1718,7 @@ function Window:Update(rawDt)
         local inGutter = mx >= px + sx - 26 and mx <= px + sx - 10
         local overThumb = inGutter and my >= thumbY - 4 and my <= thumbY + thumbH + 4
         local overTrack = inGutter and my >= trackTop and my <= trackTop + trackH
-        self.ScrollThumb.Transparency = (overThumb or overTrack or self.IsScrolling) and 0.85 or 0.28
+        self:_tweenAlpha(self.ScrollThumb, "_scrollHover", overThumb or overTrack or self.IsScrolling, 0.28, 0.85)
 
         if self.IsScrolling then
             if m1Pressed then
@@ -1751,7 +1759,7 @@ function Window:Update(rawDt)
     local isHeader = canDragNow and mx >= px + 70 and mx <= px + sx - 10 and my >= py and my <= py + self.HeaderHeight
 
     if self.BottomDragPill and not self.Minimized then
-        self.BottomDragPill.Transparency = (isBottomPill or self.IsDragging) and 0.72 or 0.25
+        self:_tweenAlpha(self.BottomDragPill, "_pillHover", isBottomPill or self.IsDragging, 0.25, 0.72)
     end
 
     if self.IsDragging then
@@ -1808,7 +1816,7 @@ function Window:Update(rawDt)
         local st = r.ScrollTrack
         local overScroll = st and mx >= st.X and mx <= st.X + st.W and my >= st.Y and my <= st.Y + st.H
         if dd.PopupScrollThumb then
-            dd.PopupScrollThumb.Transparency = (overScroll or dd.IsScrollingPopup) and 0.85 or 0.28
+            self:_tweenAlpha(dd.PopupScrollThumb, "_ddScrollHover", overScroll or dd.IsScrollingPopup, 0.28, 0.85)
         end
         if dd.IsScrollingPopup then
             if m1Pressed and st then
