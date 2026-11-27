@@ -23,6 +23,36 @@ local ColorpickerModule = Colorpicker or require("../Components/Colorpicker")
 local ContentSection = {}
 ContentSection.__index = ContentSection
 
+local CONTAINER_KEYS = { RowBg = true, Visual = true, Border = true, Background = true, HeaderBg = true }
+
+local function clip_drawing(obj, clipTop, clipBottom, isContainer)
+    if not obj or not obj.Visible or not obj.Position then return end
+    local y = obj.Position.Y
+    local h = (obj.Size and obj.Size.Y) or 14
+    if isContainer then
+        local vt = math.max(y, clipTop)
+        local vb = math.min(y + h, clipBottom)
+        local vh = math.max(0, vb - vt)
+        obj.Position = Vector2.new(obj.Position.X, vt)
+        obj.Size = Vector2.new(obj.Size.X, vh)
+        obj.Visible = vh > 4
+    else
+        obj.Visible = (y >= clipTop - 1) and (y + h <= clipBottom + 1)
+    end
+end
+
+local function clip_control(ctrl, clipTop, clipBottom)
+    for k, v in pairs(ctrl) do
+        if type(v) == "table" or type(v) == "userdata" then
+            if k == "KeyPicker" or k == "ColorPicker" then
+                clip_control(v, clipTop, clipBottom)
+            elseif k ~= "Section" and k ~= "Parent" and k ~= "Window" and k ~= "Pool" and v.Position ~= nil and v.Visible ~= nil then
+                clip_drawing(v, clipTop, clipBottom, CONTAINER_KEYS[k] == true)
+            end
+        end
+    end
+end
+
 local function get_theme_color(token, default)
     return ThemeModule.Get(token, default)
 end
@@ -484,18 +514,17 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
             if ctrl.SetPosition then
                 ctrl:SetPosition(cPos, Vector2.new(cW, ch))
             end
-            local cVis = self.Visible
-            if boxed then
-                -- boxed section: control only visible when card intersects clip area
-                cVis = cVis and bgVis
-            elseif clipTop and clipBottom then
-                -- non-boxed: each row must be fully within clip area (no slack)
-                cVis = cVis and (rowY >= clipTop) and (rowY + ch <= clipBottom)
-            end
+            local visTop = clipTop and math.max(rowY, clipTop) or rowY
+            local visBot = clipBottom and math.min(rowY + ch, clipBottom) or (rowY + ch)
+            local partIn = self.Visible and (visBot - visTop > 4)
+            local fullIn = self.Visible and ((not clipTop) or (rowY >= clipTop and rowY + ch <= clipBottom))
             if ctrl.SetVisible then
-                ctrl:SetVisible(cVis)
+                ctrl:SetVisible(partIn)
             else
-                ctrl.Visible = cVis
+                ctrl.Visible = partIn
+            end
+            if partIn and not fullIn and clipTop and clipBottom then
+                clip_control(ctrl, clipTop, clipBottom)
             end
         end
     end
