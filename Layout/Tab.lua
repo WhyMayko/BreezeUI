@@ -414,12 +414,20 @@ end
 function Tab:Scroll(deltaY)
     if self.MaxScrollY <= 0 then
         self.ScrollY = 0
+        self._targetScrollY = 0
         return
     end
-    local nextScroll = math.clamp((self.ScrollY or 0) + deltaY, 0, self.MaxScrollY)
+    local base = self._targetScrollY or self.ScrollY or 0
+    local nextScroll = math.clamp(base + deltaY, 0, self.MaxScrollY)
+    self._targetScrollY = nextScroll
     if nextScroll ~= self.ScrollY then
-        self.ScrollY = nextScroll
-        self:UpdateLayout()
+        AnimationsModule.Tween("tab_scroll_" .. tostring(self), self.ScrollY or 0, nextScroll, 22, function(v)
+            self.ScrollY = v
+            self:UpdateLayout()
+            if self.Window and self.Window._syncScrollbar then
+                self.Window:_syncScrollbar()
+            end
+        end)
     end
 end
 

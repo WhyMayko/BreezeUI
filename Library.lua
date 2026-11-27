@@ -10154,26 +10154,24 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
     local innerY = absPos.Y + self.Padding
     local usableW = math.max(140, w - (self.Padding * 2))
 
+    local visTop = absPos.Y
+    local visBot = absPos.Y + self.Size.Y
+    if clipTop and clipBottom then
+        visTop = math.max(visTop, clipTop)
+        visBot = math.min(visBot, clipBottom)
+    end
+    local visH = math.max(0, visBot - visTop)
+    local bgVis = self.Visible and self.Box and (visH > 4)
     if self.Background then
-        self.Background.Position = absPos
-        self.Background.Size = self.Size
-        local bgVis = self.Visible and self.Box
-        if clipTop and clipBottom then
-            -- Boxed sections only appear when 100% inside the visible clip bounds
-            bgVis = bgVis and (absPos.Y >= clipTop) and (absPos.Y + self.Size.Y <= clipBottom)
-        end
+        self.Background.Position = Vector2.new(absPos.X, visTop)
+        self.Background.Size = Vector2.new(self.Size.X, visH)
         self.Background.Visible = bgVis
     end
     if self.Border then
-        self.Border.Position = absPos
-        self.Border.Size = self.Size
-        self.Border.Visible = self.Background and self.Background.Visible or false
+        self.Border.Position = Vector2.new(absPos.X, visTop)
+        self.Border.Size = Vector2.new(self.Size.X, visH)
+        self.Border.Visible = bgVis
     end
-
-    -- For boxed sections: ALL inner drawings must be hidden when card is fully outside clip
-    local boxed = self.Box == true
-    -- bgVis here: true = card is at least partially in view (bg visible), nil/false = fully outside
-    local bgVis = boxed and (self.Background and self.Background.Visible or false) or nil
 
     local currentY = innerY
     if self.TitleText then
@@ -10182,9 +10180,7 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
             self.TitleText.Text = MetricsModule.Fit(self.Title or "", usableW, self.TextSize)
         end
         local tVis = self.Visible
-        if boxed then
-            tVis = tVis and bgVis
-        elseif clipTop and clipBottom then
+        if clipTop and clipBottom then
             tVis = tVis and (currentY >= clipTop) and (currentY + self.TextSize <= clipBottom)
         end
         self.TitleText.Visible = tVis
@@ -10196,9 +10192,7 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
             self.DescText.Text = MetricsModule.Fit(self.Description or "", usableW, 11)
         end
         local dVis = self.Visible
-        if boxed then
-            dVis = dVis and bgVis
-        elseif clipTop and clipBottom then
+        if clipTop and clipBottom then
             dVis = dVis and (currentY >= clipTop) and (currentY + 12 <= clipBottom)
         end
         self.DescText.Visible = dVis
@@ -10207,9 +10201,7 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
     if self.Expandable then
         local hdrH = math.max(20, self.HeaderHeight or 22)
         local hdrVis = self.Visible
-        if boxed then
-            hdrVis = hdrVis and bgVis
-        elseif clipTop and clipBottom then
+        if clipTop and clipBottom then
             hdrVis = hdrVis and (innerY >= clipTop) and (innerY + 14 <= clipBottom)
         end
         self._headerRect = hdrVis and { X = innerX, Y = innerY, W = usableW, H = hdrH } or nil
@@ -11206,12 +11198,20 @@ end
 function Tab:Scroll(deltaY)
     if self.MaxScrollY <= 0 then
         self.ScrollY = 0
+        self._targetScrollY = 0
         return
     end
-    local nextScroll = math.clamp((self.ScrollY or 0) + deltaY, 0, self.MaxScrollY)
+    local base = self._targetScrollY or self.ScrollY or 0
+    local nextScroll = math.clamp(base + deltaY, 0, self.MaxScrollY)
+    self._targetScrollY = nextScroll
     if nextScroll ~= self.ScrollY then
-        self.ScrollY = nextScroll
-        self:UpdateLayout()
+        AnimationsModule.Tween("tab_scroll_" .. tostring(self), self.ScrollY or 0, nextScroll, 22, function(v)
+            self.ScrollY = v
+            self:UpdateLayout()
+            if self.Window and self.Window._syncScrollbar then
+                self.Window:_syncScrollbar()
+            end
+        end)
     end
 end
 
@@ -11531,14 +11531,12 @@ function ProfileCard.new(sidebar, config)
         UserId = cfg.UserId or uid,
         Tag = cfg.Tag,
         Fields = type(cfg.Fields) == "table" and cfg.Fields or {},
-        ShowCreated = cfg.ShowCreated ~= false,
         ShowUptime = cfg.ShowUptime ~= false,
         ShowFPS = cfg.ShowFPS ~= false,
         ShowDate = cfg.ShowDate ~= false,
         ShowTime = cfg.ShowTime ~= false,
         Callback = type(cfg.Callback) == "function" and cfg.Callback or nil,
 
-        CreatedDate = cfg.CreatedDate or (uid > 0 and "Loading..." or "N/A"),
         StartClock = os.clock(),
         LastTickSec = -1,
         FpsFrames = 0,
@@ -11565,7 +11563,7 @@ function ProfileCard.new(sidebar, config)
 
     if self.Enabled then
         self:_initDrawings()
-        self:_fetchRemoteMeta()
+        self:_fetchAvatar()
     end
 
     return self
@@ -11687,9 +11685,6 @@ end
 
 function ProfileCard:_buildRowSpecs()
     local rows = {}
-    if self.ShowCreated then
-        table.insert(rows, { Key = "created", Label = "Created", Value = tostring(self.CreatedDate) })
-    end
     if self.ShowDate then
         table.insert(rows, { Key = "date", Label = "Date", Value = os.date("%d/%m/%Y") })
     end
@@ -11746,7 +11741,7 @@ function ProfileCard:_rebuildRows()
     end
 end
 
-function ProfileCard:_fetchRemoteMeta()
+function ProfileCard:_fetchAvatar()
     local uid = self.UserId
     if uid <= 0 or not (game and game.HttpGet) then return end
 
@@ -11761,19 +11756,6 @@ function ProfileCard:_fetchRemoteMeta()
                 self:UpdateLayout()
             end
         end
-
-        if self.ShowCreated then
-            local userJson = game:HttpGet("https://users.roproxy.com/v1/users/" .. tostring(uid))
-            local y, m, d = userJson and userJson:match('"created"%s*:%s*"(%d%d%d%d)%-(%d%d)%-(%d%d)')
-            self.CreatedDate = (y and m and d) and (d .. "/" .. m .. "/" .. y) or "N/A"
-            for _, r in ipairs(self.PopRows) do
-                if r.Key == "created" then
-                    r.Value = self.CreatedDate
-                    if r.ValueDraw then r.ValueDraw.Text = self.CreatedDate end
-                end
-            end
-            self:UpdateLayout()
-        end
     end)
 end
 
@@ -11783,13 +11765,11 @@ function ProfileCard:SetProfile(opts)
     if opts.DisplayName ~= nil then self.DisplayName = tostring(opts.DisplayName) end
     if opts.Username ~= nil then self.Username = tostring(opts.Username) end
     if opts.Tag ~= nil then self.Tag = opts.Tag end
-    if opts.ShowCreated ~= nil then self.ShowCreated = opts.ShowCreated == true end
     if opts.ShowUptime ~= nil then self.ShowUptime = opts.ShowUptime == true end
     if opts.ShowFPS ~= nil then self.ShowFPS = opts.ShowFPS == true end
     if opts.ShowDate ~= nil then self.ShowDate = opts.ShowDate == true end
     if opts.ShowTime ~= nil then self.ShowTime = opts.ShowTime == true end
     if opts.Fields ~= nil then self.Fields = opts.Fields end
-    if opts.CreatedDate ~= nil then self.CreatedDate = tostring(opts.CreatedDate) end
     if opts.Callback ~= nil then self.Callback = opts.Callback end
     if self.Enabled then
         self:_rebuildRows()

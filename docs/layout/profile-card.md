@@ -10,7 +10,6 @@ Pass `Profile` in `CreateWindow` or update later via `Window:SetProfile(opts)`:
 Profile = {
     Enabled = true,
     Tag = { Text = "Breeze" }, -- omits Color to follow active theme accent
-    ShowCreated = true,
     ShowDate = true,
     ShowTime = true,
     ShowUptime = true,
@@ -26,7 +25,6 @@ Profile = {
 |---|---|---|
 | `Enabled` | `true` | Pass `Profile = false` or `Enabled = false` to hide. |
 | `Tag` | `nil` | Optional pill (`"Text"` or `{ Text = "...", Color = Color3, TextColor = Color3 }`). Omit `Color` to match theme accent. |
-| `ShowCreated` | `true` | Account creation date (`DD/MM/YYYY`). |
 | `ShowDate` | `true` | Current local date (`DD/MM/YYYY`), updated 1/sec. |
 | `ShowTime` | `true` | Current local time (`HH:MM:SS`), updated 1/sec. |
 | `ShowUptime` | `true` | Script session uptime (`HH:MM:SS`), updated 1/sec. |

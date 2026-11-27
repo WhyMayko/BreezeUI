@@ -52,14 +52,12 @@ function ProfileCard.new(sidebar, config)
         UserId = cfg.UserId or uid,
         Tag = cfg.Tag,
         Fields = type(cfg.Fields) == "table" and cfg.Fields or {},
-        ShowCreated = cfg.ShowCreated ~= false,
         ShowUptime = cfg.ShowUptime ~= false,
         ShowFPS = cfg.ShowFPS ~= false,
         ShowDate = cfg.ShowDate ~= false,
         ShowTime = cfg.ShowTime ~= false,
         Callback = type(cfg.Callback) == "function" and cfg.Callback or nil,
 
-        CreatedDate = cfg.CreatedDate or (uid > 0 and "Loading..." or "N/A"),
         StartClock = os.clock(),
         LastTickSec = -1,
         FpsFrames = 0,
@@ -86,7 +84,7 @@ function ProfileCard.new(sidebar, config)
 
     if self.Enabled then
         self:_initDrawings()
-        self:_fetchRemoteMeta()
+        self:_fetchAvatar()
     end
 
     return self
@@ -208,9 +206,6 @@ end
 
 function ProfileCard:_buildRowSpecs()
     local rows = {}
-    if self.ShowCreated then
-        table.insert(rows, { Key = "created", Label = "Created", Value = tostring(self.CreatedDate) })
-    end
     if self.ShowDate then
         table.insert(rows, { Key = "date", Label = "Date", Value = os.date("%d/%m/%Y") })
     end
@@ -267,7 +262,7 @@ function ProfileCard:_rebuildRows()
     end
 end
 
-function ProfileCard:_fetchRemoteMeta()
+function ProfileCard:_fetchAvatar()
     local uid = self.UserId
     if uid <= 0 or not (game and game.HttpGet) then return end
 
@@ -282,19 +277,6 @@ function ProfileCard:_fetchRemoteMeta()
                 self:UpdateLayout()
             end
         end
-
-        if self.ShowCreated then
-            local userJson = game:HttpGet("https://users.roproxy.com/v1/users/" .. tostring(uid))
-            local y, m, d = userJson and userJson:match('"created"%s*:%s*"(%d%d%d%d)%-(%d%d)%-(%d%d)')
-            self.CreatedDate = (y and m and d) and (d .. "/" .. m .. "/" .. y) or "N/A"
-            for _, r in ipairs(self.PopRows) do
-                if r.Key == "created" then
-                    r.Value = self.CreatedDate
-                    if r.ValueDraw then r.ValueDraw.Text = self.CreatedDate end
-                end
-            end
-            self:UpdateLayout()
-        end
     end)
 end
 
@@ -304,13 +286,11 @@ function ProfileCard:SetProfile(opts)
     if opts.DisplayName ~= nil then self.DisplayName = tostring(opts.DisplayName) end
     if opts.Username ~= nil then self.Username = tostring(opts.Username) end
     if opts.Tag ~= nil then self.Tag = opts.Tag end
-    if opts.ShowCreated ~= nil then self.ShowCreated = opts.ShowCreated == true end
     if opts.ShowUptime ~= nil then self.ShowUptime = opts.ShowUptime == true end
     if opts.ShowFPS ~= nil then self.ShowFPS = opts.ShowFPS == true end
     if opts.ShowDate ~= nil then self.ShowDate = opts.ShowDate == true end
     if opts.ShowTime ~= nil then self.ShowTime = opts.ShowTime == true end
     if opts.Fields ~= nil then self.Fields = opts.Fields end
-    if opts.CreatedDate ~= nil then self.CreatedDate = tostring(opts.CreatedDate) end
     if opts.Callback ~= nil then self.Callback = opts.Callback end
     if self.Enabled then
         self:_rebuildRows()

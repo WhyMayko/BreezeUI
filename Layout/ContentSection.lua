@@ -384,26 +384,24 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
     local innerY = absPos.Y + self.Padding
     local usableW = math.max(140, w - (self.Padding * 2))
 
+    local visTop = absPos.Y
+    local visBot = absPos.Y + self.Size.Y
+    if clipTop and clipBottom then
+        visTop = math.max(visTop, clipTop)
+        visBot = math.min(visBot, clipBottom)
+    end
+    local visH = math.max(0, visBot - visTop)
+    local bgVis = self.Visible and self.Box and (visH > 4)
     if self.Background then
-        self.Background.Position = absPos
-        self.Background.Size = self.Size
-        local bgVis = self.Visible and self.Box
-        if clipTop and clipBottom then
-            -- Boxed sections only appear when 100% inside the visible clip bounds
-            bgVis = bgVis and (absPos.Y >= clipTop) and (absPos.Y + self.Size.Y <= clipBottom)
-        end
+        self.Background.Position = Vector2.new(absPos.X, visTop)
+        self.Background.Size = Vector2.new(self.Size.X, visH)
         self.Background.Visible = bgVis
     end
     if self.Border then
-        self.Border.Position = absPos
-        self.Border.Size = self.Size
-        self.Border.Visible = self.Background and self.Background.Visible or false
+        self.Border.Position = Vector2.new(absPos.X, visTop)
+        self.Border.Size = Vector2.new(self.Size.X, visH)
+        self.Border.Visible = bgVis
     end
-
-    -- For boxed sections: ALL inner drawings must be hidden when card is fully outside clip
-    local boxed = self.Box == true
-    -- bgVis here: true = card is at least partially in view (bg visible), nil/false = fully outside
-    local bgVis = boxed and (self.Background and self.Background.Visible or false) or nil
 
     local currentY = innerY
     if self.TitleText then
@@ -412,9 +410,7 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
             self.TitleText.Text = MetricsModule.Fit(self.Title or "", usableW, self.TextSize)
         end
         local tVis = self.Visible
-        if boxed then
-            tVis = tVis and bgVis
-        elseif clipTop and clipBottom then
+        if clipTop and clipBottom then
             tVis = tVis and (currentY >= clipTop) and (currentY + self.TextSize <= clipBottom)
         end
         self.TitleText.Visible = tVis
@@ -426,9 +422,7 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
             self.DescText.Text = MetricsModule.Fit(self.Description or "", usableW, 11)
         end
         local dVis = self.Visible
-        if boxed then
-            dVis = dVis and bgVis
-        elseif clipTop and clipBottom then
+        if clipTop and clipBottom then
             dVis = dVis and (currentY >= clipTop) and (currentY + 12 <= clipBottom)
         end
         self.DescText.Visible = dVis
@@ -437,9 +431,7 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
     if self.Expandable then
         local hdrH = math.max(20, self.HeaderHeight or 22)
         local hdrVis = self.Visible
-        if boxed then
-            hdrVis = hdrVis and bgVis
-        elseif clipTop and clipBottom then
+        if clipTop and clipBottom then
             hdrVis = hdrVis and (innerY >= clipTop) and (innerY + 14 <= clipBottom)
         end
         self._headerRect = hdrVis and { X = innerX, Y = innerY, W = usableW, H = hdrH } or nil

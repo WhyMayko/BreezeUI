@@ -23,11 +23,10 @@ local function BuildShowcase(customLib)
         Profile = {
             Enabled = true,
             Tag = { Text = "Breeze" },
-            ShowCreated = true,
-            ShowFPS = true,
-            ShowUptime = true,
             ShowDate = true,
             ShowTime = true,
+            ShowUptime = true,
+            ShowFPS = true,
         },
     })
 
