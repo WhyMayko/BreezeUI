@@ -134,7 +134,8 @@ function Dialog.Show(cfg, window, mode)
         Window = window,
         Title = tostring(cfg.Title or "Dialog"),
         Content = cfg.Content or cfg.Desc or cfg.Description or "",
-        Icon = cfg.Icon,
+        Icon = cfg.Icon or cfg.Image,
+        IconRounding = tonumber(cfg.IconRounding or cfg.ImageRounding) or 0,
         Width = cfg.Width or (mode == "Popup" and 400 or 330),
         Buttons = type(cfg.Buttons) == "table" and cfg.Buttons or {},
         OnCancel = cfg.OnCancel,
@@ -142,20 +143,21 @@ function Dialog.Show(cfg, window, mode)
         Closing = false,
         AnimT = 0,
         _iconData = nil,
+        _iconIsCustom = ((cfg.Icon or cfg.Image) and IconsModule.IsCustom(cfg.Icon or cfg.Image)) or false,
         _buttonIcons = {},
     }
 
     if inst.Icon then
         inst._iconData = IconsModule.Get(inst.Icon, function(png)
             inst._iconData = png
-        end)
+        end, false, true)
     end
 
     for idx, b in ipairs(inst.Buttons) do
         if b.Icon then
             inst._buttonIcons[idx] = IconsModule.Get(b.Icon, function(png)
                 inst._buttonIcons[idx] = png
-            end)
+            end, false, true)
         end
     end
 
@@ -294,7 +296,8 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
 
     if hasIcon and d._iconData then
         slot.IconImg.Data = d._iconData
-        slot.IconImg.Color = titleCol
+        slot.IconImg.Color = d._iconIsCustom and Color3.fromRGB(255, 255, 255) or titleCol
+        slot.IconImg.Rounding = d.IconRounding or 0
         slot.IconImg.Position = Vector2.new(cx + pad, cy + pad)
         slot.IconImg.Transparency = alpha
         slot.IconImg.Visible = true

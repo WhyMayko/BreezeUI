@@ -91,26 +91,8 @@ function ImageBlock:SetImage(src)
         self.ImgDrawing.Visible = self.Visible
     end
 
-    if self.Source:sub(1, 8) == "https://" or self.Source:sub(1, 7) == "http://" then
-        if IconsModule.Cache[self.Source] then
-            apply_data(IconsModule.Cache[self.Source])
-            return
-        end
-        if task and task.spawn then
-            task.spawn(function()
-                local ok, data = pcall(function()
-                    return game and game.HttpGet and game:HttpGet(self.Source) or nil
-                end)
-                if ok and data and (data:sub(1, 4) == "\x89PNG" or data:sub(2, 4) == "PNG") then
-                    IconsModule.Cache[self.Source] = data
-                    apply_data(data)
-                end
-            end)
-        end
-    else
-        local got = IconsModule.Get(self.Source, apply_data)
-        if got then apply_data(got) end
-    end
+    local got = IconsModule.Get(self.Source, apply_data)
+    if got then apply_data(got) end
 end
 
 function ImageBlock:RecalcHeight(width)

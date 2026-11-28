@@ -150,7 +150,7 @@ BreezeUI.Components = {
 
 BreezeUI.Scale = 1.0
 BreezeUI.Version = "1.6.62"
-BreezeUI.Creator = { AddIcons = function() end }
+BreezeUI.Creator = { AddIcons = IconsModule.AddIcons }
 BreezeUI.FocusedWidget = nil
 BreezeUI.ActiveAnimations = {}
 BreezeUI.TargetFPS = 60

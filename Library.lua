@@ -2531,6 +2531,7 @@ IconsModule = (function()
 
 local Icons = {
     Cache = {},
+    Custom = {},
     InFlight = {},
     DefaultIcon = nil,
     NetworkFetchCount = 0,
@@ -2606,8 +2607,91 @@ function Icons.Validate(data)
     return Icons.ValidatePNG(data)
 end
 
+local function resolve_source(rawName)
+    if type(rawName) ~= "string" or rawName == "" then
+        return "none", ""
+    end
+    if Icons.ValidatePNG(rawName) then
+        return "raw", rawName, true
+    end
+    local mapped = Icons.Custom[rawName] or Icons.Custom[rawName:lower()]
+    local src = type(mapped) == "string" and mapped or rawName
+    local custom = (mapped ~= nil)
+
+    if Icons.ValidatePNG(src) then
+        return "raw", src, true
+    end
+    if src:sub(1, 7) == "file://" then
+        return "file", src:sub(8), true
+    end
+    local rbxId = src:match("^rbxassetid://(%d+)$") or src:match("roblox%.com/asset/%?id=(%d+)")
+    if rbxId then
+        return "rbx", rbxId, true
+    end
+    if src:sub(1, 7) == "http://" or src:sub(1, 8) == "https://" then
+        return "url", src, true
+    end
+    if src:sub(-4):lower() == ".png" and isfile and isfile(src) then
+        return "file", src, true
+    end
+    return "lucide", Icons.NormalizeName(src), custom
+end
+
+function Icons.Register(name, source)
+    assert(type(name) == "string" and name ~= "", "Icons.Register requires a non-empty string name!")
+    assert(type(source) == "string" and source ~= "", "Icons.Register requires a PNG source string!")
+    Icons.Custom[name] = source
+    Icons.Custom[name:lower()] = source
+    return Icons
+end
+
+function Icons.AddIcons(tbl)
+    assert(type(tbl) == "table", "Icons.AddIcons requires a table!")
+    for k, v in pairs(tbl) do
+        if type(k) == "string" and type(v) == "string" and v ~= "" then
+            Icons.Register(k, v)
+        end
+    end
+    return Icons
+end
+
+function Icons.IsCustom(rawName)
+    local _, _, isCustom = resolve_source(rawName)
+    return isCustom == true
+end
+
+function Icons.IsInFlight(rawName, forceLight)
+    local kind, val = resolve_source(rawName)
+    if kind == "none" or kind == "raw" or kind == "file" then return false end
+    local cacheKey = kind == "url" and val
+        or kind == "rbx" and ("rbx:" .. val)
+        or (((not forceLight and Icons.DarkMode) and "dark:" or "light:") .. val)
+    return Icons.InFlight[cacheKey] ~= nil
+end
+
 local fetchQueue = {}
 local workerRunning = false
+
+local function fetch_png_once(item)
+    if not (game and game.HttpGet) then return nil end
+    local url = item.Url
+    if item.RbxId then
+        local api = "https://thumbnails.roblox.com/v1/assets?assetIds=" .. item.RbxId .. "&returnPolicy=PlaceHolder&size=150x150&format=Png&isCircular=false"
+        local okMeta, body = pcall(function() return game:HttpGet(api) end)
+        if not okMeta or type(body) ~= "string" or body == "" then return nil end
+        local hsOk, hs = pcall(function() return game:GetService("HttpService") end)
+        if not hsOk or not hs then return nil end
+        local decOk, decoded = pcall(function() return hs:JSONDecode(body) end)
+        local imgUrl = decOk and decoded and decoded.data and decoded.data[1] and decoded.data[1].imageUrl
+        if type(imgUrl) ~= "string" or imgUrl == "" then return nil end
+        url = imgUrl
+    end
+    local ok, data = pcall(function() return game:HttpGet(url) end)
+    if ok and data and Icons.ValidatePNG(data) then
+        return data
+    end
+    return nil
+end
 
 local function process_queue()
     if workerRunning then return end
@@ -2616,14 +2700,12 @@ local function process_queue()
         local item = table.remove(fetchQueue, 1)
         local name = item.Name
         if not Icons.Cache[name] then
-            local url = item.Url or (Icons.RepoBase .. name .. ".png")
-            local ok, data = pcall(function()
-                if game and game.HttpGet then
-                    return game:HttpGet(url)
-                end
-                return nil
-            end)
-            if ok and data and Icons.ValidatePNG(data) then
+            local data = fetch_png_once(item)
+            if not data then
+                if task and task.wait then task.wait(0.08) end
+                data = fetch_png_once(item)
+            end
+            if data then
                 Icons.Cache[name] = data
             end
         end
@@ -2657,18 +2739,40 @@ function Icons.SetDarkMode(enabled)
     return true
 end
 
-function Icons.Get(rawName, callback, forceLight)
+function Icons.Get(rawName, callback, forceLight, urgent)
     if not rawName or rawName == "" then
         if callback then callback(Icons.DefaultIcon) end
         return Icons.DefaultIcon
     end
 
-    local isUrl = (rawName:sub(1, 7) == "http://" or rawName:sub(1, 8) == "https://")
-    local name = isUrl and rawName or Icons.NormalizeName(rawName)
-    local useDark = (not isUrl) and (not forceLight) and Icons.DarkMode
-    local cacheKey = isUrl and rawName or ((useDark and "dark:" or "light:") .. name)
+    local kind, val = resolve_source(rawName)
+    if kind == "raw" then
+        if callback then callback(val) end
+        return val
+    end
+    if kind == "file" then
+        if Icons.Cache["file:" .. val] then
+            local cached = Icons.Cache["file:" .. val]
+            if callback then callback(cached) end
+            return cached
+        end
+        if readfile and (not isfile or isfile(val)) then
+            local ok, bytes = pcall(readfile, val)
+            if ok and Icons.ValidatePNG(bytes) then
+                Icons.Cache["file:" .. val] = bytes
+                if callback then callback(bytes) end
+                return bytes
+            end
+        end
+        return Icons.DefaultIcon
+    end
 
-    if callback and not isUrl and not forceLight then
+    local isUrl = (kind == "url")
+    local isRbx = (kind == "rbx")
+    local useDark = (kind == "lucide") and (not forceLight) and Icons.DarkMode
+    local cacheKey = isUrl and val or (isRbx and ("rbx:" .. val) or ((useDark and "dark:" or "light:") .. val))
+
+    if callback and kind == "lucide" and not forceLight then
         local found = false
         for _, sub in ipairs(Icons._subscribers) do
             if sub.Callback == callback then
@@ -2692,6 +2796,15 @@ function Icons.Get(rawName, callback, forceLight)
         if callback then
             table.insert(Icons.InFlight[cacheKey], callback)
         end
+        if urgent then
+            for i = 2, #fetchQueue do
+                if fetchQueue[i].Name == cacheKey then
+                    local item = table.remove(fetchQueue, i)
+                    table.insert(fetchQueue, 1, item)
+                    break
+                end
+            end
+        end
         return nil
     end
 
@@ -2699,7 +2812,13 @@ function Icons.Get(rawName, callback, forceLight)
     Icons.NetworkFetchCount = Icons.NetworkFetchCount + 1
 
     local base = useDark and Icons.DarkRepoBase or Icons.RepoBase
-    table.insert(fetchQueue, { Name = cacheKey, Url = isUrl and rawName or (base .. name .. ".png") })
+    local entry = isRbx and { Name = cacheKey, RbxId = val }
+        or { Name = cacheKey, Url = isUrl and val or (base .. val .. ".png") }
+    if urgent then
+        table.insert(fetchQueue, 1, entry)
+    else
+        table.insert(fetchQueue, entry)
+    end
     if task and task.spawn then
         task.spawn(function()
             process_queue()
@@ -2730,6 +2849,7 @@ end
 
 function Icons.ClearCache()
     Icons.Cache = {}
+    Icons.Custom = {}
     Icons.InFlight = {}
     Icons._subscribers = {}
     Icons.NetworkFetchCount = 0
@@ -3456,6 +3576,7 @@ local function create_slot()
 
     slot.IconImg.ZIndex = 43
     slot.IconImg.Size = Vector2.new(22, 22)
+    slot.IconImg.Rounding = 0
     slot.IconImg.Visible = false
 
     slot.CloseImg.ZIndex = 43
@@ -3500,6 +3621,8 @@ local function hide_slot(slot)
     slot.Border.Visible = false
     slot.ProgressTrack.Visible = false
     slot.ProgressFill.Visible = false
+    slot.IconImg.Size = Vector2.new(22, 22)
+    slot.IconImg.Rounding = 0
     slot.IconImg.Visible = false
     slot.CloseImg.Visible = false
     slot.TitleText.Visible = false
@@ -3544,11 +3667,16 @@ end
 
 function Notify.Push(cfg, titleArg, durationArg)
     local title, content, icon, duration, canClose, buttons, side, anchor, accent, sticky
+    local iconSize, iconRounding, iconColor, keepColor
 
     if type(cfg) == "table" then
         title = cfg.Title or cfg.title
         content = cfg.Content or cfg.Desc or cfg.Description or cfg.Message or cfg.description or ""
-        icon = cfg.Icon or cfg.icon
+        icon = cfg.Icon or cfg.icon or cfg.Image or cfg.image
+        iconSize = tonumber(cfg.IconSize)
+        iconRounding = tonumber(cfg.IconRounding or cfg.ImageRounding)
+        iconColor = cfg.IconColor
+        keepColor = cfg.KeepColor
         if cfg.Duration == false then
             sticky = true
             duration = nil
@@ -3578,10 +3706,15 @@ function Notify.Push(cfg, titleArg, durationArg)
     end
 
     local now = tick()
+    local resolvedSize = iconSize and math.clamp(math.floor(iconSize + 0.5), 14, 40) or 22
     local toast = {
         Title = tostring(title or "Notification"),
         Content = tostring(content or ""),
         Icon = icon,
+        IconSize = resolvedSize,
+        IconRounding = iconRounding and math.max(0, math.floor(iconRounding + 0.5)) or 0,
+        IconColor = iconColor,
+        KeepColor = keepColor,
         Duration = duration,
         Sticky = sticky == true,
         CreatedAt = now,
@@ -3598,6 +3731,8 @@ function Notify.Push(cfg, titleArg, durationArg)
         SlideT = 0,
         CurrentY = nil,
         _iconData = nil,
+        _iconIsCustom = (type(icon) == "string" and icon ~= "" and IconsModule.IsCustom(icon)) or false,
+        _iconRetryAt = now + 0.6,
         _closeData = nil,
         _onClick = nil,
         _onDismiss = nil,
@@ -3605,15 +3740,15 @@ function Notify.Push(cfg, titleArg, durationArg)
         _released = false,
     }
 
-    if icon then
+    if icon and icon ~= "" then
         toast._iconData = IconsModule.Get(icon, function(png)
             toast._iconData = png
-        end)
+        end, false, true)
     end
     if canClose then
         toast._closeData = IconsModule.Get("x", function(png)
             toast._closeData = png
-        end)
+        end, false, true)
     end
 
     local function close_fn()
@@ -3757,9 +3892,17 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         local toastSide = toast.Side or side
         local toastAnchor = toast.Anchor or anchor
         local hasIcon = toast.Icon ~= nil and toast.Icon ~= ""
-        local textLeftOffset = hasIcon and 32 or 0
+        local iconSize = toast.IconSize or 22
+        local textLeftOffset = hasIcon and (iconSize + 10) or 0
         local rightPad = toast.CanClose and 22 or 0
         local textW = cardW - padX * 2 - textLeftOffset - rightPad
+
+        if hasIcon and not toast._iconData and not IconsModule.IsInFlight(toast.Icon) and now >= (toast._iconRetryAt or 0) then
+            toast._iconRetryAt = now + 1.0
+            toast._iconData = IconsModule.Get(toast.Icon, function(png)
+                toast._iconData = png
+            end, false, true)
+        end
 
         local lines = MetricsModule.WrapLines(toast.Content, textW, 13, 5)
         local titleFitted = MetricsModule.Fit(toast.Title, textW, 14, 1)
@@ -3767,7 +3910,8 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         local hasButtons = toast.Buttons and #toast.Buttons > 0
         local btnRowH = hasButtons and 32 or 0
         local contentH = (#lines > 0) and (#lines * 16 + 4) or 0
-        local cardH = math.max(58, padY * 2 + 18 + contentH + btnRowH + 8)
+        local minIconH = hasIcon and (iconSize + padY * 2 + 8) or 58
+        local cardH = math.max(minIconH, padY * 2 + 18 + contentH + btnRowH + 8)
 
         local finalX = toastSide == "Left" and marginX or (vp.X - cardW - marginX)
         local offX = toastSide == "Left" and (-cardW - 24) or (vp.X + 24)
@@ -3799,13 +3943,16 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         slot.Border.Transparency = 0.9 * alpha
         slot.Border.Visible = true
 
-        -- Optional Icon (only assign .Data when changed to avoid Matcha GPU texture flicker)
+        -- Optional Icon (only assign .Data when changed; preserve original RGB on custom PNGs)
         if hasIcon and toast._iconData then
             if slot._lastIconData ~= toast._iconData then
                 slot.IconImg.Data = toast._iconData
                 slot._lastIconData = toast._iconData
             end
-            slot.IconImg.Color = titleCol
+            local keepCol = (toast.KeepColor ~= false) and toast._iconIsCustom
+            slot.IconImg.Color = toast.IconColor or (keepCol and Color3.fromRGB(255, 255, 255) or titleCol)
+            slot.IconImg.Size = Vector2.new(iconSize, iconSize)
+            slot.IconImg.Rounding = toast.IconRounding or 0
             slot.IconImg.Position = Vector2.new(x + padX, y + padY)
             slot.IconImg.Transparency = alpha
             slot.IconImg.Visible = true
@@ -4163,7 +4310,8 @@ function Dialog.Show(cfg, window, mode)
         Window = window,
         Title = tostring(cfg.Title or "Dialog"),
         Content = cfg.Content or cfg.Desc or cfg.Description or "",
-        Icon = cfg.Icon,
+        Icon = cfg.Icon or cfg.Image,
+        IconRounding = tonumber(cfg.IconRounding or cfg.ImageRounding) or 0,
         Width = cfg.Width or (mode == "Popup" and 400 or 330),
         Buttons = type(cfg.Buttons) == "table" and cfg.Buttons or {},
         OnCancel = cfg.OnCancel,
@@ -4171,20 +4319,21 @@ function Dialog.Show(cfg, window, mode)
         Closing = false,
         AnimT = 0,
         _iconData = nil,
+        _iconIsCustom = ((cfg.Icon or cfg.Image) and IconsModule.IsCustom(cfg.Icon or cfg.Image)) or false,
         _buttonIcons = {},
     }
 
     if inst.Icon then
         inst._iconData = IconsModule.Get(inst.Icon, function(png)
             inst._iconData = png
-        end)
+        end, false, true)
     end
 
     for idx, b in ipairs(inst.Buttons) do
         if b.Icon then
             inst._buttonIcons[idx] = IconsModule.Get(b.Icon, function(png)
                 inst._buttonIcons[idx] = png
-            end)
+            end, false, true)
         end
     end
 
@@ -4323,7 +4472,8 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
 
     if hasIcon and d._iconData then
         slot.IconImg.Data = d._iconData
-        slot.IconImg.Color = titleCol
+        slot.IconImg.Color = d._iconIsCustom and Color3.fromRGB(255, 255, 255) or titleCol
+        slot.IconImg.Rounding = d.IconRounding or 0
         slot.IconImg.Position = Vector2.new(cx + pad, cy + pad)
         slot.IconImg.Transparency = alpha
         slot.IconImg.Visible = true
@@ -8700,26 +8850,8 @@ function ImageBlock:SetImage(src)
         self.ImgDrawing.Visible = self.Visible
     end
 
-    if self.Source:sub(1, 8) == "https://" or self.Source:sub(1, 7) == "http://" then
-        if IconsModule.Cache[self.Source] then
-            apply_data(IconsModule.Cache[self.Source])
-            return
-        end
-        if task and task.spawn then
-            task.spawn(function()
-                local ok, data = pcall(function()
-                    return game and game.HttpGet and game:HttpGet(self.Source) or nil
-                end)
-                if ok and data and (data:sub(1, 4) == "\x89PNG" or data:sub(2, 4) == "PNG") then
-                    IconsModule.Cache[self.Source] = data
-                    apply_data(data)
-                end
-            end)
-        end
-    else
-        local got = IconsModule.Get(self.Source, apply_data)
-        if got then apply_data(got) end
-    end
+    local got = IconsModule.Get(self.Source, apply_data)
+    if got then apply_data(got) end
 end
 
 function ImageBlock:RecalcHeight(width)
@@ -15011,7 +15143,7 @@ BreezeUI.Components = {
 
 BreezeUI.Scale = 1.0
 BreezeUI.Version = "1.6.62"
-BreezeUI.Creator = { AddIcons = function() end }
+BreezeUI.Creator = { AddIcons = IconsModule.AddIcons }
 BreezeUI.FocusedWidget = nil
 BreezeUI.ActiveAnimations = {}
 BreezeUI.TargetFPS = 60

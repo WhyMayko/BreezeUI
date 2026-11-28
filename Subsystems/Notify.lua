@@ -73,6 +73,7 @@ local function create_slot()
 
     slot.IconImg.ZIndex = 43
     slot.IconImg.Size = Vector2.new(22, 22)
+    slot.IconImg.Rounding = 0
     slot.IconImg.Visible = false
 
     slot.CloseImg.ZIndex = 43
@@ -117,6 +118,8 @@ local function hide_slot(slot)
     slot.Border.Visible = false
     slot.ProgressTrack.Visible = false
     slot.ProgressFill.Visible = false
+    slot.IconImg.Size = Vector2.new(22, 22)
+    slot.IconImg.Rounding = 0
     slot.IconImg.Visible = false
     slot.CloseImg.Visible = false
     slot.TitleText.Visible = false
@@ -161,11 +164,16 @@ end
 
 function Notify.Push(cfg, titleArg, durationArg)
     local title, content, icon, duration, canClose, buttons, side, anchor, accent, sticky
+    local iconSize, iconRounding, iconColor, keepColor
 
     if type(cfg) == "table" then
         title = cfg.Title or cfg.title
         content = cfg.Content or cfg.Desc or cfg.Description or cfg.Message or cfg.description or ""
-        icon = cfg.Icon or cfg.icon
+        icon = cfg.Icon or cfg.icon or cfg.Image or cfg.image
+        iconSize = tonumber(cfg.IconSize)
+        iconRounding = tonumber(cfg.IconRounding or cfg.ImageRounding)
+        iconColor = cfg.IconColor
+        keepColor = cfg.KeepColor
         if cfg.Duration == false then
             sticky = true
             duration = nil
@@ -195,10 +203,15 @@ function Notify.Push(cfg, titleArg, durationArg)
     end
 
     local now = tick()
+    local resolvedSize = iconSize and math.clamp(math.floor(iconSize + 0.5), 14, 40) or 22
     local toast = {
         Title = tostring(title or "Notification"),
         Content = tostring(content or ""),
         Icon = icon,
+        IconSize = resolvedSize,
+        IconRounding = iconRounding and math.max(0, math.floor(iconRounding + 0.5)) or 0,
+        IconColor = iconColor,
+        KeepColor = keepColor,
         Duration = duration,
         Sticky = sticky == true,
         CreatedAt = now,
@@ -215,6 +228,8 @@ function Notify.Push(cfg, titleArg, durationArg)
         SlideT = 0,
         CurrentY = nil,
         _iconData = nil,
+        _iconIsCustom = (type(icon) == "string" and icon ~= "" and IconsModule.IsCustom(icon)) or false,
+        _iconRetryAt = now + 0.6,
         _closeData = nil,
         _onClick = nil,
         _onDismiss = nil,
@@ -222,15 +237,15 @@ function Notify.Push(cfg, titleArg, durationArg)
         _released = false,
     }
 
-    if icon then
+    if icon and icon ~= "" then
         toast._iconData = IconsModule.Get(icon, function(png)
             toast._iconData = png
-        end)
+        end, false, true)
     end
     if canClose then
         toast._closeData = IconsModule.Get("x", function(png)
             toast._closeData = png
-        end)
+        end, false, true)
     end
 
     local function close_fn()
@@ -374,9 +389,17 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         local toastSide = toast.Side or side
         local toastAnchor = toast.Anchor or anchor
         local hasIcon = toast.Icon ~= nil and toast.Icon ~= ""
-        local textLeftOffset = hasIcon and 32 or 0
+        local iconSize = toast.IconSize or 22
+        local textLeftOffset = hasIcon and (iconSize + 10) or 0
         local rightPad = toast.CanClose and 22 or 0
         local textW = cardW - padX * 2 - textLeftOffset - rightPad
+
+        if hasIcon and not toast._iconData and not IconsModule.IsInFlight(toast.Icon) and now >= (toast._iconRetryAt or 0) then
+            toast._iconRetryAt = now + 1.0
+            toast._iconData = IconsModule.Get(toast.Icon, function(png)
+                toast._iconData = png
+            end, false, true)
+        end
 
         local lines = MetricsModule.WrapLines(toast.Content, textW, 13, 5)
         local titleFitted = MetricsModule.Fit(toast.Title, textW, 14, 1)
@@ -384,7 +407,8 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         local hasButtons = toast.Buttons and #toast.Buttons > 0
         local btnRowH = hasButtons and 32 or 0
         local contentH = (#lines > 0) and (#lines * 16 + 4) or 0
-        local cardH = math.max(58, padY * 2 + 18 + contentH + btnRowH + 8)
+        local minIconH = hasIcon and (iconSize + padY * 2 + 8) or 58
+        local cardH = math.max(minIconH, padY * 2 + 18 + contentH + btnRowH + 8)
 
         local finalX = toastSide == "Left" and marginX or (vp.X - cardW - marginX)
         local offX = toastSide == "Left" and (-cardW - 24) or (vp.X + 24)
@@ -416,13 +440,16 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         slot.Border.Transparency = 0.9 * alpha
         slot.Border.Visible = true
 
-        -- Optional Icon (only assign .Data when changed to avoid Matcha GPU texture flicker)
+        -- Optional Icon (only assign .Data when changed; preserve original RGB on custom PNGs)
         if hasIcon and toast._iconData then
             if slot._lastIconData ~= toast._iconData then
                 slot.IconImg.Data = toast._iconData
                 slot._lastIconData = toast._iconData
             end
-            slot.IconImg.Color = titleCol
+            local keepCol = (toast.KeepColor ~= false) and toast._iconIsCustom
+            slot.IconImg.Color = toast.IconColor or (keepCol and Color3.fromRGB(255, 255, 255) or titleCol)
+            slot.IconImg.Size = Vector2.new(iconSize, iconSize)
+            slot.IconImg.Rounding = toast.IconRounding or 0
             slot.IconImg.Position = Vector2.new(x + padX, y + padY)
             slot.IconImg.Transparency = alpha
             slot.IconImg.Visible = true

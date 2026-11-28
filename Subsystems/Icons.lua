@@ -3,6 +3,7 @@
 
 local Icons = {
     Cache = {},
+    Custom = {},
     InFlight = {},
     DefaultIcon = nil,
     NetworkFetchCount = 0,
@@ -78,8 +79,91 @@ function Icons.Validate(data)
     return Icons.ValidatePNG(data)
 end
 
+local function resolve_source(rawName)
+    if type(rawName) ~= "string" or rawName == "" then
+        return "none", ""
+    end
+    if Icons.ValidatePNG(rawName) then
+        return "raw", rawName, true
+    end
+    local mapped = Icons.Custom[rawName] or Icons.Custom[rawName:lower()]
+    local src = type(mapped) == "string" and mapped or rawName
+    local custom = (mapped ~= nil)
+
+    if Icons.ValidatePNG(src) then
+        return "raw", src, true
+    end
+    if src:sub(1, 7) == "file://" then
+        return "file", src:sub(8), true
+    end
+    local rbxId = src:match("^rbxassetid://(%d+)$") or src:match("roblox%.com/asset/%?id=(%d+)")
+    if rbxId then
+        return "rbx", rbxId, true
+    end
+    if src:sub(1, 7) == "http://" or src:sub(1, 8) == "https://" then
+        return "url", src, true
+    end
+    if src:sub(-4):lower() == ".png" and isfile and isfile(src) then
+        return "file", src, true
+    end
+    return "lucide", Icons.NormalizeName(src), custom
+end
+
+function Icons.Register(name, source)
+    assert(type(name) == "string" and name ~= "", "Icons.Register requires a non-empty string name!")
+    assert(type(source) == "string" and source ~= "", "Icons.Register requires a PNG source string!")
+    Icons.Custom[name] = source
+    Icons.Custom[name:lower()] = source
+    return Icons
+end
+
+function Icons.AddIcons(tbl)
+    assert(type(tbl) == "table", "Icons.AddIcons requires a table!")
+    for k, v in pairs(tbl) do
+        if type(k) == "string" and type(v) == "string" and v ~= "" then
+            Icons.Register(k, v)
+        end
+    end
+    return Icons
+end
+
+function Icons.IsCustom(rawName)
+    local _, _, isCustom = resolve_source(rawName)
+    return isCustom == true
+end
+
+function Icons.IsInFlight(rawName, forceLight)
+    local kind, val = resolve_source(rawName)
+    if kind == "none" or kind == "raw" or kind == "file" then return false end
+    local cacheKey = kind == "url" and val
+        or kind == "rbx" and ("rbx:" .. val)
+        or (((not forceLight and Icons.DarkMode) and "dark:" or "light:") .. val)
+    return Icons.InFlight[cacheKey] ~= nil
+end
+
 local fetchQueue = {}
 local workerRunning = false
+
+local function fetch_png_once(item)
+    if not (game and game.HttpGet) then return nil end
+    local url = item.Url
+    if item.RbxId then
+        local api = "https://thumbnails.roblox.com/v1/assets?assetIds=" .. item.RbxId .. "&returnPolicy=PlaceHolder&size=150x150&format=Png&isCircular=false"
+        local okMeta, body = pcall(function() return game:HttpGet(api) end)
+        if not okMeta or type(body) ~= "string" or body == "" then return nil end
+        local hsOk, hs = pcall(function() return game:GetService("HttpService") end)
+        if not hsOk or not hs then return nil end
+        local decOk, decoded = pcall(function() return hs:JSONDecode(body) end)
+        local imgUrl = decOk and decoded and decoded.data and decoded.data[1] and decoded.data[1].imageUrl
+        if type(imgUrl) ~= "string" or imgUrl == "" then return nil end
+        url = imgUrl
+    end
+    local ok, data = pcall(function() return game:HttpGet(url) end)
+    if ok and data and Icons.ValidatePNG(data) then
+        return data
+    end
+    return nil
+end
 
 local function process_queue()
     if workerRunning then return end
@@ -88,14 +172,12 @@ local function process_queue()
         local item = table.remove(fetchQueue, 1)
         local name = item.Name
         if not Icons.Cache[name] then
-            local url = item.Url or (Icons.RepoBase .. name .. ".png")
-            local ok, data = pcall(function()
-                if game and game.HttpGet then
-                    return game:HttpGet(url)
-                end
-                return nil
-            end)
-            if ok and data and Icons.ValidatePNG(data) then
+            local data = fetch_png_once(item)
+            if not data then
+                if task and task.wait then task.wait(0.08) end
+                data = fetch_png_once(item)
+            end
+            if data then
                 Icons.Cache[name] = data
             end
         end
@@ -129,18 +211,40 @@ function Icons.SetDarkMode(enabled)
     return true
 end
 
-function Icons.Get(rawName, callback, forceLight)
+function Icons.Get(rawName, callback, forceLight, urgent)
     if not rawName or rawName == "" then
         if callback then callback(Icons.DefaultIcon) end
         return Icons.DefaultIcon
     end
 
-    local isUrl = (rawName:sub(1, 7) == "http://" or rawName:sub(1, 8) == "https://")
-    local name = isUrl and rawName or Icons.NormalizeName(rawName)
-    local useDark = (not isUrl) and (not forceLight) and Icons.DarkMode
-    local cacheKey = isUrl and rawName or ((useDark and "dark:" or "light:") .. name)
+    local kind, val = resolve_source(rawName)
+    if kind == "raw" then
+        if callback then callback(val) end
+        return val
+    end
+    if kind == "file" then
+        if Icons.Cache["file:" .. val] then
+            local cached = Icons.Cache["file:" .. val]
+            if callback then callback(cached) end
+            return cached
+        end
+        if readfile and (not isfile or isfile(val)) then
+            local ok, bytes = pcall(readfile, val)
+            if ok and Icons.ValidatePNG(bytes) then
+                Icons.Cache["file:" .. val] = bytes
+                if callback then callback(bytes) end
+                return bytes
+            end
+        end
+        return Icons.DefaultIcon
+    end
 
-    if callback and not isUrl and not forceLight then
+    local isUrl = (kind == "url")
+    local isRbx = (kind == "rbx")
+    local useDark = (kind == "lucide") and (not forceLight) and Icons.DarkMode
+    local cacheKey = isUrl and val or (isRbx and ("rbx:" .. val) or ((useDark and "dark:" or "light:") .. val))
+
+    if callback and kind == "lucide" and not forceLight then
         local found = false
         for _, sub in ipairs(Icons._subscribers) do
             if sub.Callback == callback then
@@ -164,6 +268,15 @@ function Icons.Get(rawName, callback, forceLight)
         if callback then
             table.insert(Icons.InFlight[cacheKey], callback)
         end
+        if urgent then
+            for i = 2, #fetchQueue do
+                if fetchQueue[i].Name == cacheKey then
+                    local item = table.remove(fetchQueue, i)
+                    table.insert(fetchQueue, 1, item)
+                    break
+                end
+            end
+        end
         return nil
     end
 
@@ -171,7 +284,13 @@ function Icons.Get(rawName, callback, forceLight)
     Icons.NetworkFetchCount = Icons.NetworkFetchCount + 1
 
     local base = useDark and Icons.DarkRepoBase or Icons.RepoBase
-    table.insert(fetchQueue, { Name = cacheKey, Url = isUrl and rawName or (base .. name .. ".png") })
+    local entry = isRbx and { Name = cacheKey, RbxId = val }
+        or { Name = cacheKey, Url = isUrl and val or (base .. val .. ".png") }
+    if urgent then
+        table.insert(fetchQueue, 1, entry)
+    else
+        table.insert(fetchQueue, entry)
+    end
     if task and task.spawn then
         task.spawn(function()
             process_queue()
@@ -202,6 +321,7 @@ end
 
 function Icons.ClearCache()
     Icons.Cache = {}
+    Icons.Custom = {}
     Icons.InFlight = {}
     Icons._subscribers = {}
     Icons.NetworkFetchCount = 0
