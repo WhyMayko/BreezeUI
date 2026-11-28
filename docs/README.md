@@ -12,5 +12,6 @@
   - [Inputs](elements/inputs.md) — `Toggle`, `Checkbox`, `Slider`, `Dropdown`, `Input`, `Keybind`, `Colorpicker`.
   - [Display](elements/display.md) — `Button`, `Paragraph`, `Code`, `Image`, `ProgressBar`.
 - **Subsystems**
-  - [Overlays](subsystems/overlays.md) — `Notify`, `Progress`, `Dialog`, `Popup`.
-  - [Settings & Themes](subsystems/settings-and-themes.md) — `SetupSettingsTab`, 18 built-in themes, config Save/Load/Delete.
+  - [Overlays](subsystems/overlays.md) — `Notify`, `Progress`, `Dialog`, `Popup`, styled buttons, and per-toast theming.
+  - [Icons & Custom PNGs](subsystems/icons.md) — Lucide icons, `http(s)://` PNGs, `rbxassetid://`, raw PNGs, `Creator.AddIcons`, and batch `Preload`.
+  - [Settings & Themes](subsystems/settings-and-themes.md) — `SetupSettingsTab`, 18 built-in themes (`Rainbow`), `Theme.Register`, config Save/Load/Delete.

@@ -37,4 +37,4 @@ Library:SetupSettingsTab(Window)
 | **Core** | [Lifecycle, Unload & Connections](docs/core/lifecycle.md) |
 | **Layout** | [Window API](docs/layout/window.md) · [Navigation & Visibility](docs/layout/navigation.md) · [Profile Card](docs/layout/profile-card.md) |
 | **Elements** | [Inputs & State](docs/elements/inputs.md) · [Display Elements](docs/elements/display.md) |
-| **Subsystems** | [Notify, Dialog & Popup](docs/subsystems/overlays.md) · [Settings, Themes & Configs](docs/subsystems/settings-and-themes.md) |
+| **Subsystems** | [Notify, Dialog & Popup](docs/subsystems/overlays.md) · [Icons & Custom PNGs](docs/subsystems/icons.md) · [Settings, Themes & Configs](docs/subsystems/settings-and-themes.md) |

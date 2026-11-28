@@ -14,7 +14,25 @@ Library:SetupSettingsTab(Window)
 
 ```lua
 local themes = Library:GetThemes()
-Window:SetTheme("Light") -- automatically swaps sidebar icons to dark variants
+Window:SetTheme("Light")   -- swaps Lucide icons to dark variants while keeping custom PNG colors
+Window:SetTheme("Rainbow") -- runs animated HSV cycling via Theme.StepRainbow at ~33 Hz
+```
+
+## Custom Themes & HSV Helpers
+
+Register custom palettes before calling `GetThemes()` or `SetTheme()`:
+
+```lua
+local palette = setmetatable({
+    Name = "Nord",
+    ["Window.Background"] = Color3.fromRGB(46, 52, 64),
+    ["Accent.Blue"] = Color3.fromRGB(136, 192, 208),
+}, { __index = Library.Theme.DefaultPalette })
+
+Library.Theme.Register("Nord", palette)
+Window:SetTheme("Nord")
+
+local col = Library.Theme.HSV(0.55, 0.85, 1)
 ```
 
 ## Config Persistence
