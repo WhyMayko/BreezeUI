@@ -97,7 +97,10 @@ local function traverse_control(tbl, fn, visited)
     for k, v in pairs(tbl) do
         if not SKIP_CLIP_KEYS[k] and (type(v) == "table" or type(v) == "userdata") then
             if v.Position ~= nil and v.Visible ~= nil then
-                fn(v)
+                if not visited[v] then
+                    visited[v] = true
+                    fn(v)
+                end
             elseif type(v) == "table" then
                 traverse_control(v, fn, visited)
             end

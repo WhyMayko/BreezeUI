@@ -123,13 +123,14 @@ function Toggle.new(section, id, config)
                 end)
             end
         else
-            local knob = pool:Get("Circle")
-            knob.Radius = 7
-            knob.Position = Vector2.new(togVal and (trackX + 31) or (trackX + 11), trackY + 11)
+            local knob = pool:Get("Square")
+            knob.Size = Vector2.new(14, 14)
+            knob.Corner = 7
+            knob.Position = Vector2.new(togVal and (trackX + 24) or (trackX + 4), trackY + 4)
             knob.Filled = true
             knob.Color = Color3.fromRGB(255, 255, 255)
             knob.ZIndex = 6
-            knob.Visible = false
+            knob.Visible = section.Visible
             self.Knob = knob
             self.VisualKnob = knob
             section:_register(knob)
@@ -150,11 +151,15 @@ function Toggle:_applyAnimVisual(progress)
     if self.Track then
         self.Track.Color = lerp_color(offCol, onCol, progress)
     end
-    if not isCheck and self.Knob and self.Track then
-        local tx = self.Track.Position.X
-        local ty = self.Track.Position.Y
-        local knobX = tx + 11 + (20 * progress)
-        self.Knob.Position = Vector2.new(math.floor(knobX + 0.5), ty + 11)
+    if not isCheck and self.Knob and self.Position and self.Size then
+        local trackX = self.Position.X + self.Size.X - 42 - 14
+        local trackY = self.Position.Y + math.floor((self.Size.Y - 22) * 0.5)
+        local knobX = trackX + 4 + (20 * progress)
+        self.Knob.Size = Vector2.new(14, 14)
+        self.Knob.Position = Vector2.new(math.floor(knobX + 0.5), trackY + 4)
+        if self.Visible and self._clipTop and self._clipBottom and self.Section and self.Section.ClipControl then
+            self.Section.ClipControl(self, self._clipTop, self._clipBottom)
+        end
     end
 end
 
@@ -188,12 +193,14 @@ function Toggle:SetPosition(pos, size)
     end
 
     if self.CheckIcon then
+        self.CheckIcon.Size = Vector2.new(16, 16)
         self.CheckIcon.Position = Vector2.new(trackX + 4, trackY + 4)
     end
 
     if self.Knob then
         local p = self.AnimProgress ~= nil and self.AnimProgress or (self.Value and 1 or 0)
-        self.Knob.Position = Vector2.new(math.floor(trackX + 11 + 20 * p + 0.5), trackY + 11)
+        self.Knob.Size = Vector2.new(14, 14)
+        self.Knob.Position = Vector2.new(math.floor(trackX + 4 + 20 * p + 0.5), trackY + 4)
     end
 
     if self.KeyPicker and self.KeyPicker.SetPosition then

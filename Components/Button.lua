@@ -56,6 +56,7 @@ local function layout_button(self)
 
     if self.Justify == "Center" then
         if self.IconImg then
+            self.IconImg.Size = Vector2.new(16, 16)
             local startX = pos.X + math.max(14, math.floor((size.X - (txtW + 22)) * 0.5))
             if self.Label then self.Label.Center = false end
             if self.IconAlign == "Left" then

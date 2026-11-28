@@ -5916,6 +5916,7 @@ local function layout_button(self)
 
     if self.Justify == "Center" then
         if self.IconImg then
+            self.IconImg.Size = Vector2.new(16, 16)
             local startX = pos.X + math.max(14, math.floor((size.X - (txtW + 22)) * 0.5))
             if self.Label then self.Label.Center = false end
             if self.IconAlign == "Left" then
@@ -6397,9 +6398,11 @@ function Slider:SetPosition(pos, size)
     end
 
     if self.IconFrom then
+        self.IconFrom.Size = Vector2.new(16, 16)
         self.IconFrom.Position = Vector2.new(pos.X + 14, pos.Y + math.floor((self.Size.Y - 16) * 0.5))
     end
     if self.IconTo then
+        self.IconTo.Size = Vector2.new(16, 16)
         self.IconTo.Position = Vector2.new(pos.X + self.Size.X - 30, pos.Y + math.floor((self.Size.Y - 16) * 0.5))
     end
 
@@ -6420,6 +6423,7 @@ function Slider:SetPosition(pos, size)
     if self.Thumb then
         local thumbW = 24
         local thumbH = 14
+        self.Thumb.Size = Vector2.new(thumbW, thumbH)
         self.Thumb.Position = Vector2.new(trackX + fillW - math.floor(thumbW * 0.5), trackY + 2 - math.floor(thumbH * 0.5))
     end
 end
@@ -6436,23 +6440,29 @@ function Slider:Set(val)
     end
     self.Value = clamped
 
-    if self.Track and self.FillBar then
-        local trackW = self.Track.Size.X
-        local trackX = self.Track.Position.X
-        local trackY = self.Track.Position.Y
+    if self.Track and self.FillBar and self.Position and self.Size then
+        local trackX, trackY, trackW = compute_track_rect(self.Position, self.Size, self.HasTitle, self.Icons, self.ReqWidth)
+        self.Track.Position = Vector2.new(trackX, trackY)
+        self.Track.Size = Vector2.new(trackW, 4)
         local r = self.Max - self.Min
         local p = r > 0 and math.clamp((clamped - self.Min) / r, 0, 1) or 0
         local fillW = math.floor(trackW * p)
+        self.FillBar.Position = Vector2.new(trackX, trackY)
         self.FillBar.Size = Vector2.new(math.max(fillW, 3), 4)
         if self.Thumb then
             local thumbW = 24
             local thumbH = 14
+            self.Thumb.Size = Vector2.new(thumbW, thumbH)
             self.Thumb.Position = Vector2.new(trackX + fillW - math.floor(thumbW * 0.5), trackY + 2 - math.floor(thumbH * 0.5))
         end
     end
 
     if self.Badge then
         self.Badge.Text = tostring(clamped)
+    end
+
+    if self.Visible and self._clipTop and self._clipBottom and self.Section and self.Section.ClipControl then
+        self.Section.ClipControl(self, self._clipTop, self._clipBottom)
     end
 
     local lib = self.Section and self.Section.Env
@@ -6767,6 +6777,7 @@ function Dropdown:SetPosition(pos, size)
     end
 
     if self.Arrow then
+        self.Arrow.Size = Vector2.new(13, 13)
         self.Arrow.Position = Vector2.new(boxX + boxW - 19, boxY + 6)
     end
 
@@ -7767,13 +7778,14 @@ function Toggle.new(section, id, config)
                 end)
             end
         else
-            local knob = pool:Get("Circle")
-            knob.Radius = 7
-            knob.Position = Vector2.new(togVal and (trackX + 31) or (trackX + 11), trackY + 11)
+            local knob = pool:Get("Square")
+            knob.Size = Vector2.new(14, 14)
+            knob.Corner = 7
+            knob.Position = Vector2.new(togVal and (trackX + 24) or (trackX + 4), trackY + 4)
             knob.Filled = true
             knob.Color = Color3.fromRGB(255, 255, 255)
             knob.ZIndex = 6
-            knob.Visible = false
+            knob.Visible = section.Visible
             self.Knob = knob
             self.VisualKnob = knob
             section:_register(knob)
@@ -7794,11 +7806,15 @@ function Toggle:_applyAnimVisual(progress)
     if self.Track then
         self.Track.Color = lerp_color(offCol, onCol, progress)
     end
-    if not isCheck and self.Knob and self.Track then
-        local tx = self.Track.Position.X
-        local ty = self.Track.Position.Y
-        local knobX = tx + 11 + (20 * progress)
-        self.Knob.Position = Vector2.new(math.floor(knobX + 0.5), ty + 11)
+    if not isCheck and self.Knob and self.Position and self.Size then
+        local trackX = self.Position.X + self.Size.X - 42 - 14
+        local trackY = self.Position.Y + math.floor((self.Size.Y - 22) * 0.5)
+        local knobX = trackX + 4 + (20 * progress)
+        self.Knob.Size = Vector2.new(14, 14)
+        self.Knob.Position = Vector2.new(math.floor(knobX + 0.5), trackY + 4)
+        if self.Visible and self._clipTop and self._clipBottom and self.Section and self.Section.ClipControl then
+            self.Section.ClipControl(self, self._clipTop, self._clipBottom)
+        end
     end
 end
 
@@ -7832,12 +7848,14 @@ function Toggle:SetPosition(pos, size)
     end
 
     if self.CheckIcon then
+        self.CheckIcon.Size = Vector2.new(16, 16)
         self.CheckIcon.Position = Vector2.new(trackX + 4, trackY + 4)
     end
 
     if self.Knob then
         local p = self.AnimProgress ~= nil and self.AnimProgress or (self.Value and 1 or 0)
-        self.Knob.Position = Vector2.new(math.floor(trackX + 11 + 20 * p + 0.5), trackY + 11)
+        self.Knob.Size = Vector2.new(14, 14)
+        self.Knob.Position = Vector2.new(math.floor(trackX + 4 + 20 * p + 0.5), trackY + 4)
     end
 
     if self.KeyPicker and self.KeyPicker.SetPosition then
@@ -9717,9 +9735,18 @@ function Colorpicker:SetPosition(pos, size)
     end
     local sx = pos.X + self.Size.X - 46
     local sy = pos.Y + math.floor((self.Size.Y - 18) * 0.5)
-    if self.SwatchGrid then self.SwatchGrid.Position = Vector2.new(sx, sy) end
-    if self.Swatch then self.Swatch.Position = Vector2.new(sx, sy) end
-    if self.SwatchBorder then self.SwatchBorder.Position = Vector2.new(sx, sy) end
+    if self.SwatchGrid then
+        self.SwatchGrid.Position = Vector2.new(sx, sy)
+        self.SwatchGrid.Size = Vector2.new(32, 18)
+    end
+    if self.Swatch then
+        self.Swatch.Position = Vector2.new(sx, sy)
+        self.Swatch.Size = Vector2.new(32, 18)
+    end
+    if self.SwatchBorder then
+        self.SwatchBorder.Position = Vector2.new(sx, sy)
+        self.SwatchBorder.Size = Vector2.new(32, 18)
+    end
     if self.IsOpen then self:_syncPopup() end
 end
 
@@ -9909,7 +9936,10 @@ local function traverse_control(tbl, fn, visited)
     for k, v in pairs(tbl) do
         if not SKIP_CLIP_KEYS[k] and (type(v) == "table" or type(v) == "userdata") then
             if v.Position ~= nil and v.Visible ~= nil then
-                fn(v)
+                if not visited[v] then
+                    visited[v] = true
+                    fn(v)
+                end
             elseif type(v) == "table" then
                 traverse_control(v, fn, visited)
             end

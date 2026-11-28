@@ -220,6 +220,7 @@ function Dropdown:SetPosition(pos, size)
     end
 
     if self.Arrow then
+        self.Arrow.Size = Vector2.new(13, 13)
         self.Arrow.Position = Vector2.new(boxX + boxW - 19, boxY + 6)
     end
 

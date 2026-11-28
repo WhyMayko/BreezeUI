@@ -678,9 +678,18 @@ function Colorpicker:SetPosition(pos, size)
     end
     local sx = pos.X + self.Size.X - 46
     local sy = pos.Y + math.floor((self.Size.Y - 18) * 0.5)
-    if self.SwatchGrid then self.SwatchGrid.Position = Vector2.new(sx, sy) end
-    if self.Swatch then self.Swatch.Position = Vector2.new(sx, sy) end
-    if self.SwatchBorder then self.SwatchBorder.Position = Vector2.new(sx, sy) end
+    if self.SwatchGrid then
+        self.SwatchGrid.Position = Vector2.new(sx, sy)
+        self.SwatchGrid.Size = Vector2.new(32, 18)
+    end
+    if self.Swatch then
+        self.Swatch.Position = Vector2.new(sx, sy)
+        self.Swatch.Size = Vector2.new(32, 18)
+    end
+    if self.SwatchBorder then
+        self.SwatchBorder.Position = Vector2.new(sx, sy)
+        self.SwatchBorder.Size = Vector2.new(32, 18)
+    end
     if self.IsOpen then self:_syncPopup() end
 end
 

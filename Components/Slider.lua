@@ -216,9 +216,11 @@ function Slider:SetPosition(pos, size)
     end
 
     if self.IconFrom then
+        self.IconFrom.Size = Vector2.new(16, 16)
         self.IconFrom.Position = Vector2.new(pos.X + 14, pos.Y + math.floor((self.Size.Y - 16) * 0.5))
     end
     if self.IconTo then
+        self.IconTo.Size = Vector2.new(16, 16)
         self.IconTo.Position = Vector2.new(pos.X + self.Size.X - 30, pos.Y + math.floor((self.Size.Y - 16) * 0.5))
     end
 
@@ -239,6 +241,7 @@ function Slider:SetPosition(pos, size)
     if self.Thumb then
         local thumbW = 24
         local thumbH = 14
+        self.Thumb.Size = Vector2.new(thumbW, thumbH)
         self.Thumb.Position = Vector2.new(trackX + fillW - math.floor(thumbW * 0.5), trackY + 2 - math.floor(thumbH * 0.5))
     end
 end
@@ -255,23 +258,29 @@ function Slider:Set(val)
     end
     self.Value = clamped
 
-    if self.Track and self.FillBar then
-        local trackW = self.Track.Size.X
-        local trackX = self.Track.Position.X
-        local trackY = self.Track.Position.Y
+    if self.Track and self.FillBar and self.Position and self.Size then
+        local trackX, trackY, trackW = compute_track_rect(self.Position, self.Size, self.HasTitle, self.Icons, self.ReqWidth)
+        self.Track.Position = Vector2.new(trackX, trackY)
+        self.Track.Size = Vector2.new(trackW, 4)
         local r = self.Max - self.Min
         local p = r > 0 and math.clamp((clamped - self.Min) / r, 0, 1) or 0
         local fillW = math.floor(trackW * p)
+        self.FillBar.Position = Vector2.new(trackX, trackY)
         self.FillBar.Size = Vector2.new(math.max(fillW, 3), 4)
         if self.Thumb then
             local thumbW = 24
             local thumbH = 14
+            self.Thumb.Size = Vector2.new(thumbW, thumbH)
             self.Thumb.Position = Vector2.new(trackX + fillW - math.floor(thumbW * 0.5), trackY + 2 - math.floor(thumbH * 0.5))
         end
     end
 
     if self.Badge then
         self.Badge.Text = tostring(clamped)
+    end
+
+    if self.Visible and self._clipTop and self._clipBottom and self.Section and self.Section.ClipControl then
+        self.Section.ClipControl(self, self._clipTop, self._clipBottom)
     end
 
     local lib = self.Section and self.Section.Env
