@@ -215,19 +215,15 @@ function Toggle:Set(val)
         self.CheckIcon.Visible = self.Visible and boolVal
     end
 
-    local palette = self.Section and self.Section.Window and self.Section.Window.ThemeTokens
+    local win = self.Section and self.Section.Window
     if self.Visible then
         AnimationsModule.Tween("Toggle_" .. tostring(self), self.AnimProgress or target, target, 20, function(v)
-            self:_applyAnimVisual(v, palette)
+            self:_applyAnimVisual(v, win and win.ThemeTokens)
         end)
     else
-        self:_applyAnimVisual(target, palette)
+        self:_applyAnimVisual(target, win and win.ThemeTokens)
     end
 
-    local lib = self.Section and self.Section.Env
-    if lib and lib.Toggles and rawget(lib.Toggles, self.Id) == self then
-        self.Value = boolVal
-    end
     if self.Section and self.Section.ParentTab then
         self.Section.ParentTab._layoutDirty = true
     end

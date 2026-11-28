@@ -285,10 +285,41 @@ end
 
 function Icons.Preload(names)
     if not names or type(names) ~= "table" then return 0 end
+    local rbxIds, rbxMap = {}, {}
     local count = 0
     for _, name in ipairs(names) do
-        Icons.Get(name)
+        local kind, val = resolve_source(name)
+        if kind == "rbx" and not Icons.Cache["rbx:" .. val] and not Icons.InFlight["rbx:" .. val] and not rbxMap[val] then
+            rbxMap[val] = true
+            table.insert(rbxIds, val)
+        else
+            Icons.Get(name)
+        end
         count = count + 1
+    end
+    if #rbxIds > 0 and game and game.HttpGet then
+        task.spawn(function()
+            local api = "https://thumbnails.roblox.com/v1/assets?assetIds=" .. table.concat(rbxIds, ",") .. "&returnPolicy=PlaceHolder&size=150x150&format=Png&isCircular=false"
+            local okMeta, body = pcall(function() return game:HttpGet(api) end)
+            local hsOk, hs = pcall(function() return game:GetService("HttpService") end)
+            if okMeta and hsOk and hs and type(body) == "string" and body ~= "" then
+                local decOk, decoded = pcall(function() return hs:JSONDecode(body) end)
+                if decOk and decoded and type(decoded.data) == "table" then
+                    for _, entry in ipairs(decoded.data) do
+                        local idStr = entry.targetId and tostring(entry.targetId)
+                        if idStr and type(entry.imageUrl) == "string" and entry.imageUrl ~= "" then
+                            Icons.Get(entry.imageUrl, function(png)
+                                Icons.Cache["rbx:" .. idStr] = png
+                            end)
+                        end
+                    end
+                    return
+                end
+            end
+            for _, idStr in ipairs(rbxIds) do
+                Icons.Get("rbxassetid://" .. idStr)
+            end
+        end)
     end
     return count
 end

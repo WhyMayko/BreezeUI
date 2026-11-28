@@ -110,12 +110,26 @@ function Button.new(section, config)
     local pos, size = section:AllocateControlSlot(cfg.Half or cfg.Column ~= nil, rowH)
     local iconOpt = (cfg.Icon == false or cfg.Icon == "") and false or (cfg.Icon or "mouse-pointer-click")
 
+    local customColor = cfg.Color
+    if type(customColor) == "string" then
+        customColor = tag_colors[customColor]
+            or (customColor == "Danger" and ThemeModule.Get("Accent.Danger"))
+            or (customColor == "Success" and ThemeModule.Get("Accent.Green"))
+            or (customColor == "Primary" and ThemeModule.Get("Accent.Blue"))
+            or nil
+    elseif not customColor and cfg.Variant then
+        if cfg.Variant == "Danger" then customColor = ThemeModule.Get("Accent.Danger")
+        elseif cfg.Variant == "Success" then customColor = ThemeModule.Get("Accent.Green")
+        elseif cfg.Variant == "Primary" then customColor = ThemeModule.Get("Accent.Blue") end
+    end
+
     local self = setmetatable({
         Section = section,
         Text = cfg.Text or cfg.Title or "Button",
         Desc = desc,
         Icon = iconOpt,
-        CustomColor = cfg.Color,
+        CustomColor = customColor,
+        CustomTextColor = cfg.TextColor or (customColor and Color3.fromRGB(255, 255, 255) or nil),
         Justify = cfg.Justify or "Between",
         IconAlign = cfg.IconAlign or "Right",
         Position = pos,
@@ -128,7 +142,7 @@ function Button.new(section, config)
     local pool = section.Pool
     if pool then
         local btnBg = self.CustomColor or ThemeModule.Get("ElementBackground")
-        local txtCol = ThemeModule.Get("Text.Title")
+        local txtCol = self.CustomTextColor or ThemeModule.Get("Text.Title")
         local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
         -- 1. Button Surface Card

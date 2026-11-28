@@ -578,7 +578,7 @@ function Tab:UpdateTheme(t)
                     if bSlot.Text then bSlot.Text.Color = txtTitle end
                 end
             end
-            if ctrl.Label then ctrl.Label.Color = ctrl.Locked and txtMuted or txtTitle end
+            if ctrl.Label then ctrl.Label.Color = ctrl.Locked and txtMuted or ctrl.CustomTextColor or txtTitle end
             if ctrl.TitleText then
                 ctrl.TitleText.Color = ctrl.Locked and txtMuted or (ctrl.Code and txtSub or txtTitle)
             end

@@ -178,11 +178,6 @@ function Input:Set(val, skipCallback)
     if #self.Value > self.MaxLength then
         self.Value = string.sub(self.Value, 1, self.MaxLength)
     end
-
-    local lib = self.Section and self.Section.Env
-    if lib and lib.Options and rawget(lib.Options, self.Id) == self then
-        self.Value = self.Value
-    end
     self:_refreshDisplay()
     if not skipCallback then
         pcall(self.Callback, self.Value)

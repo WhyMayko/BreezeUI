@@ -2816,10 +2816,41 @@ end
 
 function Icons.Preload(names)
     if not names or type(names) ~= "table" then return 0 end
+    local rbxIds, rbxMap = {}, {}
     local count = 0
     for _, name in ipairs(names) do
-        Icons.Get(name)
+        local kind, val = resolve_source(name)
+        if kind == "rbx" and not Icons.Cache["rbx:" .. val] and not Icons.InFlight["rbx:" .. val] and not rbxMap[val] then
+            rbxMap[val] = true
+            table.insert(rbxIds, val)
+        else
+            Icons.Get(name)
+        end
         count = count + 1
+    end
+    if #rbxIds > 0 and game and game.HttpGet then
+        task.spawn(function()
+            local api = "https://thumbnails.roblox.com/v1/assets?assetIds=" .. table.concat(rbxIds, ",") .. "&returnPolicy=PlaceHolder&size=150x150&format=Png&isCircular=false"
+            local okMeta, body = pcall(function() return game:HttpGet(api) end)
+            local hsOk, hs = pcall(function() return game:GetService("HttpService") end)
+            if okMeta and hsOk and hs and type(body) == "string" and body ~= "" then
+                local decOk, decoded = pcall(function() return hs:JSONDecode(body) end)
+                if decOk and decoded and type(decoded.data) == "table" then
+                    for _, entry in ipairs(decoded.data) do
+                        local idStr = entry.targetId and tostring(entry.targetId)
+                        if idStr and type(entry.imageUrl) == "string" and entry.imageUrl ~= "" then
+                            Icons.Get(entry.imageUrl, function(png)
+                                Icons.Cache["rbx:" .. idStr] = png
+                            end)
+                        end
+                    end
+                    return
+                end
+            end
+            for _, idStr in ipairs(rbxIds) do
+                Icons.Get("rbxassetid://" .. idStr)
+            end
+        end)
     end
     return count
 end
@@ -3511,6 +3542,39 @@ local str_blue    = "Accent.Blue"
 local str_ctrl_bg = "Control.Background"
 local str_ctrl_hv = "Control.Hover"
 
+local str_danger  = "Accent.Danger"
+local str_green   = "Accent.Green"
+
+local function brighten_col(col, delta)
+    return Color3.fromRGB(
+        math.min(255, math.floor((col.R or 0) * 255 + delta)),
+        math.min(255, math.floor((col.G or 0) * 255 + delta)),
+        math.min(255, math.floor((col.B or 0) * 255 + delta))
+    )
+end
+
+local function resolve_button_style(bCfg, isOver, defaultBg, hoverBg, titleCol, accentCol)
+    local fill = bCfg.Color
+    local variant = bCfg.Variant
+    if type(fill) == "string" then
+        variant = fill
+        fill = nil
+    end
+    if not fill and variant then
+        if variant == "Danger" or variant == "Red" then
+            fill = ThemeModule.Get(str_danger)
+        elseif variant == "Success" or variant == "Green" then
+            fill = ThemeModule.Get(str_green)
+        elseif variant == "Primary" or variant == "Blue" then
+            fill = accentCol
+        end
+    end
+    if fill then
+        return isOver and brighten_col(fill, 20) or fill, bCfg.TextColor or Color3.fromRGB(255, 255, 255)
+    end
+    return isOver and hoverBg or defaultBg, bCfg.TextColor or titleCol
+end
+
 local function ensure_pool()
     if not Notify.Pool or Notify.Pool.Destroyed then
         Notify.Pool = PoolModule.new(nil, MetaModule)
@@ -3527,6 +3591,7 @@ local function create_slot()
         Border = pool:Get("Square"),
         ProgressTrack = pool:Get("Square"),
         ProgressFill = pool:Get("Square"),
+        IconBorder = pool:Get("Square"),
         IconImg = pool:Get("Image"),
         CloseImg = pool:Get("Image"),
         TitleText = pool:Get("Text"),
@@ -3554,6 +3619,12 @@ local function create_slot()
     slot.ProgressFill.Corner = 2
     slot.ProgressFill.ZIndex = 43
     slot.ProgressFill.Visible = false
+
+    slot.IconBorder.Filled = false
+    slot.IconBorder.Thickness = 1
+    slot.IconBorder.Corner = 0
+    slot.IconBorder.ZIndex = 44
+    slot.IconBorder.Visible = false
 
     slot.IconImg.ZIndex = 43
     slot.IconImg.Size = Vector2.new(22, 22)
@@ -3605,6 +3676,7 @@ local function hide_slot(slot)
     slot.IconImg.Size = Vector2.new(22, 22)
     slot.IconImg.Rounding = 0
     slot.IconImg.Visible = false
+    slot.IconBorder.Visible = false
     slot.CloseImg.Visible = false
     slot.TitleText.Visible = false
     for _, ln in ipairs(slot.Lines) do
@@ -3702,6 +3774,7 @@ function Notify.Push(cfg, titleArg, durationArg)
         IconSize = resolvedSize,
         IconRounding = iconRounding and math.max(0, math.floor(iconRounding + 0.5)) or 0,
         IconColor = iconColor,
+        IconBorderColor = type(cfg) == "table" and cfg.IconBorderColor or nil,
         KeepColor = keepColor,
         BgColor = bgCol,
         BorderColor = borderCol,
@@ -3971,8 +4044,19 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
             slot.IconImg.Position = Vector2.new(x + padX, y + padY)
             slot.IconImg.Transparency = alpha
             slot.IconImg.Visible = true
+            if toast.IconBorderColor then
+                slot.IconBorder.Position = Vector2.new(x + padX - 1, y + padY - 1)
+                slot.IconBorder.Size = Vector2.new(iconSize + 2, iconSize + 2)
+                slot.IconBorder.Corner = toast.IconRounding or 0
+                slot.IconBorder.Color = toast.IconBorderColor
+                slot.IconBorder.Transparency = alpha
+                slot.IconBorder.Visible = true
+            else
+                slot.IconBorder.Visible = false
+            end
         else
             slot.IconImg.Visible = false
+            slot.IconBorder.Visible = false
         end
 
         -- Close button
@@ -4031,15 +4115,16 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
                 if bi <= count and bCfg then
                     local bx = x + padX + (bi - 1) * (bw + 6)
                     local bOver = mx >= bx and mx <= bx + bw and my >= btnTop and my <= btnTop + 24
+                    local bBgCol, bTxtCol = resolve_button_style(bCfg, bOver, btnCol, btnHoverCol, tTitleCol, accentCol)
                     bSlot.Bg.Position = Vector2.new(bx, btnTop)
                     bSlot.Bg.Size = Vector2.new(bw, 24)
-                    bSlot.Bg.Color = bOver and btnHoverCol or btnCol
+                    bSlot.Bg.Color = bBgCol
                     bSlot.Bg.Transparency = alpha
                     bSlot.Bg.Visible = true
 
                     local bTitle = tostring(bCfg.Title or bCfg.Text or "Action")
                     bSlot.Text.Text = bTitle
-                    bSlot.Text.Color = tTitleCol
+                    bSlot.Text.Color = bTxtCol
                     bSlot.Text.Center = false
                     local ax, ay = MetricsModule.AlignCenter(bx, btnTop, bw, 24, bTitle, 11)
                     bSlot.Text.Position = Vector2.new(ax, ay)
@@ -4532,24 +4617,34 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
             if bi <= count and bCfg then
                 local bx = cx + pad + (bi - 1) * (btnW + btnGap)
                 local over = mx >= bx and mx <= bx + btnW and my >= btnY and my <= btnY + 34
-                local variant = tostring(bCfg.Variant or "Secondary")
-
                 local fillCol = secBtnCol
                 local txtCol = titleCol
                 local borderVis = false
-                if variant == "Primary" then
-                    local pr = math.min(255, math.floor((priCol.R or 0) * 255 + (over and 18 or 0)))
-                    local pg = math.min(255, math.floor((priCol.G or 0) * 255 + (over and 18 or 0)))
-                    local pb = math.min(255, math.floor((priCol.B or 0) * 255 + (over and 18 or 0)))
+                local customFill = bCfg.Color
+                local variant = type(customFill) == "string" and customFill or tostring(bCfg.Variant or "Secondary")
+                if type(customFill) == "string" then customFill = nil end
+                if not customFill then
+                    if variant == "Primary" or variant == "Blue" then
+                        customFill = priCol
+                    elseif variant == "Danger" or variant == "Red" then
+                        customFill = ThemeModule.Get("Accent.Danger")
+                    elseif variant == "Success" or variant == "Green" then
+                        customFill = ThemeModule.Get("Accent.Green")
+                    end
+                end
+                if customFill then
+                    local pr = math.min(255, math.floor((customFill.R or 0) * 255 + (over and 18 or 0)))
+                    local pg = math.min(255, math.floor((customFill.G or 0) * 255 + (over and 18 or 0)))
+                    local pb = math.min(255, math.floor((customFill.B or 0) * 255 + (over and 18 or 0)))
                     fillCol = Color3.fromRGB(pr, pg, pb)
-                    txtCol = Color3.fromRGB(255, 255, 255)
+                    txtCol = bCfg.TextColor or Color3.fromRGB(255, 255, 255)
                 elseif variant == "Tertiary" then
                     fillCol = over and secBtnCol or terBtnCol
-                    txtCol = descCol
+                    txtCol = bCfg.TextColor or descCol
                     borderVis = true
                 else
                     fillCol = over and secHoverCol or secBtnCol
-                    txtCol = titleCol
+                    txtCol = bCfg.TextColor or titleCol
                     borderVis = true
                 end
 
@@ -6134,12 +6229,26 @@ function Button.new(section, config)
     local pos, size = section:AllocateControlSlot(cfg.Half or cfg.Column ~= nil, rowH)
     local iconOpt = (cfg.Icon == false or cfg.Icon == "") and false or (cfg.Icon or "mouse-pointer-click")
 
+    local customColor = cfg.Color
+    if type(customColor) == "string" then
+        customColor = tag_colors[customColor]
+            or (customColor == "Danger" and ThemeModule.Get("Accent.Danger"))
+            or (customColor == "Success" and ThemeModule.Get("Accent.Green"))
+            or (customColor == "Primary" and ThemeModule.Get("Accent.Blue"))
+            or nil
+    elseif not customColor and cfg.Variant then
+        if cfg.Variant == "Danger" then customColor = ThemeModule.Get("Accent.Danger")
+        elseif cfg.Variant == "Success" then customColor = ThemeModule.Get("Accent.Green")
+        elseif cfg.Variant == "Primary" then customColor = ThemeModule.Get("Accent.Blue") end
+    end
+
     local self = setmetatable({
         Section = section,
         Text = cfg.Text or cfg.Title or "Button",
         Desc = desc,
         Icon = iconOpt,
-        CustomColor = cfg.Color,
+        CustomColor = customColor,
+        CustomTextColor = cfg.TextColor or (customColor and Color3.fromRGB(255, 255, 255) or nil),
         Justify = cfg.Justify or "Between",
         IconAlign = cfg.IconAlign or "Right",
         Position = pos,
@@ -6152,7 +6261,7 @@ function Button.new(section, config)
     local pool = section.Pool
     if pool then
         local btnBg = self.CustomColor or ThemeModule.Get("ElementBackground")
-        local txtCol = ThemeModule.Get("Text.Title")
+        local txtCol = self.CustomTextColor or ThemeModule.Get("Text.Title")
         local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
         -- 1. Button Surface Card
@@ -7685,11 +7794,6 @@ function Input:Set(val, skipCallback)
     if #self.Value > self.MaxLength then
         self.Value = string.sub(self.Value, 1, self.MaxLength)
     end
-
-    local lib = self.Section and self.Section.Env
-    if lib and lib.Options and rawget(lib.Options, self.Id) == self then
-        self.Value = self.Value
-    end
     self:_refreshDisplay()
     if not skipCallback then
         pcall(self.Callback, self.Value)
@@ -8060,19 +8164,15 @@ function Toggle:Set(val)
         self.CheckIcon.Visible = self.Visible and boolVal
     end
 
-    local palette = self.Section and self.Section.Window and self.Section.Window.ThemeTokens
+    local win = self.Section and self.Section.Window
     if self.Visible then
         AnimationsModule.Tween("Toggle_" .. tostring(self), self.AnimProgress or target, target, 20, function(v)
-            self:_applyAnimVisual(v, palette)
+            self:_applyAnimVisual(v, win and win.ThemeTokens)
         end)
     else
-        self:_applyAnimVisual(target, palette)
+        self:_applyAnimVisual(target, win and win.ThemeTokens)
     end
 
-    local lib = self.Section and self.Section.Env
-    if lib and lib.Toggles and rawget(lib.Toggles, self.Id) == self then
-        self.Value = boolVal
-    end
     if self.Section and self.Section.ParentTab then
         self.Section.ParentTab._layoutDirty = true
     end
@@ -11668,7 +11768,7 @@ function Tab:UpdateTheme(t)
                     if bSlot.Text then bSlot.Text.Color = txtTitle end
                 end
             end
-            if ctrl.Label then ctrl.Label.Color = ctrl.Locked and txtMuted or txtTitle end
+            if ctrl.Label then ctrl.Label.Color = ctrl.Locked and txtMuted or ctrl.CustomTextColor or txtTitle end
             if ctrl.TitleText then
                 ctrl.TitleText.Color = ctrl.Locked and txtMuted or (ctrl.Code and txtSub or txtTitle)
             end

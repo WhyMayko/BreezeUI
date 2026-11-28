@@ -341,24 +341,34 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
             if bi <= count and bCfg then
                 local bx = cx + pad + (bi - 1) * (btnW + btnGap)
                 local over = mx >= bx and mx <= bx + btnW and my >= btnY and my <= btnY + 34
-                local variant = tostring(bCfg.Variant or "Secondary")
-
                 local fillCol = secBtnCol
                 local txtCol = titleCol
                 local borderVis = false
-                if variant == "Primary" then
-                    local pr = math.min(255, math.floor((priCol.R or 0) * 255 + (over and 18 or 0)))
-                    local pg = math.min(255, math.floor((priCol.G or 0) * 255 + (over and 18 or 0)))
-                    local pb = math.min(255, math.floor((priCol.B or 0) * 255 + (over and 18 or 0)))
+                local customFill = bCfg.Color
+                local variant = type(customFill) == "string" and customFill or tostring(bCfg.Variant or "Secondary")
+                if type(customFill) == "string" then customFill = nil end
+                if not customFill then
+                    if variant == "Primary" or variant == "Blue" then
+                        customFill = priCol
+                    elseif variant == "Danger" or variant == "Red" then
+                        customFill = ThemeModule.Get("Accent.Danger")
+                    elseif variant == "Success" or variant == "Green" then
+                        customFill = ThemeModule.Get("Accent.Green")
+                    end
+                end
+                if customFill then
+                    local pr = math.min(255, math.floor((customFill.R or 0) * 255 + (over and 18 or 0)))
+                    local pg = math.min(255, math.floor((customFill.G or 0) * 255 + (over and 18 or 0)))
+                    local pb = math.min(255, math.floor((customFill.B or 0) * 255 + (over and 18 or 0)))
                     fillCol = Color3.fromRGB(pr, pg, pb)
-                    txtCol = Color3.fromRGB(255, 255, 255)
+                    txtCol = bCfg.TextColor or Color3.fromRGB(255, 255, 255)
                 elseif variant == "Tertiary" then
                     fillCol = over and secBtnCol or terBtnCol
-                    txtCol = descCol
+                    txtCol = bCfg.TextColor or descCol
                     borderVis = true
                 else
                     fillCol = over and secHoverCol or secBtnCol
-                    txtCol = titleCol
+                    txtCol = bCfg.TextColor or titleCol
                     borderVis = true
                 end
 

@@ -27,6 +27,39 @@ local str_blue    = "Accent.Blue"
 local str_ctrl_bg = "Control.Background"
 local str_ctrl_hv = "Control.Hover"
 
+local str_danger  = "Accent.Danger"
+local str_green   = "Accent.Green"
+
+local function brighten_col(col, delta)
+    return Color3.fromRGB(
+        math.min(255, math.floor((col.R or 0) * 255 + delta)),
+        math.min(255, math.floor((col.G or 0) * 255 + delta)),
+        math.min(255, math.floor((col.B or 0) * 255 + delta))
+    )
+end
+
+local function resolve_button_style(bCfg, isOver, defaultBg, hoverBg, titleCol, accentCol)
+    local fill = bCfg.Color
+    local variant = bCfg.Variant
+    if type(fill) == "string" then
+        variant = fill
+        fill = nil
+    end
+    if not fill and variant then
+        if variant == "Danger" or variant == "Red" then
+            fill = ThemeModule.Get(str_danger)
+        elseif variant == "Success" or variant == "Green" then
+            fill = ThemeModule.Get(str_green)
+        elseif variant == "Primary" or variant == "Blue" then
+            fill = accentCol
+        end
+    end
+    if fill then
+        return isOver and brighten_col(fill, 20) or fill, bCfg.TextColor or Color3.fromRGB(255, 255, 255)
+    end
+    return isOver and hoverBg or defaultBg, bCfg.TextColor or titleCol
+end
+
 local function ensure_pool()
     if not Notify.Pool or Notify.Pool.Destroyed then
         Notify.Pool = PoolModule.new(nil, MetaModule)
@@ -43,6 +76,7 @@ local function create_slot()
         Border = pool:Get("Square"),
         ProgressTrack = pool:Get("Square"),
         ProgressFill = pool:Get("Square"),
+        IconBorder = pool:Get("Square"),
         IconImg = pool:Get("Image"),
         CloseImg = pool:Get("Image"),
         TitleText = pool:Get("Text"),
@@ -70,6 +104,12 @@ local function create_slot()
     slot.ProgressFill.Corner = 2
     slot.ProgressFill.ZIndex = 43
     slot.ProgressFill.Visible = false
+
+    slot.IconBorder.Filled = false
+    slot.IconBorder.Thickness = 1
+    slot.IconBorder.Corner = 0
+    slot.IconBorder.ZIndex = 44
+    slot.IconBorder.Visible = false
 
     slot.IconImg.ZIndex = 43
     slot.IconImg.Size = Vector2.new(22, 22)
@@ -121,6 +161,7 @@ local function hide_slot(slot)
     slot.IconImg.Size = Vector2.new(22, 22)
     slot.IconImg.Rounding = 0
     slot.IconImg.Visible = false
+    slot.IconBorder.Visible = false
     slot.CloseImg.Visible = false
     slot.TitleText.Visible = false
     for _, ln in ipairs(slot.Lines) do
@@ -218,6 +259,7 @@ function Notify.Push(cfg, titleArg, durationArg)
         IconSize = resolvedSize,
         IconRounding = iconRounding and math.max(0, math.floor(iconRounding + 0.5)) or 0,
         IconColor = iconColor,
+        IconBorderColor = type(cfg) == "table" and cfg.IconBorderColor or nil,
         KeepColor = keepColor,
         BgColor = bgCol,
         BorderColor = borderCol,
@@ -487,8 +529,19 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
             slot.IconImg.Position = Vector2.new(x + padX, y + padY)
             slot.IconImg.Transparency = alpha
             slot.IconImg.Visible = true
+            if toast.IconBorderColor then
+                slot.IconBorder.Position = Vector2.new(x + padX - 1, y + padY - 1)
+                slot.IconBorder.Size = Vector2.new(iconSize + 2, iconSize + 2)
+                slot.IconBorder.Corner = toast.IconRounding or 0
+                slot.IconBorder.Color = toast.IconBorderColor
+                slot.IconBorder.Transparency = alpha
+                slot.IconBorder.Visible = true
+            else
+                slot.IconBorder.Visible = false
+            end
         else
             slot.IconImg.Visible = false
+            slot.IconBorder.Visible = false
         end
 
         -- Close button
@@ -547,15 +600,16 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
                 if bi <= count and bCfg then
                     local bx = x + padX + (bi - 1) * (bw + 6)
                     local bOver = mx >= bx and mx <= bx + bw and my >= btnTop and my <= btnTop + 24
+                    local bBgCol, bTxtCol = resolve_button_style(bCfg, bOver, btnCol, btnHoverCol, tTitleCol, accentCol)
                     bSlot.Bg.Position = Vector2.new(bx, btnTop)
                     bSlot.Bg.Size = Vector2.new(bw, 24)
-                    bSlot.Bg.Color = bOver and btnHoverCol or btnCol
+                    bSlot.Bg.Color = bBgCol
                     bSlot.Bg.Transparency = alpha
                     bSlot.Bg.Visible = true
 
                     local bTitle = tostring(bCfg.Title or bCfg.Text or "Action")
                     bSlot.Text.Text = bTitle
-                    bSlot.Text.Color = tTitleCol
+                    bSlot.Text.Color = bTxtCol
                     bSlot.Text.Center = false
                     local ax, ay = MetricsModule.AlignCenter(bx, btnTop, bw, 24, bTitle, 11)
                     bSlot.Text.Position = Vector2.new(ax, ay)
