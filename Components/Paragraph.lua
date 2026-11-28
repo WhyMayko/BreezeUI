@@ -292,7 +292,7 @@ Paragraph.SetContent = Paragraph.SetDesc
 function Paragraph:HandleClick(mx, my)
     for _, bSlot in ipairs(self.ButtonSlots) do
         local r = bSlot.Rect
-        if mx >= r.X and mx <= r.X + r.W and my >= r.Y and my <= r.Y + r.H then
+        if bSlot.Bg and bSlot.Bg.Visible and mx >= r.X and mx <= r.X + r.W and my >= r.Y and my <= r.Y + r.H then
             if bSlot.Config.Callback then
                 local ok, err = pcall(bSlot.Config.Callback)
                 if not ok then

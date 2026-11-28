@@ -8295,7 +8295,7 @@ Paragraph.SetContent = Paragraph.SetDesc
 function Paragraph:HandleClick(mx, my)
     for _, bSlot in ipairs(self.ButtonSlots) do
         local r = bSlot.Rect
-        if mx >= r.X and mx <= r.X + r.W and my >= r.Y and my <= r.Y + r.H then
+        if bSlot.Bg and bSlot.Bg.Visible and mx >= r.X and mx <= r.X + r.W and my >= r.Y and my <= r.Y + r.H then
             if bSlot.Config.Callback then
                 local ok, err = pcall(bSlot.Config.Callback)
                 if not ok then
@@ -8566,7 +8566,7 @@ function Code:_setCopyLabel(labelStr)
 end
 
 function Code:HandleClick(mx, my)
-    if not self.CanCopied then return false end
+    if not self.CanCopied or not self.CopyBg or not self.CopyBg.Visible then return false end
     local r = self.CopyRect
     if mx >= r.X and mx <= r.X + r.W and my >= r.Y and my <= r.Y + r.H then
         pcall(function()
@@ -10041,10 +10041,11 @@ function ContentSection.new(config, parentTab, window)
         chev.Visible = false
         self.ChevronImg = chev
         self:_register(chev)
+        self._chevCb = function(png)
+            if self.ChevronImg and png then self.ChevronImg.Data = png end
+        end
         if IconsModule and IconsModule.Get then
-            IconsModule.Get(startOpened and "chevron-down" or "chevron-up", function(png)
-                if self.ChevronImg and png then self.ChevronImg.Data = png end
-            end)
+            IconsModule.Get(startOpened and "chevron-down" or "chevron-up", self._chevCb)
         end
     end
     -- When collapsed initially, collapse content
@@ -10279,9 +10280,10 @@ function ContentSection:Open()
     if not self.Expandable or self.IsExpanded then return end
     self.IsExpanded = true
     if self.ChevronImg and IconsModule and IconsModule.Get then
-        IconsModule.Get("chevron-down", function(png)
+        self._chevCb = self._chevCb or function(png)
             if self.ChevronImg and png then self.ChevronImg.Data = png end
-        end)
+        end
+        IconsModule.Get("chevron-down", self._chevCb)
     end
     if self.ParentTab then self.ParentTab._layoutDirty = true end
 end
@@ -10290,9 +10292,10 @@ function ContentSection:Close()
     if not self.Expandable or not self.IsExpanded then return end
     self.IsExpanded = false
     if self.ChevronImg and IconsModule and IconsModule.Get then
-        IconsModule.Get("chevron-up", function(png)
+        self._chevCb = self._chevCb or function(png)
             if self.ChevronImg and png then self.ChevronImg.Data = png end
-        end)
+        end
+        IconsModule.Get("chevron-up", self._chevCb)
     end
     if self.ParentTab then self.ParentTab._layoutDirty = true end
 end
@@ -12333,12 +12336,15 @@ end
 
 function Section:_syncCaretIcon()
     if not self.Caret or not IconsModule or not IconsModule.Get then return end
-    local iconName = self.Opened and "chevron-up" or "chevron-down"
-    IconsModule.Get(iconName, function(png)
-        if self.Caret and png then
-            self.Caret.Data = png
+    if not self._caretCb then
+        self._caretCb = function(png)
+            if self.Caret and png then
+                self.Caret.Data = png
+            end
         end
-    end)
+    end
+    local iconName = self.Opened and "chevron-up" or "chevron-down"
+    IconsModule.Get(iconName, self._caretCb)
 end
 
 function Section:HasActiveChild()
@@ -12777,6 +12783,7 @@ function Sidebar:SetVisible(visible)
     if not visible and self.SearchFocused then
         self:BlurSearch()
     end
+    if not visible and self.Divider then self.Divider.Visible = false end
     if self.SearchBox then self.SearchBox.Visible = visible end
     if self.SearchBorder then self.SearchBorder.Visible = visible end
     if self.SearchIcon then self.SearchIcon.Visible = visible end
@@ -13297,7 +13304,8 @@ function Window:_createChrome()
     self.TitleText = titleText
     self.HeaderText = titleText
     self.TitleOffset = titleOffset
-    self.TitleEndOffset = titleOffset + math.floor(#fitTitle * 6.2)
+    local titleW = (MetricsModule and MetricsModule.Measure and MetricsModule.Measure(fitTitle, 13)) or math.floor(#fitTitle * 6.2)
+    self.TitleEndOffset = titleOffset + titleW
     self:_register(titleText)
 
     local subText = pool:Get("Text")
@@ -13544,15 +13552,7 @@ function Window:SetSize(newSize, ignoreMaxClamp)
         self.MainPanelBg.Size = Vector2.new(clampedW - self.SidebarWidth - 12, math.max(40, sy - self.HeaderHeight - 8))
     end
 
-    local maxTitleW = math.max(60, clampedW - 180)
-    local fullTitle = (self.Subtitle and self.Subtitle ~= "" and self.Subtitle ~= "BreezeUI")
-        and (self.Title .. "  |  " .. self.Subtitle)
-        or tostring(self.Title)
-    local fitTitle = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(fullTitle, maxTitleW, 13) or fullTitle
-    if self.TitleText then
-        self.TitleText.Text = fitTitle
-    end
-    self.TitleEndOffset = (self.TitleOffset or 74) + math.floor(#fitTitle * 6.2)
+    self:_refreshTitleText()
 
     if self.BottomDragPill then
         self.BottomDragPill.Position = Vector2.new(px + math.floor((clampedW - 168) * 0.5), py + sy + 2)
@@ -13560,8 +13560,6 @@ function Window:SetSize(newSize, ignoreMaxClamp)
     if self.ResizeIcon then
         self.ResizeIcon.Position = Vector2.new(px + clampedW - 28, py + sy - 28)
     end
-
-    self:_syncTagPositions()
 
     if self.Sidebar then
         self.Sidebar:SetSize(Vector2.new(self.SidebarWidth, clampedH - 58))
@@ -13776,7 +13774,8 @@ function Window:_refreshTitleText()
         or tostring(self.Title)
     local fitTitle = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(fullTitle, maxTitleW, 13) or fullTitle
     self.TitleText.Text = fitTitle
-    self.TitleEndOffset = (self.TitleOffset or 74) + math.floor(#fitTitle * 6.2)
+    local titleW = (MetricsModule and MetricsModule.Measure and MetricsModule.Measure(fitTitle, 13)) or math.floor(#fitTitle * 6.2)
+    self.TitleEndOffset = (self.TitleOffset or 74) + titleW
     self:_syncTagPositions()
 end
 
@@ -14775,7 +14774,9 @@ function Window:Update(rawDt)
                         local cy = ctrl.Position.Y
                         local cw = ctrl.Size.X
                         local ch = ctrl.Size.Y
-                        local hovered = mx >= cx and mx <= cx + cw and my >= cy and my <= cy + ch
+                        local hitTop = ctrl._clipTop and math.max(cy, ctrl._clipTop) or cy
+                        local hitBot = ctrl._clipBottom and math.min(cy + ch, ctrl._clipBottom) or (cy + ch)
+                        local hovered = (hitBot > hitTop) and mx >= cx and mx <= cx + cw and my >= hitTop and my <= hitBot
 
                         if hovered then
                             if ctrl.Locked then
@@ -14796,7 +14797,9 @@ function Window:Update(rawDt)
                                 local kp = ctrl.KeyPicker
                                 local kpx, kpy = kp.Position.X, kp.Position.Y
                                 local kpw, kph = kp.Size.X, kp.Size.Y
-                                if mx >= kpx and mx <= kpx + kpw and my >= kpy and my <= kpy + kph then
+                                local kHitTop = ctrl._clipTop and math.max(kpy, ctrl._clipTop) or kpy
+                                local kHitBot = ctrl._clipBottom and math.min(kpy + kph, ctrl._clipBottom) or (kpy + kph)
+                                if (kHitBot > kHitTop) and mx >= kpx and mx <= kpx + kpw and my >= kHitTop and my <= kHitBot then
                                     if m1Clicked and kp.StartCapture then
                                         kp:StartCapture()
                                         hovered = false
@@ -14810,7 +14813,7 @@ function Window:Update(rawDt)
                             if ctrl.Track and ctrl.FillBar and ctrl.Drag then
                                 local tx = ctrl.Track.Position.X
                                 local tw = ctrl.Track.Size.X
-                                local trackHover = mx >= tx - 8 and mx <= tx + tw + 8 and my >= cy and my <= cy + ch
+                                local trackHover = (hitBot > hitTop) and mx >= tx - 8 and mx <= tx + tw + 8 and my >= hitTop and my <= hitBot
                                 if ctrl._dragging then
                                     if m1Pressed then
                                         local ratio = math.clamp((mx - tx) / tw, 0, 1)

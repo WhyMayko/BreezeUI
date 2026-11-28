@@ -78,12 +78,15 @@ end
 
 function Section:_syncCaretIcon()
     if not self.Caret or not IconsModule or not IconsModule.Get then return end
-    local iconName = self.Opened and "chevron-up" or "chevron-down"
-    IconsModule.Get(iconName, function(png)
-        if self.Caret and png then
-            self.Caret.Data = png
+    if not self._caretCb then
+        self._caretCb = function(png)
+            if self.Caret and png then
+                self.Caret.Data = png
+            end
         end
-    end)
+    end
+    local iconName = self.Opened and "chevron-up" or "chevron-down"
+    IconsModule.Get(iconName, self._caretCb)
 end
 
 function Section:HasActiveChild()
@@ -522,6 +525,7 @@ function Sidebar:SetVisible(visible)
     if not visible and self.SearchFocused then
         self:BlurSearch()
     end
+    if not visible and self.Divider then self.Divider.Visible = false end
     if self.SearchBox then self.SearchBox.Visible = visible end
     if self.SearchBorder then self.SearchBorder.Visible = visible end
     if self.SearchIcon then self.SearchIcon.Visible = visible end

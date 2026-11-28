@@ -200,10 +200,11 @@ function ContentSection.new(config, parentTab, window)
         chev.Visible = false
         self.ChevronImg = chev
         self:_register(chev)
+        self._chevCb = function(png)
+            if self.ChevronImg and png then self.ChevronImg.Data = png end
+        end
         if IconsModule and IconsModule.Get then
-            IconsModule.Get(startOpened and "chevron-down" or "chevron-up", function(png)
-                if self.ChevronImg and png then self.ChevronImg.Data = png end
-            end)
+            IconsModule.Get(startOpened and "chevron-down" or "chevron-up", self._chevCb)
         end
     end
     -- When collapsed initially, collapse content
@@ -438,9 +439,10 @@ function ContentSection:Open()
     if not self.Expandable or self.IsExpanded then return end
     self.IsExpanded = true
     if self.ChevronImg and IconsModule and IconsModule.Get then
-        IconsModule.Get("chevron-down", function(png)
+        self._chevCb = self._chevCb or function(png)
             if self.ChevronImg and png then self.ChevronImg.Data = png end
-        end)
+        end
+        IconsModule.Get("chevron-down", self._chevCb)
     end
     if self.ParentTab then self.ParentTab._layoutDirty = true end
 end
@@ -449,9 +451,10 @@ function ContentSection:Close()
     if not self.Expandable or not self.IsExpanded then return end
     self.IsExpanded = false
     if self.ChevronImg and IconsModule and IconsModule.Get then
-        IconsModule.Get("chevron-up", function(png)
+        self._chevCb = self._chevCb or function(png)
             if self.ChevronImg and png then self.ChevronImg.Data = png end
-        end)
+        end
+        IconsModule.Get("chevron-up", self._chevCb)
     end
     if self.ParentTab then self.ParentTab._layoutDirty = true end
 end

@@ -218,7 +218,7 @@ function Code:_setCopyLabel(labelStr)
 end
 
 function Code:HandleClick(mx, my)
-    if not self.CanCopied then return false end
+    if not self.CanCopied or not self.CopyBg or not self.CopyBg.Visible then return false end
     local r = self.CopyRect
     if mx >= r.X and mx <= r.X + r.W and my >= r.Y and my <= r.Y + r.H then
         pcall(function()
