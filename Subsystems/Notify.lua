@@ -547,8 +547,9 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
                     local bTitle = tostring(bCfg.Title or bCfg.Text or "Action")
                     bSlot.Text.Text = bTitle
                     bSlot.Text.Color = titleCol
-                    bSlot.Text.Center = true
-                    bSlot.Text.Position = Vector2.new(bx + math.floor(bw * 0.5), btnTop + 12)
+                    bSlot.Text.Center = false
+                    local ax, ay = MetricsModule.AlignCenter(bx, btnTop, bw, 24, bTitle, 11)
+                    bSlot.Text.Position = Vector2.new(ax, ay)
                     bSlot.Text.Transparency = alpha
                     bSlot.Text.Visible = true
 

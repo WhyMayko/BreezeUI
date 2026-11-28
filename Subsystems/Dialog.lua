@@ -429,7 +429,7 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
 
                 local bTitle = tostring(bCfg.Title or bCfg.Text or "OK")
                 local hasBIcon = d._buttonIcons[bi] ~= nil
-                local txtW = math.floor(#bTitle * 6.8)
+                local txtW = MetricsModule.Measure(bTitle, 13)
                 local totalContentW = txtW + (hasBIcon and 20 or 0)
                 local startX = bx + math.max(8, math.floor((btnW - totalContentW) * 0.5))
 
@@ -443,9 +443,10 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
                     bSlot.Text.Position = Vector2.new(startX + 18, btnY + 10)
                 else
                     bSlot.Icon.Visible = false
-                    bSlot.Text.Center = true
+                    bSlot.Text.Center = false
                     local bh = (bSlot.Bg.Size and bSlot.Bg.Size.Y) or 34
-                    bSlot.Text.Position = Vector2.new(bx + math.floor(btnW * 0.5), btnY + math.floor(bh * 0.5))
+                    local ax, ay = MetricsModule.AlignCenter(bx, btnY, btnW, bh, bTitle, 13)
+                    bSlot.Text.Position = Vector2.new(ax, ay)
                 end
 
                 bSlot.Text.Text = bTitle

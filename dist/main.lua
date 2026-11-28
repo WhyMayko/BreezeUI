@@ -3822,8 +3822,9 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
                     local bTitle = tostring(bCfg.Title or bCfg.Text or "Action")
                     bSlot.Text.Text = bTitle
                     bSlot.Text.Color = titleCol
-                    bSlot.Text.Center = true
-                    bSlot.Text.Position = Vector2.new(bx + math.floor(bw * 0.5), btnTop + 12)
+                    bSlot.Text.Center = false
+                    local ax, ay = MetricsModule.AlignCenter(bx, btnTop, bw, 24, bTitle, 11)
+                    bSlot.Text.Position = Vector2.new(ax, ay)
                     bSlot.Text.Transparency = alpha
                     bSlot.Text.Visible = true
 
@@ -4401,7 +4402,7 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
 
                 local bTitle = tostring(bCfg.Title or bCfg.Text or "OK")
                 local hasBIcon = d._buttonIcons[bi] ~= nil
-                local txtW = math.floor(#bTitle * 6.8)
+                local txtW = MetricsModule.Measure(bTitle, 13)
                 local totalContentW = txtW + (hasBIcon and 20 or 0)
                 local startX = bx + math.max(8, math.floor((btnW - totalContentW) * 0.5))
 
@@ -4415,9 +4416,10 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
                     bSlot.Text.Position = Vector2.new(startX + 18, btnY + 10)
                 else
                     bSlot.Icon.Visible = false
-                    bSlot.Text.Center = true
+                    bSlot.Text.Center = false
                     local bh = (bSlot.Bg.Size and bSlot.Bg.Size.Y) or 34
-                    bSlot.Text.Position = Vector2.new(bx + math.floor(btnW * 0.5), btnY + math.floor(bh * 0.5))
+                    local ax, ay = MetricsModule.AlignCenter(bx, btnY, btnW, bh, bTitle, 13)
+                    bSlot.Text.Position = Vector2.new(ax, ay)
                 end
 
                 bSlot.Text.Text = bTitle
@@ -15311,14 +15313,16 @@ end
 
 -- Window Construction
 function BreezeUI:CreateWindow(config)
-    self.Unloaded = false
-    self.Destroyed = false
-    self._destroyed = false
-
-    -- Auto-close previous active window to prevent stacked ghost drawings
+    -- Auto-close previous active window first so _cleanupRuntime does not clobber the new session state
     if self._activeWindow and not self._activeWindow.Destroyed then
         self._activeWindow:Destroy()
     end
+
+    self.Unloaded = false
+    self.Destroyed = false
+    self._destroyed = false
+    self._connections = self._connections or {}
+    self.UnloadCallbacks = self.UnloadCallbacks or {}
 
     -- Cross-VM Matcha UI handshake: overwriting token immediately supersedes any prior running VM (and recovers cleanly from Lua VM resets)
     local uiStateToken = "running:" .. tostring(os.clock()) .. ":" .. tostring(math.random(1000, 9999))

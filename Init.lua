@@ -341,14 +341,16 @@ end
 
 -- Window Construction
 function BreezeUI:CreateWindow(config)
-    self.Unloaded = false
-    self.Destroyed = false
-    self._destroyed = false
-
-    -- Auto-close previous active window to prevent stacked ghost drawings
+    -- Auto-close previous active window first so _cleanupRuntime does not clobber the new session state
     if self._activeWindow and not self._activeWindow.Destroyed then
         self._activeWindow:Destroy()
     end
+
+    self.Unloaded = false
+    self.Destroyed = false
+    self._destroyed = false
+    self._connections = self._connections or {}
+    self.UnloadCallbacks = self.UnloadCallbacks or {}
 
     -- Cross-VM Matcha UI handshake: overwriting token immediately supersedes any prior running VM (and recovers cleanly from Lua VM resets)
     local uiStateToken = "running:" .. tostring(os.clock()) .. ":" .. tostring(math.random(1000, 9999))
