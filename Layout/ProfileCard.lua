@@ -515,11 +515,12 @@ function ProfileCard:Update(mx, my, m1Clicked, dt)
         end
     end
 
+    local themeTokens = (self.Window and self.Window.ThemeTokens) or ThemeModule.GetCurrent()
     local cx, cy, cw, ch = self:GetCardRect()
     local overCard = mx >= cx and mx <= cx + cw and my >= cy and my <= cy + ch
     if overCard ~= self.Hovered then
         self.Hovered = overCard
-        self:UpdateTheme(ThemeModule.GetCurrent())
+        self:UpdateTheme(themeTokens)
         AnimationsModule.Tween("profile_hover_" .. tostring(self), self.HoverAnim, overCard and 1 or 0, 22, function(v)
             self.HoverAnim = v
             self:UpdateLayout()
@@ -529,7 +530,7 @@ function ProfileCard:Update(mx, my, m1Clicked, dt)
     if m1Clicked then
         if overCard then
             self:_animatePopover(not self.Open)
-            self:UpdateTheme(ThemeModule.GetCurrent())
+            self:UpdateTheme(themeTokens)
             if self.Callback then
                 task.spawn(self.Callback)
             end
@@ -541,7 +542,7 @@ function ProfileCard:Update(mx, my, m1Clicked, dt)
                 return true
             end
             self:_animatePopover(false)
-            self:UpdateTheme(ThemeModule.GetCurrent())
+            self:UpdateTheme(themeTokens)
         end
     end
     return false

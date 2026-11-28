@@ -11,14 +11,9 @@ Code.__index = Code
 local function split_code_lines(src, maxW, maxLines)
     local out = {}
     local str = tostring(src or "")
-    local maxChars = math.max(16, math.floor(maxW / 6.5))
     for raw in (str .. "\n"):gmatch("(.-)\n") do
         if #out >= maxLines then break end
-        if #raw > maxChars then
-            table.insert(out, string.sub(raw, 1, maxChars - 3) .. "...")
-        else
-            table.insert(out, raw)
-        end
+        table.insert(out, MetricsModule.Fit(raw, maxW, 12))
     end
     if #out == 0 then table.insert(out, "") end
     return out

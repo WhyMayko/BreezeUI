@@ -1,6 +1,8 @@
 -- Library/BreezeUI/Subsystems/Settings.lua
 -- Native integrated Settings subsystem providing Interface, Behavior, Configuration, and Performance controls.
 
+local ThemeModule = require("../Layout/Theme")
+
 local Settings = {
     Profiles = {},
     _profiles = {},
@@ -337,32 +339,34 @@ function Settings.LoadUI(win)
     local rawOpt = env._rawOptions or {}
     local rawTog = env._rawToggles or {}
     Settings._loadingUI = true
-    if data.Theme then
-        if rawOpt.SettingsTheme then rawOpt.SettingsTheme:Set(data.Theme) end
-        if win.SetTheme then win:SetTheme(data.Theme) end
-    end
-    if data.MinimizeKey ~= nil then
-        local resolvedMin = (data.MinimizeKey ~= false) and data.MinimizeKey or nil
-        if rawOpt.SettingsMinimizeKey then rawOpt.SettingsMinimizeKey:Set(resolvedMin) end
-        if win.SetToggleKey then
-            win.ToggleKeyMinimizes = true
-            win:SetToggleKey(resolvedMin)
+    pcall(function()
+        if data.Theme then
+            if rawOpt.SettingsTheme then rawOpt.SettingsTheme:Set(data.Theme) end
+            if win.SetTheme then win:SetTheme(data.Theme) end
         end
-    end
-    if data.InputBlock ~= nil then
-        local blk = data.InputBlock == true
-        if rawTog.SettingsInputBlock then rawTog.SettingsInputBlock:Set(blk) end
-        if win.SetInputBlocking then win:SetInputBlocking(blk) end
-    end
-    if data.KeybindList ~= nil then
-        local kl = data.KeybindList == true
-        if rawTog.SettingsKeybindList then rawTog.SettingsKeybindList:Set(kl) end
-        if win.SetKeybindMenuVisible then win:SetKeybindMenuVisible(kl) end
-    end
-    if data.NotifySide then
-        if rawOpt.SettingsNotifySide then rawOpt.SettingsNotifySide:Set(data.NotifySide) end
-        if env.SetNotifySide then env:SetNotifySide(data.NotifySide) end
-    end
+        if data.MinimizeKey ~= nil then
+            local resolvedMin = (data.MinimizeKey ~= false) and data.MinimizeKey or nil
+            if rawOpt.SettingsMinimizeKey then rawOpt.SettingsMinimizeKey:Set(resolvedMin) end
+            if win.SetToggleKey then
+                win.ToggleKeyMinimizes = true
+                win:SetToggleKey(resolvedMin)
+            end
+        end
+        if data.InputBlock ~= nil then
+            local blk = data.InputBlock == true
+            if rawTog.SettingsInputBlock then rawTog.SettingsInputBlock:Set(blk) end
+            if win.SetInputBlocking then win:SetInputBlocking(blk) end
+        end
+        if data.KeybindList ~= nil then
+            local kl = data.KeybindList == true
+            if rawTog.SettingsKeybindList then rawTog.SettingsKeybindList:Set(kl) end
+            if win.SetKeybindMenuVisible then win:SetKeybindMenuVisible(kl) end
+        end
+        if data.NotifySide then
+            if rawOpt.SettingsNotifySide then rawOpt.SettingsNotifySide:Set(data.NotifySide) end
+            if env.SetNotifySide then env:SetNotifySide(data.NotifySide) end
+        end
+    end)
     Settings._loadingUI = false
     return true
 end
@@ -377,8 +381,7 @@ function Settings.BuildTab(win)
     -- ── Interface ──────────────────────────────────────────────────────────────
     local secIface = tab:Section({ Title = "Interface" })
 
-    local themes = (win.Env and win.Env.GetThemes and win.Env:GetThemes())
-        or { "Dark", "Light", "Rose", "Plant", "Red", "Indigo", "Sky", "Violet", "Amber", "Emerald", "Midnight", "Crimson", "MonokaiPro", "CottonCandy", "Mellowsi", "Rainbow", "Slate", "Ruby" }
+    local themes = (win.Env and win.Env.GetThemes and win.Env:GetThemes()) or ThemeModule.GetThemes()
     secIface:AddDropdown("SettingsTheme", {
         Text             = "Theme",
         Values           = themes,

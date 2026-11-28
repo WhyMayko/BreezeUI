@@ -99,8 +99,11 @@ function InputHandler:ReadTextInput()
         end
         return "backspace"
     end
-    if iskeypressed(0x11) and (self:KeyPressed(0x5A) or self:KeyPressed(0x41)) then
-        return "clear"
+    if iskeypressed(0x11) then
+        if self:KeyPressed(0x5A) or self:KeyPressed(0x41) then
+            return "clear"
+        end
+        return nil
     end
     if self:KeyPressed(0x20) then return " " end
 

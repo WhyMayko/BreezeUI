@@ -88,6 +88,20 @@ function ProgressBar.new(section, id, config)
         self.TitleText = titleTxt
         section:_register(titleTxt)
 
+        if self.Desc and self.Desc ~= "" then
+            local dTxt = pool:Get("Text")
+            dTxt.Text = self.Desc
+            dTxt.Font = fontUI
+            dTxt.Outline = false
+            dTxt.Size = 11
+            dTxt.Color = ThemeModule.Get("Text.Secondary")
+            dTxt.Position = Vector2.new(pos.X + 14, pos.Y + 24)
+            dTxt.ZIndex = 5
+            dTxt.Visible = section.Visible
+            self.DescLabel = dTxt
+            section:_register(dTxt)
+        end
+
         if self.ShowValue then
             local valTxt = pool:Get("Text")
             valTxt.Text = format_value(self.Value, self.Min, self.Max, self.DisplayMode, self.Format)
@@ -162,6 +176,12 @@ function ProgressBar:_syncVisual()
             self.ValueText.Visible = self.Visible
         end
     end
+    if self.TitleText then
+        local valReserve = (self.ValueText and not self.Indeterminate) and (MetricsModule.Measure(self.ValueText.Text or "", 12) + 12) or 0
+        local maxTitleW = math.max(40, self.Size.X - 28 - valReserve)
+        self.TitleText.Text = MetricsModule.Fit(self.Title, maxTitleW, 13)
+        self.TitleText.Position = Vector2.new(self.Position.X + 14, self.Position.Y + 8)
+    end
     if self.Visible and self._clipTop and self._clipBottom and self.Section and self.Section.ClipControl then
         self.Section.ClipControl(self, self._clipTop, self._clipBottom)
     end
@@ -192,17 +212,18 @@ function ProgressBar:SetPosition(pos, size)
         self.Visual.Position = pos
         self.Visual.Size = self.Size
     end
-    if self.TitleText then
-        self.TitleText.Text = MetricsModule.Fit(self.Title, self.Size.X - 80, 13)
-        self.TitleText.Position = Vector2.new(pos.X + 14, pos.Y + 8)
-    end
     self:_syncVisual()
+    if self.DescLabel then
+        self.DescLabel.Text = MetricsModule.Fit(self.Desc, math.max(40, self.Size.X - 28), 11)
+        self.DescLabel.Position = Vector2.new(pos.X + 14, pos.Y + 24)
+    end
 end
 
 function ProgressBar:SetVisible(vis)
     self.Visible = vis
     if self.Visual then self.Visual.Visible = vis end
     if self.TitleText then self.TitleText.Visible = vis end
+    if self.DescLabel then self.DescLabel.Visible = vis end
     if self.ValueText then self.ValueText.Visible = vis and not self.Indeterminate end
     if self.Track then self.Track.Visible = vis end
     if self.FillBar then

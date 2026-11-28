@@ -188,13 +188,14 @@ function Tab:_initSidebarDrawings()
     end
 end
 
-function Tab:UpdateVisualState()
+function Tab:UpdateVisualState(palette)
     if not self.SidebarVisible then return end
     local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
+    local t = palette or (self.Window and self.Window.ThemeTokens)
 
     if self.IsActive then
-        local activeBg = ThemeModule.Get(str_tab_active)
-        local titleCol = ThemeModule.Get(str_txt_title)
+        local activeBg = ThemeModule.Resolve(t, str_tab_active)
+        local titleCol = ThemeModule.Resolve(t, str_txt_title)
         if self.Capsule then
             self.Capsule.Color = activeBg
             self.Capsule.Transparency = 1.0
@@ -209,8 +210,8 @@ function Tab:UpdateVisualState()
             self.TabIcon.Transparency = 1.0
         end
     elseif self.IsHovered or (self.HoverAnim or 0) > 0.02 then
-        local hoverBg = ThemeModule.Get(str_tab_hover)
-        local titleCol = ThemeModule.Get(str_txt_title)
+        local hoverBg = ThemeModule.Resolve(t, str_tab_hover)
+        local titleCol = ThemeModule.Resolve(t, str_txt_title)
         if self.Capsule then
             self.Capsule.Color = hoverBg
             self.Capsule.Transparency = self.HoverAnim or 1.0
@@ -225,7 +226,7 @@ function Tab:UpdateVisualState()
             self.TabIcon.Transparency = 0.92
         end
     else
-        local subCol = ThemeModule.Get(str_txt_sec)
+        local subCol = ThemeModule.Resolve(t, str_txt_sec)
         if self.Capsule then
             self.Capsule.Visible = false
         end
@@ -528,7 +529,7 @@ function Tab:SetVisible(visible)
 end
 
 function Tab:UpdateTheme(t)
-    self:UpdateVisualState()
+    self:UpdateVisualState(t)
     local cardBg = ThemeModule.Resolve(t, "Card.Background")
     local borderCol = ThemeModule.Resolve(t, "Card.Border")
     local elemBg = ThemeModule.Resolve(t, "ElementBackground")
@@ -557,7 +558,7 @@ function Tab:UpdateTheme(t)
             if ctrl.HeaderBg then ctrl.HeaderBg.Color = ctrlBg end
             if ctrl.CopyBg then ctrl.CopyBg.Color = elemBg end
             if ctrl.CopyText then ctrl.CopyText.Color = txtTitle end
-            if ctrl.Border then ctrl.Border.Color = borderCol end
+            if ctrl.Border and not ctrl.CustomBorderColor then ctrl.Border.Color = borderCol end
             if ctrl.SwatchBorder then ctrl.SwatchBorder.Color = borderCol end
             if ctrl.PopupBg then ctrl.PopupBg.Color = cardBg end
             if ctrl.PopupBorder then ctrl.PopupBorder.Color = borderCol end
@@ -602,6 +603,11 @@ function Tab:UpdateTheme(t)
                 if kp.ModeMenu then
                     if kp.ModeMenu.Bg then kp.ModeMenu.Bg.Color = cardBg end
                     if kp.ModeMenu.Border then kp.ModeMenu.Border.Color = borderCol end
+                    for _, row in ipairs(kp.ModeMenu.Rows or {}) do
+                        local sel = kp.Mode == row.Mode
+                        if row.Bg then row.Bg.Color = ThemeModule.Resolve(t, sel and str_tab_active or "Card.Background") end
+                        if row.Text then row.Text.Color = sel and txtTitle or txtSub end
+                    end
                 end
             end
             if ctrl.InputText and ctrl._refreshDisplay then ctrl:_refreshDisplay() end

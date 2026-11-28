@@ -4,6 +4,7 @@
 local ThemeModule = Theme or require("../Layout/Theme")
 local IconsModule = Icons or require("../Subsystems/Icons")
 local MetricsModule = Metrics or require("../Core/Metrics")
+local ClampingModule = Clamping or require("../Engine/Clamping")
 
 local Colorpicker = {}
 Colorpicker.__index = Colorpicker
@@ -49,14 +50,6 @@ local function rgb_to_hex(col)
     local g = math.floor(clamp(tonumber(col.G or col.g) or 1, 0, 1) * 255 + 0.5)
     local b = math.floor(clamp(tonumber(col.B or col.b) or 1, 0, 1) * 255 + 0.5)
     return string.format("#%02X%02X%02X", r, g, b)
-end
-
-local function get_viewport()
-    local cam = workspace and workspace.CurrentCamera
-    if cam and cam.ViewportSize and cam.ViewportSize.X > 0 and cam.ViewportSize.Y > 0 then
-        return cam.ViewportSize
-    end
-    return Vector2.new(1920, 1080)
 end
 
 function Colorpicker:_syncSwatchVisual()
@@ -380,7 +373,7 @@ function Colorpicker:_syncPopup()
     local pd = self.PopupDrawings
     if not pd or not self.IsOpen then return end
 
-    local vp = get_viewport()
+    local vp = ClampingModule.GetViewportSize()
     local popW = 216
     local popH = self.HasAlpha and 248 or 222
     local x = clamp(self.Position.X + self.Size.X - popW, 8, math.max(8, vp.X - popW - 8))
@@ -688,14 +681,18 @@ end
 
 function Colorpicker:SetTitle(title)
     self.Title = tostring(title or "")
-    if self.TitleText then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.TitleText then
         self.TitleText.Text = self.Title
     end
 end
 
 function Colorpicker:SetDesc(desc)
     self.Desc = desc ~= nil and tostring(desc) or ""
-    if self.DescText then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.DescText then
         self.DescText.Text = self.Desc
     end
 end

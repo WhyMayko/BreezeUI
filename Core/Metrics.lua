@@ -83,6 +83,47 @@ function metrics.AlignCenter(boxX, boxY, boxW, boxH, text, size, scale)
     return boxX + math.floor((boxW - w) * 0.5), boxY + math.floor((boxH - h) * 0.5)
 end
 
+function metrics.WrapLines(text, maxWidth, size, maxLines)
+    local out = {}
+    local str = tostring(text or "")
+    if str == "" or not maxWidth or maxWidth <= 0 then return out end
+    local limit = maxLines or 6
+    local resolved = resolve_size(size, 1)
+    local spaceW = resolved * (chars[" "] or 0.25)
+
+    for raw in (str .. "\n"):gmatch("(.-)\n") do
+        if #out >= limit then break end
+        if raw == "" then
+            table.insert(out, "")
+        else
+            local cur, curW = "", 0
+            for word in raw:gmatch("%S+") do
+                local wordW = metrics.Measure(word, resolved)
+                local needed = (cur == "") and wordW or (curW + spaceW + wordW)
+                if needed <= maxWidth then
+                    cur = (cur == "") and word or (cur .. " " .. word)
+                    curW = needed
+                else
+                    if cur ~= "" then
+                        table.insert(out, cur)
+                        if #out >= limit then cur = ""; break end
+                    end
+                    if wordW > maxWidth then
+                        table.insert(out, metrics.Fit(word, maxWidth, resolved))
+                        cur, curW = "", 0
+                    else
+                        cur, curW = word, wordW
+                    end
+                end
+            end
+            if cur ~= "" and #out < limit then
+                table.insert(out, cur)
+            end
+        end
+    end
+    return out
+end
+
 function metrics.GetTextWidth(text, size, scale)
     local str = tostring(text or "")
     if str == "" then return 0 end

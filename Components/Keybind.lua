@@ -3,6 +3,7 @@
 
 local ThemeModule = Theme or require("../Layout/Theme")
 local MetricsModule = Metrics or require("../Core/Metrics")
+local ClampingModule = Clamping or require("../Engine/Clamping")
 
 local Keybind = {}
 Keybind.__index = Keybind
@@ -95,16 +96,11 @@ function Keybind.new(parent, id, config)
         Size = size,
     }, Keybind)
 
-    local function measure_text(str, sz)
-        return #tostring(str or "") * (sz * 0.58)
-    end
-
     if pool then
         local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
         local badgeStr = "[" .. self.KeyName .. "]"
-        local badgeW = math.max(40, math.floor(measure_text(badgeStr, 11) + 14))
+        local badgeW = math.max(40, MetricsModule.Measure(badgeStr, 11) + 14)
         local badgeH = 22
-        local textW = measure_text(badgeStr, 11)
 
         if isStandalone then
             local rowBg = pool:Get("Square")
@@ -250,15 +246,18 @@ function Keybind:SetPosition(pos, size)
             self.RowBg.Position = pos
             self.RowBg.Size = self.Size
         end
+        local bx = pos.X + self.Size.X - badgeW - 14
+        local by = pos.Y + math.floor((self.Size.Y - badgeH) * 0.5)
+        local maxTextW = math.max(30, bx - (pos.X + 14) - 8)
         if self.Label then
+            self.Label.Text = MetricsModule.Fit(self.Text, maxTextW, 13)
             local titleY = (self.Desc and self.Desc ~= "") and (pos.Y + 10) or (pos.Y + math.floor((self.Size.Y - 13) * 0.5))
             self.Label.Position = Vector2.new(pos.X + 14, titleY)
         end
         if self.DescLabel then
+            self.DescLabel.Text = MetricsModule.Fit(self.Desc, maxTextW, 11)
             self.DescLabel.Position = Vector2.new(pos.X + 14, pos.Y + 28)
         end
-        local bx = pos.X + self.Size.X - badgeW - 14
-        local by = pos.Y + math.floor((self.Size.Y - badgeH) * 0.5)
         if self.BadgeBg then
             self.BadgeBg.Position = Vector2.new(bx, by)
             self.BadgeBg.Size = Vector2.new(badgeW, badgeH)
@@ -401,13 +400,10 @@ function Keybind:OpenModeMenu()
     local mh = 8 + #mode_list * rowH
     local mx = bx + bw - mw
     local my = by + bh + 4
-    local cam = workspace and workspace.CurrentCamera
-    if cam and cam.ViewportSize and cam.ViewportSize.X > 0 and cam.ViewportSize.Y > 0 then
-        local vp = cam.ViewportSize
-        mx = math.clamp(mx, 8, math.max(8, vp.X - mw - 8))
-        if my + mh > vp.Y - 8 and (by - mh - 4) >= 8 then
-            my = by - mh - 4
-        end
+    local vp = ClampingModule.GetViewportSize()
+    mx = math.clamp(mx, 8, math.max(8, vp.X - mw - 8))
+    if my + mh > vp.Y - 8 and (by - mh - 4) >= 8 then
+        my = by - mh - 4
     end
 
     local menu = self.ModeMenu
@@ -563,14 +559,18 @@ end
 
 function Keybind:SetTitle(title)
     self.Text = tostring(title or "")
-    if self.Label then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.Label then
         self.Label.Text = self.Text
     end
 end
 
 function Keybind:SetDesc(desc)
     self.Desc = desc ~= nil and tostring(desc) or ""
-    if self.DescLabel then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.DescLabel then
         self.DescLabel.Text = self.Desc
     end
 end

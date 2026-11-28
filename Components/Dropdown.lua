@@ -4,6 +4,7 @@
 local ThemeModule = Theme or require("../Layout/Theme")
 local AnimationsModule = Animations or require("../Engine/Animations")
 local IconsModule = Icons or require("../Subsystems/Icons")
+local MetricsModule = Metrics or require("../Core/Metrics")
 
 local Dropdown = {}
 Dropdown.__index = Dropdown
@@ -199,14 +200,15 @@ function Dropdown:SetPosition(pos, size)
         self.RowBg.Size = self.Size
     end
 
-    if self.Label then
-        self.Label.Position = Vector2.new(pos.X + 14, pos.Y + math.floor((self.Size.Y - 13) * 0.5))
-    end
-
     local boxW = compute_box_width(self.Size.X)
     local boxH = 26
     local boxX = pos.X + self.Size.X - boxW - 14
     local boxY = pos.Y + math.floor((self.Size.Y - boxH) * 0.5)
+
+    if self.Label then
+        self.Label.Text = MetricsModule.Fit(self.Text, math.max(30, boxX - (pos.X + 14) - 8), 13)
+        self.Label.Position = Vector2.new(pos.X + 14, pos.Y + math.floor((self.Size.Y - 13) * 0.5))
+    end
 
     if self.Box then
         self.Box.Position = Vector2.new(boxX, boxY)
@@ -214,6 +216,7 @@ function Dropdown:SetPosition(pos, size)
     end
 
     if self.ValueBadge then
+        self.ValueBadge.Text = MetricsModule.Fit(format_display(self.Value, self.Multi), math.max(24, boxW - 28), 12)
         self.ValueBadge.Position = Vector2.new(boxX + 8, boxY + 6)
     end
 
@@ -230,7 +233,8 @@ end
 function Dropdown:Set(val)
     self.Value = val
     if self.ValueBadge then
-        self.ValueBadge.Text = format_display(self.Value, self.Multi)
+        local boxW = self.Size and compute_box_width(self.Size.X) or 120
+        self.ValueBadge.Text = MetricsModule.Fit(format_display(self.Value, self.Multi), math.max(24, boxW - 28), 12)
     end
 
     local lib = self.Section and self.Section.Env
@@ -242,7 +246,9 @@ end
 
 function Dropdown:SetTitle(title)
     self.Text = tostring(title or "")
-    if self.Label then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.Label then
         self.Label.Text = self.Text
     end
 end

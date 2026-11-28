@@ -6,6 +6,7 @@ local MetaModule = require("../Core/Meta")
 local ThemeModule = require("../Layout/Theme")
 local IconsModule = require("./Icons")
 local MetricsModule = require("../Core/Metrics")
+local ClampingModule = require("../Engine/Clamping")
 
 local Dialog = {
     Active = nil,
@@ -27,53 +28,6 @@ local function clamp(v, lo, hi)
     if v < lo then return lo end
     if v > hi then return hi end
     return v
-end
-
-local function get_viewport()
-    local cam = workspace and workspace.CurrentCamera
-    if cam and cam.ViewportSize and cam.ViewportSize.X > 0 and cam.ViewportSize.Y > 0 then
-        return cam.ViewportSize
-    end
-    return Vector2.new(1920, 1080)
-end
-
-local function wrap_lines(text, maxWidth, fontSize, maxLines)
-    local out = {}
-    local str = tostring(text or "")
-    if str == "" then return out end
-
-    local charW = fontSize * 0.54
-    local maxChars = math.max(10, math.floor(maxWidth / charW))
-
-    for raw in (str .. "\n"):gmatch("(.-)\n") do
-        if #out >= maxLines then break end
-        if raw == "" then
-            table.insert(out, "")
-        else
-            local cur = ""
-            for word in raw:gmatch("%S+") do
-                local cand = cur == "" and word or (cur .. " " .. word)
-                if #cand <= maxChars then
-                    cur = cand
-                else
-                    if cur ~= "" then
-                        table.insert(out, cur)
-                        if #out >= maxLines then cur = ""; break end
-                    end
-                    if #word > maxChars then
-                        table.insert(out, string.sub(word, 1, maxChars - 3) .. "...")
-                        cur = ""
-                    else
-                        cur = word
-                    end
-                end
-            end
-            if cur ~= "" and #out < maxLines then
-                table.insert(out, cur)
-            end
-        end
-    end
-    return out
 end
 
 local function ensure_slot()
@@ -266,7 +220,7 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
     end
 
     local slot = ensure_slot()
-    local vp = get_viewport()
+    local vp = ClampingModule.GetViewportSize()
 
     local mx, my = -9999, -9999
     if mousePos then
@@ -306,7 +260,7 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
     local titleLeft = hasIcon and 32 or 0
     local textW = cardW - pad * 2
 
-    local lines = wrap_lines(d.Content, textW, 14, 6)
+    local lines = MetricsModule.WrapLines(d.Content, textW, 14, 6)
     local hasButtons = #d.Buttons > 0
     local contentH = (#lines > 0) and (#lines * 18 + 8) or 0
     local buttonsH = hasButtons and 44 or 0

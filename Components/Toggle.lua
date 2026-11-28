@@ -5,6 +5,7 @@ local Keybind = Keybind or require("./Keybind")
 local ThemeModule = Theme or require("../Layout/Theme")
 local AnimationsModule = Animations or require("../Engine/Animations")
 local IconsModule = Icons or require("../Subsystems/Icons")
+local MetricsModule = Metrics or require("../Core/Metrics")
 
 local Toggle = {}
 Toggle.__index = Toggle
@@ -168,20 +169,29 @@ function Toggle:SetPosition(pos, size)
         self.RowBg.Size = self.Size
     end
 
-    if self.Label then
-        local titleY = (self.Desc and self.Desc ~= "") and (pos.Y + 10) or (pos.Y + math.floor((self.Size.Y - 13) * 0.5))
-        self.Label.Position = Vector2.new(pos.X + 14, titleY)
-    end
-
-    if self.DescLabel then
-        self.DescLabel.Position = Vector2.new(pos.X + 14, pos.Y + 28)
-    end
-
     local isCheck = self.Type == "Checkbox"
     local trackW = isCheck and 24 or 42
     local trackH = isCheck and 24 or 22
     local trackX = pos.X + self.Size.X - trackW - 14
     local trackY = pos.Y + math.floor((self.Size.Y - trackH) * 0.5)
+
+    local rightEdge = trackX - 10
+    if self.KeyPicker then
+        local kpW = self.KeyPicker.Size and self.KeyPicker.Size.X or 40
+        rightEdge = trackX - kpW - 18
+    end
+    local maxTextW = math.max(30, rightEdge - (pos.X + 14))
+
+    if self.Label then
+        self.Label.Text = MetricsModule.Fit(self.Text, maxTextW, 13)
+        local titleY = (self.Desc and self.Desc ~= "") and (pos.Y + 10) or (pos.Y + math.floor((self.Size.Y - 13) * 0.5))
+        self.Label.Position = Vector2.new(pos.X + 14, titleY)
+    end
+
+    if self.DescLabel then
+        self.DescLabel.Text = MetricsModule.Fit(self.Desc, maxTextW, 11)
+        self.DescLabel.Position = Vector2.new(pos.X + 14, pos.Y + 28)
+    end
 
     if self.Track then
         self.Track.Position = Vector2.new(trackX, trackY)
@@ -213,12 +223,13 @@ function Toggle:Set(val)
         self.CheckIcon.Visible = self.Visible and boolVal
     end
 
+    local palette = self.Section and self.Section.Window and self.Section.Window.ThemeTokens
     if self.Visible then
         AnimationsModule.Tween("Toggle_" .. tostring(self), self.AnimProgress or target, target, 20, function(v)
-            self:_applyAnimVisual(v)
+            self:_applyAnimVisual(v, palette)
         end)
     else
-        self:_applyAnimVisual(target)
+        self:_applyAnimVisual(target, palette)
     end
 
     local lib = self.Section and self.Section.Env
@@ -233,14 +244,18 @@ end
 
 function Toggle:SetTitle(title)
     self.Text = tostring(title or "")
-    if self.Label then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.Label then
         self.Label.Text = self.Text
     end
 end
 
 function Toggle:SetDesc(desc)
     self.Desc = desc ~= nil and tostring(desc) or ""
-    if self.DescLabel then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.DescLabel then
         self.DescLabel.Text = self.Desc
     end
 end
@@ -284,6 +299,9 @@ end
 function Toggle:AddKeyPicker(keyId, keyConfig)
     local kp = Keybind.new(self, keyId, keyConfig)
     self.KeyPicker = kp
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    end
     if keyId then
         local win = self.Section and (self.Section.Window or (self.Section.ParentTab and self.Section.ParentTab.Window))
         local lib = (win and win.Env) or (self.Section and self.Section.Env) or _G.Library

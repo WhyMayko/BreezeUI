@@ -23,7 +23,6 @@ local function layout_button(self)
     local pos = self.Position
     local size = self.Size
     local hasDesc = self.Desc and self.Desc ~= ""
-    local txtW = MetricsModule.Measure(self.Text, 13)
     local lblY = hasDesc and (pos.Y + 9) or (pos.Y + math.floor((size.Y - 13) * 0.5))
     local icoY = pos.Y + math.floor((size.Y - 16) * 0.5)
 
@@ -50,36 +49,53 @@ local function layout_button(self)
     if self.Justify == "Center" then
         if self.IconImg then
             self.IconImg.Size = Vector2.new(16, 16)
-            local startX = pos.X + math.max(14, math.floor((size.X - (txtW + 22)) * 0.5))
-            if self.Label then self.Label.Center = false end
+            local fitTxt = MetricsModule.Fit(self.Text, math.max(30, size.X - 50), 13)
+            local fitW = MetricsModule.Measure(fitTxt, 13)
+            local startX = pos.X + math.max(14, math.floor((size.X - (fitW + 22)) * 0.5))
+            if self.Label then
+                self.Label.Center = false
+                self.Label.Text = fitTxt
+            end
             if self.IconAlign == "Left" then
                 self.IconImg.Position = Vector2.new(startX, icoY)
                 if self.Label then self.Label.Position = Vector2.new(startX + 22, lblY) end
             else
                 if self.Label then self.Label.Position = Vector2.new(startX, lblY) end
-                self.IconImg.Position = Vector2.new(startX + txtW + 6, icoY)
+                self.IconImg.Position = Vector2.new(startX + fitW + 6, icoY)
             end
         elseif self.Label then
             self.Label.Center = false
-            local ax = MetricsModule.AlignCenter(pos.X, pos.Y, size.X, size.Y, self.Text, 13)
+            self.Label.Text = MetricsModule.Fit(self.Text, math.max(30, size.X - 28), 13)
+            local ax = MetricsModule.AlignCenter(pos.X, pos.Y, size.X, size.Y, self.Label.Text, 13)
             self.Label.Position = Vector2.new(ax, lblY)
         end
         if self.DescLabel then
+            self.DescLabel.Text = MetricsModule.Fit(self.Desc, math.max(30, tagEndX - (pos.X + 14)), 11)
             self.DescLabel.Position = Vector2.new(pos.X + 14, pos.Y + 27)
         end
     elseif self.IconImg and self.IconAlign == "Left" then
         self.IconImg.Position = Vector2.new(pos.X + 14, icoY)
+        local maxLeftW = math.max(30, tagEndX - (pos.X + 36) - 6)
         if self.Label then
             self.Label.Center = false
+            self.Label.Text = MetricsModule.Fit(self.Text, maxLeftW, 13)
             self.Label.Position = Vector2.new(pos.X + 36, lblY)
         end
-        if self.DescLabel then self.DescLabel.Position = Vector2.new(pos.X + 36, pos.Y + 27) end
+        if self.DescLabel then
+            self.DescLabel.Text = MetricsModule.Fit(self.Desc, maxLeftW, 11)
+            self.DescLabel.Position = Vector2.new(pos.X + 36, pos.Y + 27)
+        end
     else
+        local maxLeftW = math.max(30, tagEndX - (pos.X + 14) - 6)
         if self.Label then
             self.Label.Center = false
+            self.Label.Text = MetricsModule.Fit(self.Text, maxLeftW, 13)
             self.Label.Position = Vector2.new(pos.X + 14, lblY)
         end
-        if self.DescLabel then self.DescLabel.Position = Vector2.new(pos.X + 14, pos.Y + 27) end
+        if self.DescLabel then
+            self.DescLabel.Text = MetricsModule.Fit(self.Desc, maxLeftW, 11)
+            self.DescLabel.Position = Vector2.new(pos.X + 14, pos.Y + 27)
+        end
         if self.IconImg then
             self.IconImg.Position = Vector2.new(pos.X + size.X - 30, icoY)
         end
@@ -218,6 +234,7 @@ function Button:SetPosition(pos, size)
 end
 
 function Button:Click()
+    if self.Locked then return end
     pcall(self.Callback)
 end
 
@@ -248,6 +265,7 @@ function Button:SetDesc(desc)
     if self.DescLabel then
         self.DescLabel.Text = self.Desc
     end
+    layout_button(self)
 end
 
 function Button:Lock(title)

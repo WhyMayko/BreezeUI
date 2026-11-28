@@ -113,6 +113,13 @@ function ImageBlock:SetImage(src)
     end
 end
 
+function ImageBlock:RecalcHeight(width)
+    local w = width or (self.Size and self.Size.X) or 380
+    local h = parse_aspect_height(self.AspectRatio, w, self.FixedHeight)
+    self.Size = Vector2.new(w, h)
+    return h
+end
+
 function ImageBlock:SetPosition(pos, size)
     self.Position = pos
     self.Size = size or self.Size

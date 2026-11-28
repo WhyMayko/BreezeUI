@@ -43,22 +43,11 @@ local function get_mouse()
     return nil
 end
 
-local function get_viewport()
-    local vp = Vector2.new(1920, 1080)
-    pcall(function()
-        local cam = workspace and workspace.CurrentCamera
-        if cam and cam.ViewportSize and cam.ViewportSize.X > 0 and cam.ViewportSize.Y > 0 then
-            vp = cam.ViewportSize
-        end
-    end)
-    return vp
-end
-
 function Window.new(config)
     config = config or {}
     assert(config.Title ~= nil and tostring(config.Title) ~= "", "Window config.Title is required!")
 
-    local vp = get_viewport()
+    local vp = ClampingModule.GetViewportSize()
     local minSize = config.MinSize or Vector2.new(460, 320)
     local rawSize = config.Size or Vector2.new(640, 460)
     local maxSize = config.MaxSize or Vector2.new(960, 680)
@@ -641,7 +630,7 @@ function Window:SetPosition(newPos)
 end
 
 function Window:SetSize(newSize, ignoreMaxClamp)
-    local vp = get_viewport()
+    local vp = ClampingModule.GetViewportSize()
     local minW = self.MinSize.X
     local minH = self.MinSize.Y
     local capW = ignoreMaxClamp and (vp.X - 24) or math.min(self.MaxSize.X, vp.X - 16)
@@ -776,7 +765,7 @@ function Window:ToggleMaximize()
     self.IsResizing = false
     self:ReleaseInteraction("WindowDrag")
     self:ReleaseInteraction("WindowResize")
-    local vp = get_viewport()
+    local vp = ClampingModule.GetViewportSize()
     if not self.IsMaximized then
         self.PreMaximizeSize = self.Size
         self.PreMaximizePos = self.Position
@@ -918,7 +907,7 @@ function Window:IsResizable(enabled)
 end
 
 function Window:SetToTheCenter()
-    local vp = get_viewport()
+    local vp = ClampingModule.GetViewportSize()
     local cx = math.max(12, math.floor((vp.X - self.Size.X) * 0.5))
     local cy = math.max(36, math.floor((vp.Y - self.Size.Y) * 0.5))
     self:SetPosition(Vector2.new(cx, cy))
@@ -1319,6 +1308,7 @@ function Window:Tag(tagConfig)
         RelX = relX,
         RelY = relY,
         Width = tagW,
+        CustomColor = cfg.Color ~= nil,
         Bg = bg,
         Border = border,
         Icon = ico,
@@ -1359,28 +1349,7 @@ function Window:CanInteract(widgetId)
 end
 
 function Window:ClampAndSnap(pos, size, customViewport, customInsetTop)
-    local curSize = size or self.Size
-    local vp = customViewport or get_viewport()
-    if not vp or vp.X <= 0 or vp.Y <= 0 then
-        vp = Vector2.new(1920, 1080)
-    end
-
-    local topInsetY = customInsetTop or 36
-    local minX = 0
-    local maxX = math.max(0, vp.X - curSize.X)
-    local minY = topInsetY
-    local maxY = math.max(topInsetY, vp.Y - curSize.Y)
-
-    local x = math.clamp(pos.X, minX, maxX)
-    local y = math.clamp(pos.Y, minY, maxY)
-
-    local snapThreshold = 16
-    if math.abs(x - minX) <= snapThreshold then x = minX end
-    if math.abs(x - maxX) <= snapThreshold then x = maxX end
-    if math.abs(y - minY) <= snapThreshold then y = minY end
-    if math.abs(y - maxY) <= snapThreshold then y = maxY end
-
-    return Vector2.new(x, y)
+    return ClampingModule.ClampAndSnap(pos, size or self.Size, customViewport, customInsetTop)
 end
 
 -- ============================================================================
@@ -1996,7 +1965,6 @@ function Window:Destroy()
     self.OpenColorpicker = nil
     self.CapturingKeybind = nil
     self.Keybinds = {}
-    IconsModule.ClearSubscribers()
     local curState = UI.GetValue(str_ui_state)
     if curState == str_unload or (self._uiStateToken and curState == self._uiStateToken) then
         UI.SetValue(str_ui_state, str_empty)
@@ -2071,6 +2039,7 @@ function Window:Destroy()
     end
 
     if (not self.Env or not self.Env._windows or #self.Env._windows == 0) then
+        IconsModule.ClearSubscribers()
         AnimationsModule.Reset()
         NotifyModule.Destroy()
         DialogModule.Destroy()

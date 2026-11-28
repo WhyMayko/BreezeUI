@@ -761,6 +761,33 @@ function theme.GetTheme(name)
     return registry[name] or theme.DefaultPalette
 end
 
+local default_order = {
+    "Dark", "Light", "Rose", "Plant", "Red", "Indigo", "Sky", "Violet",
+    "Amber", "Emerald", "Midnight", "Crimson", "MonokaiPro", "CottonCandy",
+    "Mellowsi", "Rainbow", "Slate", "Ruby",
+}
+
+function theme.GetThemes()
+    local out, seen = {}, {}
+    for _, name in ipairs(default_order) do
+        if registry[name] and not seen[name] then
+            seen[name] = true
+            table.insert(out, name)
+        end
+    end
+    local extras = {}
+    for name in pairs(registry) do
+        if not seen[name] and name ~= "Monokai Pro" and name ~= "Cotton Candy" then
+            table.insert(extras, name)
+        end
+    end
+    table.sort(extras)
+    for _, name in ipairs(extras) do
+        table.insert(out, name)
+    end
+    return out
+end
+
 function theme.Subscribe(callback)
     assert(type(callback) == "function", "Callback must be a function!")
     listeners[callback] = true

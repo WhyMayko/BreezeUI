@@ -125,7 +125,7 @@ function ContentSection.new(config, parentTab, window)
     local cfg = type(config) == "table" and config or { Title = tostring(config or "Section") }
     local win = window or (parentTab and parentTab.Window)
     local pool = (win and win.Pool) or (parentTab and parentTab.Pool)
-    if not pool and PoolModule then
+    if not pool then
         pool = PoolModule.new(200, MetaModule)
     end
 
@@ -547,16 +547,11 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
         if not is_ctrl_active(self, ctrl) then
             if ctrl.SetVisible then ctrl:SetVisible(false) else ctrl.Visible = false end
         else
-            local ch = (ctrl.Size and ctrl.Size.Y) or 44
             local rowY
             local cX = innerX
             local cW = usableW
+            local ch
             if ctrl._group then
-                if not groupRowY[ctrl._group] then
-                    groupRowY[ctrl._group] = dynY
-                    dynY = dynY + (ctrl._group.MaxH or ch) + self.RowGap
-                end
-                rowY = absPos.Y + groupRowY[ctrl._group]
                 local visCount = 0
                 local myIdx = 0
                 for _, item in ipairs(ctrl._group.Items) do
@@ -569,7 +564,21 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
                 local gap = ctrl._group.Gap or 8
                 cW = math.max(60, math.floor((usableW - (count - 1) * gap) / count))
                 cX = innerX + (math.max(1, myIdx) - 1) * (cW + gap)
+                ch = (ctrl.RecalcHeight and ctrl:RecalcHeight(cW)) or (ctrl.Size and ctrl.Size.Y) or 44
+                if not groupRowY[ctrl._group] then
+                    local maxRowH = ctrl._group.MaxH or ch
+                    for _, item in ipairs(ctrl._group.Items) do
+                        if is_ctrl_active(self, item) then
+                            local ih = (item.RecalcHeight and item:RecalcHeight(cW)) or (item.Size and item.Size.Y) or 44
+                            if ih > maxRowH then maxRowH = ih end
+                        end
+                    end
+                    groupRowY[ctrl._group] = dynY
+                    dynY = dynY + maxRowH + self.RowGap
+                end
+                rowY = absPos.Y + groupRowY[ctrl._group]
             else
+                ch = (ctrl.RecalcHeight and ctrl:RecalcHeight(cW)) or (ctrl.Size and ctrl.Size.Y) or 44
                 rowY = absPos.Y + dynY
                 dynY = dynY + ch + self.RowGap
             end

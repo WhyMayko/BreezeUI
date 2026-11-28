@@ -2,6 +2,7 @@
 -- Responsive WindUI-identical text input with keyboard typing, caret blink, focus outline, Numeric/Finished modes.
 
 local ThemeModule = Theme or require("../Layout/Theme")
+local MetricsModule = Metrics or require("../Core/Metrics")
 
 local Input = {}
 Input.__index = Input
@@ -147,14 +148,15 @@ function Input:SetPosition(pos, size)
         self.RowBg.Size = self.Size
     end
 
-    if self.Label then
-        self.Label.Position = Vector2.new(pos.X + 14, pos.Y + math.floor((self.Size.Y - 13) * 0.5))
-    end
-
     local boxW = compute_box_width(self.Size.X)
     local boxH = 26
     local boxX = pos.X + self.Size.X - boxW - 14
     local boxY = pos.Y + math.floor((self.Size.Y - boxH) * 0.5)
+
+    if self.Label then
+        self.Label.Text = MetricsModule.Fit(self.Text, math.max(30, boxX - (pos.X + 14) - 8), 13)
+        self.Label.Position = Vector2.new(pos.X + 14, pos.Y + math.floor((self.Size.Y - 13) * 0.5))
+    end
 
     if self.Box then
         self.Box.Position = Vector2.new(boxX, boxY)
@@ -188,7 +190,9 @@ end
 
 function Input:SetTitle(title)
     self.Text = tostring(title or "")
-    if self.Label then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.Label then
         self.Label.Text = self.Text
     end
 end
@@ -241,6 +245,7 @@ function Input:ProcessKey(token)
 end
 
 function Input:Focus()
+    if self.Locked then return end
     if self.ClearTextOnFocus and not self.Focused then
         self.Value = ""
     end

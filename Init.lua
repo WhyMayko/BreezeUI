@@ -223,20 +223,6 @@ function BreezeUI:Toggle(state)
     end
 end
 
-function BreezeUI:OnUnload(cb)
-    if type(cb) == "function" then
-        table.insert(self.UnloadCallbacks, cb)
-    end
-end
-
-function BreezeUI:Unload()
-    for _, cb in ipairs(self.UnloadCallbacks) do
-        pcall(cb)
-    end
-    self.UnloadCallbacks = {}
-    self:Destroy()
-end
-
 function BreezeUI:Popup(cfg)
     return DialogModule.Show(cfg, self._activeWindow, "Popup")
 end
@@ -312,11 +298,7 @@ end
 
 -- Theme enumeration (includes Light theme with dark icon set)
 function BreezeUI:GetThemes()
-    return {
-        "Dark", "Light", "Rose", "Plant", "Red", "Indigo", "Sky", "Violet",
-        "Amber", "Emerald", "Midnight", "Crimson", "MonokaiPro", "CottonCandy",
-        "Mellowsi", "Rainbow", "Slate", "Ruby",
-    }
+    return ThemeModule.GetThemes()
 end
 
 -- Notify side helper (delegates to NotifyModule)

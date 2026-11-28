@@ -663,6 +663,47 @@ function metrics.AlignCenter(boxX, boxY, boxW, boxH, text, size, scale)
     return boxX + math.floor((boxW - w) * 0.5), boxY + math.floor((boxH - h) * 0.5)
 end
 
+function metrics.WrapLines(text, maxWidth, size, maxLines)
+    local out = {}
+    local str = tostring(text or "")
+    if str == "" or not maxWidth or maxWidth <= 0 then return out end
+    local limit = maxLines or 6
+    local resolved = resolve_size(size, 1)
+    local spaceW = resolved * (chars[" "] or 0.25)
+
+    for raw in (str .. "\n"):gmatch("(.-)\n") do
+        if #out >= limit then break end
+        if raw == "" then
+            table.insert(out, "")
+        else
+            local cur, curW = "", 0
+            for word in raw:gmatch("%S+") do
+                local wordW = metrics.Measure(word, resolved)
+                local needed = (cur == "") and wordW or (curW + spaceW + wordW)
+                if needed <= maxWidth then
+                    cur = (cur == "") and word or (cur .. " " .. word)
+                    curW = needed
+                else
+                    if cur ~= "" then
+                        table.insert(out, cur)
+                        if #out >= limit then cur = ""; break end
+                    end
+                    if wordW > maxWidth then
+                        table.insert(out, metrics.Fit(word, maxWidth, resolved))
+                        cur, curW = "", 0
+                    else
+                        cur, curW = word, wordW
+                    end
+                end
+            end
+            if cur ~= "" and #out < limit then
+                table.insert(out, cur)
+            end
+        end
+    end
+    return out
+end
+
 function metrics.GetTextWidth(text, size, scale)
     local str = tostring(text or "")
     if str == "" then return 0 end
@@ -1847,6 +1888,33 @@ function theme.GetTheme(name)
     return registry[name] or theme.DefaultPalette
 end
 
+local default_order = {
+    "Dark", "Light", "Rose", "Plant", "Red", "Indigo", "Sky", "Violet",
+    "Amber", "Emerald", "Midnight", "Crimson", "MonokaiPro", "CottonCandy",
+    "Mellowsi", "Rainbow", "Slate", "Ruby",
+}
+
+function theme.GetThemes()
+    local out, seen = {}, {}
+    for _, name in ipairs(default_order) do
+        if registry[name] and not seen[name] then
+            seen[name] = true
+            table.insert(out, name)
+        end
+    end
+    local extras = {}
+    for name in pairs(registry) do
+        if not seen[name] and name ~= "Monokai Pro" and name ~= "Cotton Candy" then
+            table.insert(extras, name)
+        end
+    end
+    table.sort(extras)
+    for _, name in ipairs(extras) do
+        table.insert(out, name)
+    end
+    return out
+end
+
 function theme.Subscribe(callback)
     assert(type(callback) == "function", "Callback must be a function!")
     listeners[callback] = true
@@ -2358,8 +2426,11 @@ function InputHandler:ReadTextInput()
         end
         return "backspace"
     end
-    if iskeypressed(0x11) and (self:KeyPressed(0x5A) or self:KeyPressed(0x41)) then
-        return "clear"
+    if iskeypressed(0x11) then
+        if self:KeyPressed(0x5A) or self:KeyPressed(0x41) then
+            return "clear"
+        end
+        return nil
     end
     if self:KeyPressed(0x20) then return " " end
 
@@ -2711,6 +2782,8 @@ SettingsModule = (function()
 -- Library/BreezeUI/Subsystems/Settings.lua
 -- Native integrated Settings subsystem providing Interface, Behavior, Configuration, and Performance controls.
 
+local ThemeModule = ThemeModule
+
 local Settings = {
     Profiles = {},
     _profiles = {},
@@ -3047,32 +3120,34 @@ function Settings.LoadUI(win)
     local rawOpt = env._rawOptions or {}
     local rawTog = env._rawToggles or {}
     Settings._loadingUI = true
-    if data.Theme then
-        if rawOpt.SettingsTheme then rawOpt.SettingsTheme:Set(data.Theme) end
-        if win.SetTheme then win:SetTheme(data.Theme) end
-    end
-    if data.MinimizeKey ~= nil then
-        local resolvedMin = (data.MinimizeKey ~= false) and data.MinimizeKey or nil
-        if rawOpt.SettingsMinimizeKey then rawOpt.SettingsMinimizeKey:Set(resolvedMin) end
-        if win.SetToggleKey then
-            win.ToggleKeyMinimizes = true
-            win:SetToggleKey(resolvedMin)
+    pcall(function()
+        if data.Theme then
+            if rawOpt.SettingsTheme then rawOpt.SettingsTheme:Set(data.Theme) end
+            if win.SetTheme then win:SetTheme(data.Theme) end
         end
-    end
-    if data.InputBlock ~= nil then
-        local blk = data.InputBlock == true
-        if rawTog.SettingsInputBlock then rawTog.SettingsInputBlock:Set(blk) end
-        if win.SetInputBlocking then win:SetInputBlocking(blk) end
-    end
-    if data.KeybindList ~= nil then
-        local kl = data.KeybindList == true
-        if rawTog.SettingsKeybindList then rawTog.SettingsKeybindList:Set(kl) end
-        if win.SetKeybindMenuVisible then win:SetKeybindMenuVisible(kl) end
-    end
-    if data.NotifySide then
-        if rawOpt.SettingsNotifySide then rawOpt.SettingsNotifySide:Set(data.NotifySide) end
-        if env.SetNotifySide then env:SetNotifySide(data.NotifySide) end
-    end
+        if data.MinimizeKey ~= nil then
+            local resolvedMin = (data.MinimizeKey ~= false) and data.MinimizeKey or nil
+            if rawOpt.SettingsMinimizeKey then rawOpt.SettingsMinimizeKey:Set(resolvedMin) end
+            if win.SetToggleKey then
+                win.ToggleKeyMinimizes = true
+                win:SetToggleKey(resolvedMin)
+            end
+        end
+        if data.InputBlock ~= nil then
+            local blk = data.InputBlock == true
+            if rawTog.SettingsInputBlock then rawTog.SettingsInputBlock:Set(blk) end
+            if win.SetInputBlocking then win:SetInputBlocking(blk) end
+        end
+        if data.KeybindList ~= nil then
+            local kl = data.KeybindList == true
+            if rawTog.SettingsKeybindList then rawTog.SettingsKeybindList:Set(kl) end
+            if win.SetKeybindMenuVisible then win:SetKeybindMenuVisible(kl) end
+        end
+        if data.NotifySide then
+            if rawOpt.SettingsNotifySide then rawOpt.SettingsNotifySide:Set(data.NotifySide) end
+            if env.SetNotifySide then env:SetNotifySide(data.NotifySide) end
+        end
+    end)
     Settings._loadingUI = false
     return true
 end
@@ -3087,8 +3162,7 @@ function Settings.BuildTab(win)
     -- ── Interface ──────────────────────────────────────────────────────────────
     local secIface = tab:Section({ Title = "Interface" })
 
-    local themes = (win.Env and win.Env.GetThemes and win.Env:GetThemes())
-        or { "Dark", "Light", "Rose", "Plant", "Red", "Indigo", "Sky", "Violet", "Amber", "Emerald", "Midnight", "Crimson", "MonokaiPro", "CottonCandy", "Mellowsi", "Rainbow", "Slate", "Ruby" }
+    local themes = (win.Env and win.Env.GetThemes and win.Env:GetThemes()) or ThemeModule.GetThemes()
     secIface:AddDropdown("SettingsTheme", {
         Text             = "Theme",
         Values           = themes,
@@ -3315,6 +3389,7 @@ local MetaModule = MetaModule
 local ThemeModule = ThemeModule
 local IconsModule = IconsModule
 local MetricsModule = MetricsModule
+local ClampingModule = ClampingModule
 
 local Notify = {
     Active = {},
@@ -3339,53 +3414,6 @@ local function clamp(v, lo, hi)
     if v < lo then return lo end
     if v > hi then return hi end
     return v
-end
-
-local function get_viewport()
-    local cam = workspace and workspace.CurrentCamera
-    if cam and cam.ViewportSize and cam.ViewportSize.X > 0 and cam.ViewportSize.Y > 0 then
-        return cam.ViewportSize
-    end
-    return Vector2.new(1920, 1080)
-end
-
-local function wrap_lines(text, maxWidth, fontSize, maxLines)
-    local out = {}
-    local str = tostring(text or "")
-    if str == "" then return out end
-
-    local charW = fontSize * 0.54
-    local maxChars = math.max(8, math.floor(maxWidth / charW))
-
-    for raw in (str .. "\n"):gmatch("(.-)\n") do
-        if #out >= maxLines then break end
-        if raw == "" then
-            table.insert(out, "")
-        else
-            local cur = ""
-            for word in raw:gmatch("%S+") do
-                local cand = cur == "" and word or (cur .. " " .. word)
-                if #cand <= maxChars then
-                    cur = cand
-                else
-                    if cur ~= "" then
-                        table.insert(out, cur)
-                        if #out >= maxLines then cur = ""; break end
-                    end
-                    if #word > maxChars then
-                        table.insert(out, string.sub(word, 1, maxChars - 3) .. "...")
-                        cur = ""
-                    else
-                        cur = word
-                    end
-                end
-            end
-            if cur ~= "" and #out < maxLines then
-                table.insert(out, cur)
-            end
-        end
-    end
-    return out
 end
 
 local function ensure_pool()
@@ -3666,7 +3694,7 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
 
     local delta = clamp(dt or 0.016, 0.001, 0.1)
     local now = tick()
-    local vp = get_viewport()
+    local vp = ClampingModule.GetViewportSize()
 
     local mx, my = -9999, -9999
     if mousePos then
@@ -3739,7 +3767,7 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         local rightPad = toast.CanClose and 22 or 0
         local textW = cardW - padX * 2 - textLeftOffset - rightPad
 
-        local lines = wrap_lines(toast.Content, textW, 13, 5)
+        local lines = MetricsModule.WrapLines(toast.Content, textW, 13, 5)
         local titleFitted = MetricsModule.Fit(toast.Title, textW, 14, 1)
 
         local hasButtons = toast.Buttons and #toast.Buttons > 0
@@ -4013,6 +4041,7 @@ local MetaModule = MetaModule
 local ThemeModule = ThemeModule
 local IconsModule = IconsModule
 local MetricsModule = MetricsModule
+local ClampingModule = ClampingModule
 
 local Dialog = {
     Active = nil,
@@ -4034,53 +4063,6 @@ local function clamp(v, lo, hi)
     if v < lo then return lo end
     if v > hi then return hi end
     return v
-end
-
-local function get_viewport()
-    local cam = workspace and workspace.CurrentCamera
-    if cam and cam.ViewportSize and cam.ViewportSize.X > 0 and cam.ViewportSize.Y > 0 then
-        return cam.ViewportSize
-    end
-    return Vector2.new(1920, 1080)
-end
-
-local function wrap_lines(text, maxWidth, fontSize, maxLines)
-    local out = {}
-    local str = tostring(text or "")
-    if str == "" then return out end
-
-    local charW = fontSize * 0.54
-    local maxChars = math.max(10, math.floor(maxWidth / charW))
-
-    for raw in (str .. "\n"):gmatch("(.-)\n") do
-        if #out >= maxLines then break end
-        if raw == "" then
-            table.insert(out, "")
-        else
-            local cur = ""
-            for word in raw:gmatch("%S+") do
-                local cand = cur == "" and word or (cur .. " " .. word)
-                if #cand <= maxChars then
-                    cur = cand
-                else
-                    if cur ~= "" then
-                        table.insert(out, cur)
-                        if #out >= maxLines then cur = ""; break end
-                    end
-                    if #word > maxChars then
-                        table.insert(out, string.sub(word, 1, maxChars - 3) .. "...")
-                        cur = ""
-                    else
-                        cur = word
-                    end
-                end
-            end
-            if cur ~= "" and #out < maxLines then
-                table.insert(out, cur)
-            end
-        end
-    end
-    return out
 end
 
 local function ensure_slot()
@@ -4273,7 +4255,7 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
     end
 
     local slot = ensure_slot()
-    local vp = get_viewport()
+    local vp = ClampingModule.GetViewportSize()
 
     local mx, my = -9999, -9999
     if mousePos then
@@ -4313,7 +4295,7 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
     local titleLeft = hasIcon and 32 or 0
     local textW = cardW - pad * 2
 
-    local lines = wrap_lines(d.Content, textW, 14, 6)
+    local lines = MetricsModule.WrapLines(d.Content, textW, 14, 6)
     local hasButtons = #d.Buttons > 0
     local contentH = (#lines > 0) and (#lines * 18 + 8) or 0
     local buttonsH = hasButtons and 44 or 0
@@ -4553,6 +4535,7 @@ local MetaModule = MetaModule
 local ThemeModule = ThemeModule
 local IconsModule = IconsModule
 local MetricsModule = MetricsModule
+local ClampingModule = ClampingModule
 
 local Overlay = {
     Pool = nil,
@@ -4574,14 +4557,6 @@ local function clamp(v, lo, hi)
     if v < lo then return lo end
     if v > hi then return hi end
     return v
-end
-
-local function get_viewport()
-    local cam = workspace and workspace.CurrentCamera
-    if cam and cam.ViewportSize and cam.ViewportSize.X > 0 and cam.ViewportSize.Y > 0 then
-        return cam.ViewportSize
-    end
-    return Vector2.new(1920, 1080)
 end
 
 local function ensure_pool()
@@ -5118,7 +5093,7 @@ function Overlay.Update(dt, window, mousePos, m1PressedArg, m1ClickedArg)
         return false
     end
 
-    local vp = get_viewport()
+    local vp = ClampingModule.GetViewportSize()
     local mx, my = -9999, -9999
     if mousePos then
         mx, my = mousePos.X, mousePos.Y
@@ -5185,7 +5160,7 @@ function Overlay.RenderTooltip(text, mx, my, window)
         return
     end
     local slot = ensure_tooltip_slot()
-    local vp = get_viewport()
+    local vp = ClampingModule.GetViewportSize()
     local str = tostring(text)
     local tw = MetricsModule.Measure(str, 12)
     local w = math.max(56, tw + 18)
@@ -5267,6 +5242,7 @@ KeybindModule = (function()
 
 local ThemeModule = Theme or ThemeModule
 local MetricsModule = Metrics or MetricsModule
+local ClampingModule = Clamping or ClampingModule
 
 local Keybind = {}
 Keybind.__index = Keybind
@@ -5359,16 +5335,11 @@ function Keybind.new(parent, id, config)
         Size = size,
     }, Keybind)
 
-    local function measure_text(str, sz)
-        return #tostring(str or "") * (sz * 0.58)
-    end
-
     if pool then
         local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
         local badgeStr = "[" .. self.KeyName .. "]"
-        local badgeW = math.max(40, math.floor(measure_text(badgeStr, 11) + 14))
+        local badgeW = math.max(40, MetricsModule.Measure(badgeStr, 11) + 14)
         local badgeH = 22
-        local textW = measure_text(badgeStr, 11)
 
         if isStandalone then
             local rowBg = pool:Get("Square")
@@ -5514,15 +5485,18 @@ function Keybind:SetPosition(pos, size)
             self.RowBg.Position = pos
             self.RowBg.Size = self.Size
         end
+        local bx = pos.X + self.Size.X - badgeW - 14
+        local by = pos.Y + math.floor((self.Size.Y - badgeH) * 0.5)
+        local maxTextW = math.max(30, bx - (pos.X + 14) - 8)
         if self.Label then
+            self.Label.Text = MetricsModule.Fit(self.Text, maxTextW, 13)
             local titleY = (self.Desc and self.Desc ~= "") and (pos.Y + 10) or (pos.Y + math.floor((self.Size.Y - 13) * 0.5))
             self.Label.Position = Vector2.new(pos.X + 14, titleY)
         end
         if self.DescLabel then
+            self.DescLabel.Text = MetricsModule.Fit(self.Desc, maxTextW, 11)
             self.DescLabel.Position = Vector2.new(pos.X + 14, pos.Y + 28)
         end
-        local bx = pos.X + self.Size.X - badgeW - 14
-        local by = pos.Y + math.floor((self.Size.Y - badgeH) * 0.5)
         if self.BadgeBg then
             self.BadgeBg.Position = Vector2.new(bx, by)
             self.BadgeBg.Size = Vector2.new(badgeW, badgeH)
@@ -5665,13 +5639,10 @@ function Keybind:OpenModeMenu()
     local mh = 8 + #mode_list * rowH
     local mx = bx + bw - mw
     local my = by + bh + 4
-    local cam = workspace and workspace.CurrentCamera
-    if cam and cam.ViewportSize and cam.ViewportSize.X > 0 and cam.ViewportSize.Y > 0 then
-        local vp = cam.ViewportSize
-        mx = math.clamp(mx, 8, math.max(8, vp.X - mw - 8))
-        if my + mh > vp.Y - 8 and (by - mh - 4) >= 8 then
-            my = by - mh - 4
-        end
+    local vp = ClampingModule.GetViewportSize()
+    mx = math.clamp(mx, 8, math.max(8, vp.X - mw - 8))
+    if my + mh > vp.Y - 8 and (by - mh - 4) >= 8 then
+        my = by - mh - 4
     end
 
     local menu = self.ModeMenu
@@ -5827,14 +5798,18 @@ end
 
 function Keybind:SetTitle(title)
     self.Text = tostring(title or "")
-    if self.Label then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.Label then
         self.Label.Text = self.Text
     end
 end
 
 function Keybind:SetDesc(desc)
     self.Desc = desc ~= nil and tostring(desc) or ""
-    if self.DescLabel then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.DescLabel then
         self.DescLabel.Text = self.Desc
     end
 end
@@ -5923,7 +5898,6 @@ local function layout_button(self)
     local pos = self.Position
     local size = self.Size
     local hasDesc = self.Desc and self.Desc ~= ""
-    local txtW = MetricsModule.Measure(self.Text, 13)
     local lblY = hasDesc and (pos.Y + 9) or (pos.Y + math.floor((size.Y - 13) * 0.5))
     local icoY = pos.Y + math.floor((size.Y - 16) * 0.5)
 
@@ -5950,36 +5924,53 @@ local function layout_button(self)
     if self.Justify == "Center" then
         if self.IconImg then
             self.IconImg.Size = Vector2.new(16, 16)
-            local startX = pos.X + math.max(14, math.floor((size.X - (txtW + 22)) * 0.5))
-            if self.Label then self.Label.Center = false end
+            local fitTxt = MetricsModule.Fit(self.Text, math.max(30, size.X - 50), 13)
+            local fitW = MetricsModule.Measure(fitTxt, 13)
+            local startX = pos.X + math.max(14, math.floor((size.X - (fitW + 22)) * 0.5))
+            if self.Label then
+                self.Label.Center = false
+                self.Label.Text = fitTxt
+            end
             if self.IconAlign == "Left" then
                 self.IconImg.Position = Vector2.new(startX, icoY)
                 if self.Label then self.Label.Position = Vector2.new(startX + 22, lblY) end
             else
                 if self.Label then self.Label.Position = Vector2.new(startX, lblY) end
-                self.IconImg.Position = Vector2.new(startX + txtW + 6, icoY)
+                self.IconImg.Position = Vector2.new(startX + fitW + 6, icoY)
             end
         elseif self.Label then
             self.Label.Center = false
-            local ax = MetricsModule.AlignCenter(pos.X, pos.Y, size.X, size.Y, self.Text, 13)
+            self.Label.Text = MetricsModule.Fit(self.Text, math.max(30, size.X - 28), 13)
+            local ax = MetricsModule.AlignCenter(pos.X, pos.Y, size.X, size.Y, self.Label.Text, 13)
             self.Label.Position = Vector2.new(ax, lblY)
         end
         if self.DescLabel then
+            self.DescLabel.Text = MetricsModule.Fit(self.Desc, math.max(30, tagEndX - (pos.X + 14)), 11)
             self.DescLabel.Position = Vector2.new(pos.X + 14, pos.Y + 27)
         end
     elseif self.IconImg and self.IconAlign == "Left" then
         self.IconImg.Position = Vector2.new(pos.X + 14, icoY)
+        local maxLeftW = math.max(30, tagEndX - (pos.X + 36) - 6)
         if self.Label then
             self.Label.Center = false
+            self.Label.Text = MetricsModule.Fit(self.Text, maxLeftW, 13)
             self.Label.Position = Vector2.new(pos.X + 36, lblY)
         end
-        if self.DescLabel then self.DescLabel.Position = Vector2.new(pos.X + 36, pos.Y + 27) end
+        if self.DescLabel then
+            self.DescLabel.Text = MetricsModule.Fit(self.Desc, maxLeftW, 11)
+            self.DescLabel.Position = Vector2.new(pos.X + 36, pos.Y + 27)
+        end
     else
+        local maxLeftW = math.max(30, tagEndX - (pos.X + 14) - 6)
         if self.Label then
             self.Label.Center = false
+            self.Label.Text = MetricsModule.Fit(self.Text, maxLeftW, 13)
             self.Label.Position = Vector2.new(pos.X + 14, lblY)
         end
-        if self.DescLabel then self.DescLabel.Position = Vector2.new(pos.X + 14, pos.Y + 27) end
+        if self.DescLabel then
+            self.DescLabel.Text = MetricsModule.Fit(self.Desc, maxLeftW, 11)
+            self.DescLabel.Position = Vector2.new(pos.X + 14, pos.Y + 27)
+        end
         if self.IconImg then
             self.IconImg.Position = Vector2.new(pos.X + size.X - 30, icoY)
         end
@@ -6118,6 +6109,7 @@ function Button:SetPosition(pos, size)
 end
 
 function Button:Click()
+    if self.Locked then return end
     pcall(self.Callback)
 end
 
@@ -6148,6 +6140,7 @@ function Button:SetDesc(desc)
     if self.DescLabel then
         self.DescLabel.Text = self.Desc
     end
+    layout_button(self)
 end
 
 function Button:Lock(title)
@@ -6212,9 +6205,29 @@ SliderModule = (function()
 
 local ThemeModule = Theme or ThemeModule
 local IconsModule = Icons or IconsModule
+local MetricsModule = Metrics or MetricsModule
 
 local Slider = {}
 Slider.__index = Slider
+
+local function sync_slider_header(self, trackX)
+    if not self.HasTitle then return end
+    local pos = self.Position
+    local size = self.Size
+    local valStr = tostring(self.Value)
+    local badgeX = trackX - 10
+    if self.Badge then
+        local bw = MetricsModule.Measure(valStr, 12)
+        badgeX = trackX - bw - 10
+        self.Badge.Text = valStr
+        self.Badge.Position = Vector2.new(badgeX, pos.Y + math.floor((size.Y - 12) * 0.5))
+    end
+    if self.Label then
+        local maxLabelW = math.max(30, badgeX - (pos.X + 14) - 8)
+        self.Label.Text = MetricsModule.Fit(self.Text, maxLabelW, 13)
+        self.Label.Position = Vector2.new(pos.X + 14, pos.Y + math.floor((size.Y - 13) * 0.5))
+    end
+end
 
 local function compute_track_rect(pos, size, hasTitle, icons, reqWidth)
     if hasTitle then
@@ -6411,14 +6424,7 @@ function Slider:SetPosition(pos, size)
 
     local trackX, trackY, trackW = compute_track_rect(pos, self.Size, self.HasTitle, self.Icons, self.ReqWidth)
 
-    if self.HasTitle then
-        if self.Label then
-            self.Label.Position = Vector2.new(pos.X + 14, pos.Y + math.floor((self.Size.Y - 13) * 0.5))
-        end
-        if self.Badge then
-            self.Badge.Position = Vector2.new(trackX - 38, pos.Y + math.floor((self.Size.Y - 12) * 0.5))
-        end
-    end
+    sync_slider_header(self, trackX)
 
     if self.IconFrom then
         self.IconFrom.Size = Vector2.new(16, 16)
@@ -6452,7 +6458,8 @@ function Slider:SetPosition(pos, size)
 end
 
 function Slider:Set(val)
-    local clamped = math.clamp(val, self.Min, self.Max)
+    local num = tonumber(val) or self.Min
+    local clamped = math.clamp(num, self.Min, self.Max)
     if self.Step and self.Step > 0 then
         clamped = math.floor(clamped / self.Step + 0.5) * self.Step
         clamped = math.clamp(clamped, self.Min, self.Max)
@@ -6478,9 +6485,8 @@ function Slider:Set(val)
             self.Thumb.Size = Vector2.new(thumbW, thumbH)
             self.Thumb.Position = Vector2.new(trackX + fillW - math.floor(thumbW * 0.5), trackY + 2 - math.floor(thumbH * 0.5))
         end
-    end
-
-    if self.Badge then
+        sync_slider_header(self, trackX)
+    elseif self.Badge then
         self.Badge.Text = tostring(clamped)
     end
 
@@ -6498,7 +6504,9 @@ end
 function Slider:SetTitle(title)
     self.Text = tostring(title or "")
     self.HasTitle = self.Text ~= ""
-    if self.Label then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.Label then
         self.Label.Text = self.Text
     end
 end
@@ -6584,6 +6592,7 @@ DropdownModule = (function()
 local ThemeModule = Theme or ThemeModule
 local AnimationsModule = Animations or AnimationsModule
 local IconsModule = Icons or IconsModule
+local MetricsModule = Metrics or MetricsModule
 
 local Dropdown = {}
 Dropdown.__index = Dropdown
@@ -6779,14 +6788,15 @@ function Dropdown:SetPosition(pos, size)
         self.RowBg.Size = self.Size
     end
 
-    if self.Label then
-        self.Label.Position = Vector2.new(pos.X + 14, pos.Y + math.floor((self.Size.Y - 13) * 0.5))
-    end
-
     local boxW = compute_box_width(self.Size.X)
     local boxH = 26
     local boxX = pos.X + self.Size.X - boxW - 14
     local boxY = pos.Y + math.floor((self.Size.Y - boxH) * 0.5)
+
+    if self.Label then
+        self.Label.Text = MetricsModule.Fit(self.Text, math.max(30, boxX - (pos.X + 14) - 8), 13)
+        self.Label.Position = Vector2.new(pos.X + 14, pos.Y + math.floor((self.Size.Y - 13) * 0.5))
+    end
 
     if self.Box then
         self.Box.Position = Vector2.new(boxX, boxY)
@@ -6794,6 +6804,7 @@ function Dropdown:SetPosition(pos, size)
     end
 
     if self.ValueBadge then
+        self.ValueBadge.Text = MetricsModule.Fit(format_display(self.Value, self.Multi), math.max(24, boxW - 28), 12)
         self.ValueBadge.Position = Vector2.new(boxX + 8, boxY + 6)
     end
 
@@ -6810,7 +6821,8 @@ end
 function Dropdown:Set(val)
     self.Value = val
     if self.ValueBadge then
-        self.ValueBadge.Text = format_display(self.Value, self.Multi)
+        local boxW = self.Size and compute_box_width(self.Size.X) or 120
+        self.ValueBadge.Text = MetricsModule.Fit(format_display(self.Value, self.Multi), math.max(24, boxW - 28), 12)
     end
 
     local lib = self.Section and self.Section.Env
@@ -6822,7 +6834,9 @@ end
 
 function Dropdown:SetTitle(title)
     self.Text = tostring(title or "")
-    if self.Label then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.Label then
         self.Label.Text = self.Text
     end
 end
@@ -7344,6 +7358,7 @@ InputModule = (function()
 -- Responsive WindUI-identical text input with keyboard typing, caret blink, focus outline, Numeric/Finished modes.
 
 local ThemeModule = Theme or ThemeModule
+local MetricsModule = Metrics or MetricsModule
 
 local Input = {}
 Input.__index = Input
@@ -7489,14 +7504,15 @@ function Input:SetPosition(pos, size)
         self.RowBg.Size = self.Size
     end
 
-    if self.Label then
-        self.Label.Position = Vector2.new(pos.X + 14, pos.Y + math.floor((self.Size.Y - 13) * 0.5))
-    end
-
     local boxW = compute_box_width(self.Size.X)
     local boxH = 26
     local boxX = pos.X + self.Size.X - boxW - 14
     local boxY = pos.Y + math.floor((self.Size.Y - boxH) * 0.5)
+
+    if self.Label then
+        self.Label.Text = MetricsModule.Fit(self.Text, math.max(30, boxX - (pos.X + 14) - 8), 13)
+        self.Label.Position = Vector2.new(pos.X + 14, pos.Y + math.floor((self.Size.Y - 13) * 0.5))
+    end
 
     if self.Box then
         self.Box.Position = Vector2.new(boxX, boxY)
@@ -7530,7 +7546,9 @@ end
 
 function Input:SetTitle(title)
     self.Text = tostring(title or "")
-    if self.Label then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.Label then
         self.Label.Text = self.Text
     end
 end
@@ -7583,6 +7601,7 @@ function Input:ProcessKey(token)
 end
 
 function Input:Focus()
+    if self.Locked then return end
     if self.ClearTextOnFocus and not self.Focused then
         self.Value = ""
     end
@@ -7679,6 +7698,7 @@ local Keybind = Keybind or KeybindModule
 local ThemeModule = Theme or ThemeModule
 local AnimationsModule = Animations or AnimationsModule
 local IconsModule = Icons or IconsModule
+local MetricsModule = Metrics or MetricsModule
 
 local Toggle = {}
 Toggle.__index = Toggle
@@ -7842,20 +7862,29 @@ function Toggle:SetPosition(pos, size)
         self.RowBg.Size = self.Size
     end
 
-    if self.Label then
-        local titleY = (self.Desc and self.Desc ~= "") and (pos.Y + 10) or (pos.Y + math.floor((self.Size.Y - 13) * 0.5))
-        self.Label.Position = Vector2.new(pos.X + 14, titleY)
-    end
-
-    if self.DescLabel then
-        self.DescLabel.Position = Vector2.new(pos.X + 14, pos.Y + 28)
-    end
-
     local isCheck = self.Type == "Checkbox"
     local trackW = isCheck and 24 or 42
     local trackH = isCheck and 24 or 22
     local trackX = pos.X + self.Size.X - trackW - 14
     local trackY = pos.Y + math.floor((self.Size.Y - trackH) * 0.5)
+
+    local rightEdge = trackX - 10
+    if self.KeyPicker then
+        local kpW = self.KeyPicker.Size and self.KeyPicker.Size.X or 40
+        rightEdge = trackX - kpW - 18
+    end
+    local maxTextW = math.max(30, rightEdge - (pos.X + 14))
+
+    if self.Label then
+        self.Label.Text = MetricsModule.Fit(self.Text, maxTextW, 13)
+        local titleY = (self.Desc and self.Desc ~= "") and (pos.Y + 10) or (pos.Y + math.floor((self.Size.Y - 13) * 0.5))
+        self.Label.Position = Vector2.new(pos.X + 14, titleY)
+    end
+
+    if self.DescLabel then
+        self.DescLabel.Text = MetricsModule.Fit(self.Desc, maxTextW, 11)
+        self.DescLabel.Position = Vector2.new(pos.X + 14, pos.Y + 28)
+    end
 
     if self.Track then
         self.Track.Position = Vector2.new(trackX, trackY)
@@ -7887,12 +7916,13 @@ function Toggle:Set(val)
         self.CheckIcon.Visible = self.Visible and boolVal
     end
 
+    local palette = self.Section and self.Section.Window and self.Section.Window.ThemeTokens
     if self.Visible then
         AnimationsModule.Tween("Toggle_" .. tostring(self), self.AnimProgress or target, target, 20, function(v)
-            self:_applyAnimVisual(v)
+            self:_applyAnimVisual(v, palette)
         end)
     else
-        self:_applyAnimVisual(target)
+        self:_applyAnimVisual(target, palette)
     end
 
     local lib = self.Section and self.Section.Env
@@ -7907,14 +7937,18 @@ end
 
 function Toggle:SetTitle(title)
     self.Text = tostring(title or "")
-    if self.Label then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.Label then
         self.Label.Text = self.Text
     end
 end
 
 function Toggle:SetDesc(desc)
     self.Desc = desc ~= nil and tostring(desc) or ""
-    if self.DescLabel then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.DescLabel then
         self.DescLabel.Text = self.Desc
     end
 end
@@ -7958,6 +7992,9 @@ end
 function Toggle:AddKeyPicker(keyId, keyConfig)
     local kp = Keybind.new(self, keyId, keyConfig)
     self.KeyPicker = kp
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    end
     if keyId then
         local win = self.Section and (self.Section.Window or (self.Section.ParentTab and self.Section.ParentTab.Window))
         local lib = (win and win.Env) or (self.Section and self.Section.Env) or _G.Library
@@ -8024,37 +8061,6 @@ local MetricsModule = Metrics or MetricsModule
 local Paragraph = {}
 Paragraph.__index = Paragraph
 
-local function wrap_lines(text, maxW, fontSize, maxLines)
-    local out = {}
-    local str = tostring(text or "")
-    if str == "" then return out end
-    local maxChars = math.max(10, math.floor(maxW / (fontSize * 0.58)))
-    for raw in (str .. "\n"):gmatch("(.-)\n") do
-        if #out >= maxLines then break end
-        if raw == "" then
-            table.insert(out, "")
-        else
-            local cur = ""
-            for word in raw:gmatch("%S+") do
-                local cand = cur == "" and word or (cur .. " " .. word)
-                if #cand <= maxChars then
-                    cur = cand
-                else
-                    if cur ~= "" then
-                        table.insert(out, cur)
-                        if #out >= maxLines then cur = ""; break end
-                    end
-                    cur = (#word > maxChars) and (string.sub(word, 1, maxChars - 3) .. "...") or word
-                end
-            end
-            if cur ~= "" and #out < maxLines then
-                table.insert(out, cur)
-            end
-        end
-    end
-    return out
-end
-
 local named_colors = {
     Red = Color3.fromRGB(239, 79, 55),
     Blue = Color3.fromRGB(48, 93, 255),
@@ -8072,7 +8078,7 @@ function Paragraph.new(section, config)
 
     local usableW = math.max(160, (section.Size and section.Size.X or 400) - ((section.Padding or 10) * 2))
     local textLeft = hasImg and (imgSize + 12) or 0
-    local lines = wrap_lines(desc, usableW - 28 - textLeft, 12, 6)
+    local lines = MetricsModule.WrapLines(desc, usableW - 28 - textLeft, 12, 6)
     local contentH = (#lines > 0) and (#lines * 16 + 4) or 0
     local btnRowH = (#buttons > 0) and 34 or 0
     local rowH = math.max(hasImg and (imgSize + 24) or 44, 24 + 18 + contentH + btnRowH)
@@ -8081,16 +8087,22 @@ function Paragraph.new(section, config)
 
     local cardColor = ThemeModule.Get("ElementBackground")
     local borderColor = ThemeModule.Get("Window.Border")
+    local customColor = nil
+    local customBorderColor = nil
     if type(cfg.Color) == "string" and named_colors[cfg.Color] then
         borderColor = named_colors[cfg.Color]
+        customBorderColor = borderColor
     elseif type(cfg.Color) == "table" or typeof(cfg.Color) == "Color3" then
         cardColor = cfg.Color
+        customColor = cardColor
     end
 
     local self = setmetatable({
         Section = section,
         Title = tostring(cfg.Title or "Paragraph"),
         Desc = tostring(desc),
+        CustomColor = customColor,
+        CustomBorderColor = customBorderColor,
         Image = cfg.Image,
         ImageSize = imgSize,
         Buttons = buttons,
@@ -8211,7 +8223,7 @@ function Paragraph:RecalcHeight(width)
     local w = width or (self.Size and self.Size.X) or 380
     local textLeft = (self.ImgDrawing ~= nil) and (self.ImageSize + 12) or 0
     local availW = math.max(100, w - 28 - textLeft)
-    local lines = wrap_lines(self.Desc, availW, 12, 6)
+    local lines = MetricsModule.WrapLines(self.Desc, availW, 12, 6)
     self.Lines = lines
     local contentH = (#lines > 0) and (#lines * 16 + 4) or 0
     local btnRowH = (#self.Buttons > 0) and 34 or 0
@@ -8364,14 +8376,9 @@ Code.__index = Code
 local function split_code_lines(src, maxW, maxLines)
     local out = {}
     local str = tostring(src or "")
-    local maxChars = math.max(16, math.floor(maxW / 6.5))
     for raw in (str .. "\n"):gmatch("(.-)\n") do
         if #out >= maxLines then break end
-        if #raw > maxChars then
-            table.insert(out, string.sub(raw, 1, maxChars - 3) .. "...")
-        else
-            table.insert(out, raw)
-        end
+        table.insert(out, MetricsModule.Fit(raw, maxW, 12))
     end
     if #out == 0 then table.insert(out, "") end
     return out
@@ -8738,6 +8745,13 @@ function ImageBlock:SetImage(src)
     end
 end
 
+function ImageBlock:RecalcHeight(width)
+    local w = width or (self.Size and self.Size.X) or 380
+    local h = parse_aspect_height(self.AspectRatio, w, self.FixedHeight)
+    self.Size = Vector2.new(w, h)
+    return h
+end
+
 function ImageBlock:SetPosition(pos, size)
     self.Position = pos
     self.Size = size or self.Size
@@ -8890,6 +8904,20 @@ function ProgressBar.new(section, id, config)
         self.TitleText = titleTxt
         section:_register(titleTxt)
 
+        if self.Desc and self.Desc ~= "" then
+            local dTxt = pool:Get("Text")
+            dTxt.Text = self.Desc
+            dTxt.Font = fontUI
+            dTxt.Outline = false
+            dTxt.Size = 11
+            dTxt.Color = ThemeModule.Get("Text.Secondary")
+            dTxt.Position = Vector2.new(pos.X + 14, pos.Y + 24)
+            dTxt.ZIndex = 5
+            dTxt.Visible = section.Visible
+            self.DescLabel = dTxt
+            section:_register(dTxt)
+        end
+
         if self.ShowValue then
             local valTxt = pool:Get("Text")
             valTxt.Text = format_value(self.Value, self.Min, self.Max, self.DisplayMode, self.Format)
@@ -8964,6 +8992,12 @@ function ProgressBar:_syncVisual()
             self.ValueText.Visible = self.Visible
         end
     end
+    if self.TitleText then
+        local valReserve = (self.ValueText and not self.Indeterminate) and (MetricsModule.Measure(self.ValueText.Text or "", 12) + 12) or 0
+        local maxTitleW = math.max(40, self.Size.X - 28 - valReserve)
+        self.TitleText.Text = MetricsModule.Fit(self.Title, maxTitleW, 13)
+        self.TitleText.Position = Vector2.new(self.Position.X + 14, self.Position.Y + 8)
+    end
     if self.Visible and self._clipTop and self._clipBottom and self.Section and self.Section.ClipControl then
         self.Section.ClipControl(self, self._clipTop, self._clipBottom)
     end
@@ -8994,17 +9028,18 @@ function ProgressBar:SetPosition(pos, size)
         self.Visual.Position = pos
         self.Visual.Size = self.Size
     end
-    if self.TitleText then
-        self.TitleText.Text = MetricsModule.Fit(self.Title, self.Size.X - 80, 13)
-        self.TitleText.Position = Vector2.new(pos.X + 14, pos.Y + 8)
-    end
     self:_syncVisual()
+    if self.DescLabel then
+        self.DescLabel.Text = MetricsModule.Fit(self.Desc, math.max(40, self.Size.X - 28), 11)
+        self.DescLabel.Position = Vector2.new(pos.X + 14, pos.Y + 24)
+    end
 end
 
 function ProgressBar:SetVisible(vis)
     self.Visible = vis
     if self.Visual then self.Visual.Visible = vis end
     if self.TitleText then self.TitleText.Visible = vis end
+    if self.DescLabel then self.DescLabel.Visible = vis end
     if self.ValueText then self.ValueText.Visible = vis and not self.Indeterminate end
     if self.Track then self.Track.Visible = vis end
     if self.FillBar then
@@ -9061,6 +9096,7 @@ ColorpickerModule = (function()
 local ThemeModule = Theme or ThemeModule
 local IconsModule = Icons or IconsModule
 local MetricsModule = Metrics or MetricsModule
+local ClampingModule = Clamping or ClampingModule
 
 local Colorpicker = {}
 Colorpicker.__index = Colorpicker
@@ -9106,14 +9142,6 @@ local function rgb_to_hex(col)
     local g = math.floor(clamp(tonumber(col.G or col.g) or 1, 0, 1) * 255 + 0.5)
     local b = math.floor(clamp(tonumber(col.B or col.b) or 1, 0, 1) * 255 + 0.5)
     return string.format("#%02X%02X%02X", r, g, b)
-end
-
-local function get_viewport()
-    local cam = workspace and workspace.CurrentCamera
-    if cam and cam.ViewportSize and cam.ViewportSize.X > 0 and cam.ViewportSize.Y > 0 then
-        return cam.ViewportSize
-    end
-    return Vector2.new(1920, 1080)
 end
 
 function Colorpicker:_syncSwatchVisual()
@@ -9437,7 +9465,7 @@ function Colorpicker:_syncPopup()
     local pd = self.PopupDrawings
     if not pd or not self.IsOpen then return end
 
-    local vp = get_viewport()
+    local vp = ClampingModule.GetViewportSize()
     local popW = 216
     local popH = self.HasAlpha and 248 or 222
     local x = clamp(self.Position.X + self.Size.X - popW, 8, math.max(8, vp.X - popW - 8))
@@ -9745,14 +9773,18 @@ end
 
 function Colorpicker:SetTitle(title)
     self.Title = tostring(title or "")
-    if self.TitleText then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.TitleText then
         self.TitleText.Text = self.Title
     end
 end
 
 function Colorpicker:SetDesc(desc)
     self.Desc = desc ~= nil and tostring(desc) or ""
-    if self.DescText then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.DescText then
         self.DescText.Text = self.Desc
     end
 end
@@ -9942,7 +9974,7 @@ function ContentSection.new(config, parentTab, window)
     local cfg = type(config) == "table" and config or { Title = tostring(config or "Section") }
     local win = window or (parentTab and parentTab.Window)
     local pool = (win and win.Pool) or (parentTab and parentTab.Pool)
-    if not pool and PoolModule then
+    if not pool then
         pool = PoolModule.new(200, MetaModule)
     end
 
@@ -10364,16 +10396,11 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
         if not is_ctrl_active(self, ctrl) then
             if ctrl.SetVisible then ctrl:SetVisible(false) else ctrl.Visible = false end
         else
-            local ch = (ctrl.Size and ctrl.Size.Y) or 44
             local rowY
             local cX = innerX
             local cW = usableW
+            local ch
             if ctrl._group then
-                if not groupRowY[ctrl._group] then
-                    groupRowY[ctrl._group] = dynY
-                    dynY = dynY + (ctrl._group.MaxH or ch) + self.RowGap
-                end
-                rowY = absPos.Y + groupRowY[ctrl._group]
                 local visCount = 0
                 local myIdx = 0
                 for _, item in ipairs(ctrl._group.Items) do
@@ -10386,7 +10413,21 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
                 local gap = ctrl._group.Gap or 8
                 cW = math.max(60, math.floor((usableW - (count - 1) * gap) / count))
                 cX = innerX + (math.max(1, myIdx) - 1) * (cW + gap)
+                ch = (ctrl.RecalcHeight and ctrl:RecalcHeight(cW)) or (ctrl.Size and ctrl.Size.Y) or 44
+                if not groupRowY[ctrl._group] then
+                    local maxRowH = ctrl._group.MaxH or ch
+                    for _, item in ipairs(ctrl._group.Items) do
+                        if is_ctrl_active(self, item) then
+                            local ih = (item.RecalcHeight and item:RecalcHeight(cW)) or (item.Size and item.Size.Y) or 44
+                            if ih > maxRowH then maxRowH = ih end
+                        end
+                    end
+                    groupRowY[ctrl._group] = dynY
+                    dynY = dynY + maxRowH + self.RowGap
+                end
+                rowY = absPos.Y + groupRowY[ctrl._group]
             else
+                ch = (ctrl.RecalcHeight and ctrl:RecalcHeight(cW)) or (ctrl.Size and ctrl.Size.Y) or 44
                 rowY = absPos.Y + dynY
                 dynY = dynY + ch + self.RowGap
             end
@@ -11120,13 +11161,14 @@ function Tab:_initSidebarDrawings()
     end
 end
 
-function Tab:UpdateVisualState()
+function Tab:UpdateVisualState(palette)
     if not self.SidebarVisible then return end
     local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
+    local t = palette or (self.Window and self.Window.ThemeTokens)
 
     if self.IsActive then
-        local activeBg = ThemeModule.Get(str_tab_active)
-        local titleCol = ThemeModule.Get(str_txt_title)
+        local activeBg = ThemeModule.Resolve(t, str_tab_active)
+        local titleCol = ThemeModule.Resolve(t, str_txt_title)
         if self.Capsule then
             self.Capsule.Color = activeBg
             self.Capsule.Transparency = 1.0
@@ -11141,8 +11183,8 @@ function Tab:UpdateVisualState()
             self.TabIcon.Transparency = 1.0
         end
     elseif self.IsHovered or (self.HoverAnim or 0) > 0.02 then
-        local hoverBg = ThemeModule.Get(str_tab_hover)
-        local titleCol = ThemeModule.Get(str_txt_title)
+        local hoverBg = ThemeModule.Resolve(t, str_tab_hover)
+        local titleCol = ThemeModule.Resolve(t, str_txt_title)
         if self.Capsule then
             self.Capsule.Color = hoverBg
             self.Capsule.Transparency = self.HoverAnim or 1.0
@@ -11157,7 +11199,7 @@ function Tab:UpdateVisualState()
             self.TabIcon.Transparency = 0.92
         end
     else
-        local subCol = ThemeModule.Get(str_txt_sec)
+        local subCol = ThemeModule.Resolve(t, str_txt_sec)
         if self.Capsule then
             self.Capsule.Visible = false
         end
@@ -11460,7 +11502,7 @@ function Tab:SetVisible(visible)
 end
 
 function Tab:UpdateTheme(t)
-    self:UpdateVisualState()
+    self:UpdateVisualState(t)
     local cardBg = ThemeModule.Resolve(t, "Card.Background")
     local borderCol = ThemeModule.Resolve(t, "Card.Border")
     local elemBg = ThemeModule.Resolve(t, "ElementBackground")
@@ -11489,7 +11531,7 @@ function Tab:UpdateTheme(t)
             if ctrl.HeaderBg then ctrl.HeaderBg.Color = ctrlBg end
             if ctrl.CopyBg then ctrl.CopyBg.Color = elemBg end
             if ctrl.CopyText then ctrl.CopyText.Color = txtTitle end
-            if ctrl.Border then ctrl.Border.Color = borderCol end
+            if ctrl.Border and not ctrl.CustomBorderColor then ctrl.Border.Color = borderCol end
             if ctrl.SwatchBorder then ctrl.SwatchBorder.Color = borderCol end
             if ctrl.PopupBg then ctrl.PopupBg.Color = cardBg end
             if ctrl.PopupBorder then ctrl.PopupBorder.Color = borderCol end
@@ -11534,6 +11576,11 @@ function Tab:UpdateTheme(t)
                 if kp.ModeMenu then
                     if kp.ModeMenu.Bg then kp.ModeMenu.Bg.Color = cardBg end
                     if kp.ModeMenu.Border then kp.ModeMenu.Border.Color = borderCol end
+                    for _, row in ipairs(kp.ModeMenu.Rows or {}) do
+                        local sel = kp.Mode == row.Mode
+                        if row.Bg then row.Bg.Color = ThemeModule.Resolve(t, sel and str_tab_active or "Card.Background") end
+                        if row.Text then row.Text.Color = sel and txtTitle or txtSub end
+                    end
                 end
             end
             if ctrl.InputText and ctrl._refreshDisplay then ctrl:_refreshDisplay() end
@@ -12123,11 +12170,12 @@ function ProfileCard:Update(mx, my, m1Clicked, dt)
         end
     end
 
+    local themeTokens = (self.Window and self.Window.ThemeTokens) or ThemeModule.GetCurrent()
     local cx, cy, cw, ch = self:GetCardRect()
     local overCard = mx >= cx and mx <= cx + cw and my >= cy and my <= cy + ch
     if overCard ~= self.Hovered then
         self.Hovered = overCard
-        self:UpdateTheme(ThemeModule.GetCurrent())
+        self:UpdateTheme(themeTokens)
         AnimationsModule.Tween("profile_hover_" .. tostring(self), self.HoverAnim, overCard and 1 or 0, 22, function(v)
             self.HoverAnim = v
             self:UpdateLayout()
@@ -12137,7 +12185,7 @@ function ProfileCard:Update(mx, my, m1Clicked, dt)
     if m1Clicked then
         if overCard then
             self:_animatePopover(not self.Open)
-            self:UpdateTheme(ThemeModule.GetCurrent())
+            self:UpdateTheme(themeTokens)
             if self.Callback then
                 task.spawn(self.Callback)
             end
@@ -12149,7 +12197,7 @@ function ProfileCard:Update(mx, my, m1Clicked, dt)
                 return true
             end
             self:_animatePopover(false)
-            self:UpdateTheme(ThemeModule.GetCurrent())
+            self:UpdateTheme(themeTokens)
         end
     end
     return false
@@ -12849,22 +12897,11 @@ local function get_mouse()
     return nil
 end
 
-local function get_viewport()
-    local vp = Vector2.new(1920, 1080)
-    pcall(function()
-        local cam = workspace and workspace.CurrentCamera
-        if cam and cam.ViewportSize and cam.ViewportSize.X > 0 and cam.ViewportSize.Y > 0 then
-            vp = cam.ViewportSize
-        end
-    end)
-    return vp
-end
-
 function Window.new(config)
     config = config or {}
     assert(config.Title ~= nil and tostring(config.Title) ~= "", "Window config.Title is required!")
 
-    local vp = get_viewport()
+    local vp = ClampingModule.GetViewportSize()
     local minSize = config.MinSize or Vector2.new(460, 320)
     local rawSize = config.Size or Vector2.new(640, 460)
     local maxSize = config.MaxSize or Vector2.new(960, 680)
@@ -13447,7 +13484,7 @@ function Window:SetPosition(newPos)
 end
 
 function Window:SetSize(newSize, ignoreMaxClamp)
-    local vp = get_viewport()
+    local vp = ClampingModule.GetViewportSize()
     local minW = self.MinSize.X
     local minH = self.MinSize.Y
     local capW = ignoreMaxClamp and (vp.X - 24) or math.min(self.MaxSize.X, vp.X - 16)
@@ -13582,7 +13619,7 @@ function Window:ToggleMaximize()
     self.IsResizing = false
     self:ReleaseInteraction("WindowDrag")
     self:ReleaseInteraction("WindowResize")
-    local vp = get_viewport()
+    local vp = ClampingModule.GetViewportSize()
     if not self.IsMaximized then
         self.PreMaximizeSize = self.Size
         self.PreMaximizePos = self.Position
@@ -13724,7 +13761,7 @@ function Window:IsResizable(enabled)
 end
 
 function Window:SetToTheCenter()
-    local vp = get_viewport()
+    local vp = ClampingModule.GetViewportSize()
     local cx = math.max(12, math.floor((vp.X - self.Size.X) * 0.5))
     local cy = math.max(36, math.floor((vp.Y - self.Size.Y) * 0.5))
     self:SetPosition(Vector2.new(cx, cy))
@@ -14125,6 +14162,7 @@ function Window:Tag(tagConfig)
         RelX = relX,
         RelY = relY,
         Width = tagW,
+        CustomColor = cfg.Color ~= nil,
         Bg = bg,
         Border = border,
         Icon = ico,
@@ -14165,28 +14203,7 @@ function Window:CanInteract(widgetId)
 end
 
 function Window:ClampAndSnap(pos, size, customViewport, customInsetTop)
-    local curSize = size or self.Size
-    local vp = customViewport or get_viewport()
-    if not vp or vp.X <= 0 or vp.Y <= 0 then
-        vp = Vector2.new(1920, 1080)
-    end
-
-    local topInsetY = customInsetTop or 36
-    local minX = 0
-    local maxX = math.max(0, vp.X - curSize.X)
-    local minY = topInsetY
-    local maxY = math.max(topInsetY, vp.Y - curSize.Y)
-
-    local x = math.clamp(pos.X, minX, maxX)
-    local y = math.clamp(pos.Y, minY, maxY)
-
-    local snapThreshold = 16
-    if math.abs(x - minX) <= snapThreshold then x = minX end
-    if math.abs(x - maxX) <= snapThreshold then x = maxX end
-    if math.abs(y - minY) <= snapThreshold then y = minY end
-    if math.abs(y - maxY) <= snapThreshold then y = maxY end
-
-    return Vector2.new(x, y)
+    return ClampingModule.ClampAndSnap(pos, size or self.Size, customViewport, customInsetTop)
 end
 
 -- ============================================================================
@@ -14802,7 +14819,6 @@ function Window:Destroy()
     self.OpenColorpicker = nil
     self.CapturingKeybind = nil
     self.Keybinds = {}
-    IconsModule.ClearSubscribers()
     local curState = UI.GetValue(str_ui_state)
     if curState == str_unload or (self._uiStateToken and curState == self._uiStateToken) then
         UI.SetValue(str_ui_state, str_empty)
@@ -14877,6 +14893,7 @@ function Window:Destroy()
     end
 
     if (not self.Env or not self.Env._windows or #self.Env._windows == 0) then
+        IconsModule.ClearSubscribers()
         AnimationsModule.Reset()
         NotifyModule.Destroy()
         DialogModule.Destroy()
@@ -15101,20 +15118,6 @@ function BreezeUI:Toggle(state)
     end
 end
 
-function BreezeUI:OnUnload(cb)
-    if type(cb) == "function" then
-        table.insert(self.UnloadCallbacks, cb)
-    end
-end
-
-function BreezeUI:Unload()
-    for _, cb in ipairs(self.UnloadCallbacks) do
-        pcall(cb)
-    end
-    self.UnloadCallbacks = {}
-    self:Destroy()
-end
-
 function BreezeUI:Popup(cfg)
     return DialogModule.Show(cfg, self._activeWindow, "Popup")
 end
@@ -15190,11 +15193,7 @@ end
 
 -- Theme enumeration (includes Light theme with dark icon set)
 function BreezeUI:GetThemes()
-    return {
-        "Dark", "Light", "Rose", "Plant", "Red", "Indigo", "Sky", "Violet",
-        "Amber", "Emerald", "Midnight", "Crimson", "MonokaiPro", "CottonCandy",
-        "Mellowsi", "Rainbow", "Slate", "Ruby",
-    }
+    return ThemeModule.GetThemes()
 end
 
 -- Notify side helper (delegates to NotifyModule)

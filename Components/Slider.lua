@@ -3,9 +3,29 @@
 
 local ThemeModule = Theme or require("../Layout/Theme")
 local IconsModule = Icons or require("../Subsystems/Icons")
+local MetricsModule = Metrics or require("../Core/Metrics")
 
 local Slider = {}
 Slider.__index = Slider
+
+local function sync_slider_header(self, trackX)
+    if not self.HasTitle then return end
+    local pos = self.Position
+    local size = self.Size
+    local valStr = tostring(self.Value)
+    local badgeX = trackX - 10
+    if self.Badge then
+        local bw = MetricsModule.Measure(valStr, 12)
+        badgeX = trackX - bw - 10
+        self.Badge.Text = valStr
+        self.Badge.Position = Vector2.new(badgeX, pos.Y + math.floor((size.Y - 12) * 0.5))
+    end
+    if self.Label then
+        local maxLabelW = math.max(30, badgeX - (pos.X + 14) - 8)
+        self.Label.Text = MetricsModule.Fit(self.Text, maxLabelW, 13)
+        self.Label.Position = Vector2.new(pos.X + 14, pos.Y + math.floor((size.Y - 13) * 0.5))
+    end
+end
 
 local function compute_track_rect(pos, size, hasTitle, icons, reqWidth)
     if hasTitle then
@@ -202,14 +222,7 @@ function Slider:SetPosition(pos, size)
 
     local trackX, trackY, trackW = compute_track_rect(pos, self.Size, self.HasTitle, self.Icons, self.ReqWidth)
 
-    if self.HasTitle then
-        if self.Label then
-            self.Label.Position = Vector2.new(pos.X + 14, pos.Y + math.floor((self.Size.Y - 13) * 0.5))
-        end
-        if self.Badge then
-            self.Badge.Position = Vector2.new(trackX - 38, pos.Y + math.floor((self.Size.Y - 12) * 0.5))
-        end
-    end
+    sync_slider_header(self, trackX)
 
     if self.IconFrom then
         self.IconFrom.Size = Vector2.new(16, 16)
@@ -243,7 +256,8 @@ function Slider:SetPosition(pos, size)
 end
 
 function Slider:Set(val)
-    local clamped = math.clamp(val, self.Min, self.Max)
+    local num = tonumber(val) or self.Min
+    local clamped = math.clamp(num, self.Min, self.Max)
     if self.Step and self.Step > 0 then
         clamped = math.floor(clamped / self.Step + 0.5) * self.Step
         clamped = math.clamp(clamped, self.Min, self.Max)
@@ -269,9 +283,8 @@ function Slider:Set(val)
             self.Thumb.Size = Vector2.new(thumbW, thumbH)
             self.Thumb.Position = Vector2.new(trackX + fillW - math.floor(thumbW * 0.5), trackY + 2 - math.floor(thumbH * 0.5))
         end
-    end
-
-    if self.Badge then
+        sync_slider_header(self, trackX)
+    elseif self.Badge then
         self.Badge.Text = tostring(clamped)
     end
 
@@ -289,7 +302,9 @@ end
 function Slider:SetTitle(title)
     self.Text = tostring(title or "")
     self.HasTitle = self.Text ~= ""
-    if self.Label then
+    if self.Position and self.Size then
+        self:SetPosition(self.Position, self.Size)
+    elseif self.Label then
         self.Label.Text = self.Text
     end
 end

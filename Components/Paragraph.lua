@@ -8,37 +8,6 @@ local MetricsModule = Metrics or require("../Core/Metrics")
 local Paragraph = {}
 Paragraph.__index = Paragraph
 
-local function wrap_lines(text, maxW, fontSize, maxLines)
-    local out = {}
-    local str = tostring(text or "")
-    if str == "" then return out end
-    local maxChars = math.max(10, math.floor(maxW / (fontSize * 0.58)))
-    for raw in (str .. "\n"):gmatch("(.-)\n") do
-        if #out >= maxLines then break end
-        if raw == "" then
-            table.insert(out, "")
-        else
-            local cur = ""
-            for word in raw:gmatch("%S+") do
-                local cand = cur == "" and word or (cur .. " " .. word)
-                if #cand <= maxChars then
-                    cur = cand
-                else
-                    if cur ~= "" then
-                        table.insert(out, cur)
-                        if #out >= maxLines then cur = ""; break end
-                    end
-                    cur = (#word > maxChars) and (string.sub(word, 1, maxChars - 3) .. "...") or word
-                end
-            end
-            if cur ~= "" and #out < maxLines then
-                table.insert(out, cur)
-            end
-        end
-    end
-    return out
-end
-
 local named_colors = {
     Red = Color3.fromRGB(239, 79, 55),
     Blue = Color3.fromRGB(48, 93, 255),
@@ -56,7 +25,7 @@ function Paragraph.new(section, config)
 
     local usableW = math.max(160, (section.Size and section.Size.X or 400) - ((section.Padding or 10) * 2))
     local textLeft = hasImg and (imgSize + 12) or 0
-    local lines = wrap_lines(desc, usableW - 28 - textLeft, 12, 6)
+    local lines = MetricsModule.WrapLines(desc, usableW - 28 - textLeft, 12, 6)
     local contentH = (#lines > 0) and (#lines * 16 + 4) or 0
     local btnRowH = (#buttons > 0) and 34 or 0
     local rowH = math.max(hasImg and (imgSize + 24) or 44, 24 + 18 + contentH + btnRowH)
@@ -65,16 +34,22 @@ function Paragraph.new(section, config)
 
     local cardColor = ThemeModule.Get("ElementBackground")
     local borderColor = ThemeModule.Get("Window.Border")
+    local customColor = nil
+    local customBorderColor = nil
     if type(cfg.Color) == "string" and named_colors[cfg.Color] then
         borderColor = named_colors[cfg.Color]
+        customBorderColor = borderColor
     elseif type(cfg.Color) == "table" or typeof(cfg.Color) == "Color3" then
         cardColor = cfg.Color
+        customColor = cardColor
     end
 
     local self = setmetatable({
         Section = section,
         Title = tostring(cfg.Title or "Paragraph"),
         Desc = tostring(desc),
+        CustomColor = customColor,
+        CustomBorderColor = customBorderColor,
         Image = cfg.Image,
         ImageSize = imgSize,
         Buttons = buttons,
@@ -195,7 +170,7 @@ function Paragraph:RecalcHeight(width)
     local w = width or (self.Size and self.Size.X) or 380
     local textLeft = (self.ImgDrawing ~= nil) and (self.ImageSize + 12) or 0
     local availW = math.max(100, w - 28 - textLeft)
-    local lines = wrap_lines(self.Desc, availW, 12, 6)
+    local lines = MetricsModule.WrapLines(self.Desc, availW, 12, 6)
     self.Lines = lines
     local contentH = (#lines > 0) and (#lines * 16 + 4) or 0
     local btnRowH = (#self.Buttons > 0) and 34 or 0

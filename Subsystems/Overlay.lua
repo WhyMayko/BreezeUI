@@ -6,6 +6,7 @@ local MetaModule = require("../Core/Meta")
 local ThemeModule = require("../Layout/Theme")
 local IconsModule = require("./Icons")
 local MetricsModule = require("../Core/Metrics")
+local ClampingModule = require("../Engine/Clamping")
 
 local Overlay = {
     Pool = nil,
@@ -27,14 +28,6 @@ local function clamp(v, lo, hi)
     if v < lo then return lo end
     if v > hi then return hi end
     return v
-end
-
-local function get_viewport()
-    local cam = workspace and workspace.CurrentCamera
-    if cam and cam.ViewportSize and cam.ViewportSize.X > 0 and cam.ViewportSize.Y > 0 then
-        return cam.ViewportSize
-    end
-    return Vector2.new(1920, 1080)
 end
 
 local function ensure_pool()
@@ -571,7 +564,7 @@ function Overlay.Update(dt, window, mousePos, m1PressedArg, m1ClickedArg)
         return false
     end
 
-    local vp = get_viewport()
+    local vp = ClampingModule.GetViewportSize()
     local mx, my = -9999, -9999
     if mousePos then
         mx, my = mousePos.X, mousePos.Y
@@ -638,7 +631,7 @@ function Overlay.RenderTooltip(text, mx, my, window)
         return
     end
     local slot = ensure_tooltip_slot()
-    local vp = get_viewport()
+    local vp = ClampingModule.GetViewportSize()
     local str = tostring(text)
     local tw = MetricsModule.Measure(str, 12)
     local w = math.max(56, tw + 18)
