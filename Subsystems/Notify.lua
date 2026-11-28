@@ -17,12 +17,14 @@ local Notify = {
     PrevM1 = false,
 }
 
-local function get_theme(key, fallback)
-    if ThemeModule and ThemeModule.Get then
-        return ThemeModule.Get(key, fallback)
-    end
-    return fallback
-end
+local str_card_bg = "Card.Background"
+local str_border  = "Window.Border"
+local str_title   = "Text.Title"
+local str_sec     = "Text.Secondary"
+local str_track   = "Slider.TrackBg"
+local str_blue    = "Accent.Blue"
+local str_ctrl_bg = "Control.Background"
+local str_ctrl_hv = "Control.Hover"
 
 local function clamp(v, lo, hi)
     if v < lo then return lo end
@@ -272,12 +274,12 @@ function Notify.Push(cfg, titleArg, durationArg)
         _released = false,
     }
 
-    if icon and IconsModule and IconsModule.Get then
+    if icon then
         toast._iconData = IconsModule.Get(icon, function(png)
             toast._iconData = png
         end)
     end
-    if canClose and IconsModule and IconsModule.Get then
+    if canClose then
         toast._closeData = IconsModule.Get("x", function(png)
             toast._closeData = png
         end)
@@ -374,14 +376,14 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
 
     local side = (window and window.NotifySide) or Notify.DefaultSide or "Right"
     local anchor = (window and window.NotifyAnchor) or Notify.DefaultAnchor or "Bottom"
-    local cardBg = get_theme("Card.Background", Color3.fromRGB(24, 24, 29))
-    local borderCol = get_theme("Window.Border", Color3.fromRGB(46, 46, 54))
-    local titleCol = get_theme("Text.Title", Color3.fromRGB(255, 255, 255))
-    local descCol = get_theme("Text.Secondary", Color3.fromRGB(165, 165, 175))
-    local trackCol = get_theme("Slider.TrackBg", get_theme("Control.Background", Color3.fromRGB(48, 48, 56)))
-    local accentCol = (window and window.Accent) or get_theme("Accent.Blue", get_theme("Accent", Color3.fromRGB(59, 130, 246)))
-    local btnCol = get_theme("Control.Background", get_theme("Button", Color3.fromRGB(48, 48, 54)))
-    local btnHoverCol = get_theme("Control.Hover", Color3.fromRGB(60, 60, 68))
+    local cardBg = ThemeModule.Get(str_card_bg)
+    local borderCol = ThemeModule.Get(str_border)
+    local titleCol = ThemeModule.Get(str_title)
+    local descCol = ThemeModule.Get(str_sec)
+    local trackCol = ThemeModule.Get(str_track)
+    local accentCol = (window and window.Accent) or ThemeModule.Get(str_blue)
+    local btnCol = ThemeModule.Get(str_ctrl_bg)
+    local btnHoverCol = ThemeModule.Get(str_ctrl_hv)
 
     local cardW = 296
     local padX = 14
@@ -429,9 +431,7 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         local textW = cardW - padX * 2 - textLeftOffset - rightPad
 
         local lines = wrap_lines(toast.Content, textW, 13, 5)
-        local titleFitted = MetricsModule and MetricsModule.Fit
-            and MetricsModule.Fit(toast.Title, textW, 14, 1)
-            or toast.Title
+        local titleFitted = MetricsModule.Fit(toast.Title, textW, 14, 1)
 
         local hasButtons = toast.Buttons and #toast.Buttons > 0
         local btnRowH = hasButtons and 32 or 0

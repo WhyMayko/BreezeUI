@@ -34,11 +34,11 @@ function Input.new(section, id, config)
 
     local pool = section.Pool
     if pool then
-        local rowBgCol = ThemeModule.Get("ElementBackground", Color3.fromRGB(34, 34, 38))
-        local boxBg = ThemeModule.Get("Control.Background", Color3.fromRGB(48, 48, 54))
-        local borderCol = ThemeModule.Get("Control.Border", Color3.fromRGB(58, 58, 66))
-        local txtCol = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
-        local subCol = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+        local rowBgCol = ThemeModule.Get("ElementBackground")
+        local boxBg = ThemeModule.Get("Control.Background")
+        local borderCol = ThemeModule.Get("Control.Border")
+        local txtCol = ThemeModule.Get("Text.Title")
+        local subCol = ThemeModule.Get("Text.Secondary")
         local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
         -- 1. Integrated Row Background
@@ -114,8 +114,8 @@ end
 
 function Input:_refreshDisplay()
     if not self.InputText then return end
-    local txtCol = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
-    local subCol = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+    local txtCol = ThemeModule.Get("Text.Title")
+    local subCol = ThemeModule.Get("Text.Secondary")
     local boxW = self.Box and self.Box.Size.X or 120
     local maxChars = math.max(4, math.floor((boxW - 16) / 6.2))
 
@@ -134,9 +134,7 @@ function Input:_refreshDisplay()
     end
 
     if self.BoxBorder then
-        self.BoxBorder.Color = self.Focused
-            and ThemeModule.Get("Accent.Blue", Color3.fromRGB(0, 145, 255))
-            or ThemeModule.Get("Control.Border", Color3.fromRGB(58, 58, 66))
+        self.BoxBorder.Color = ThemeModule.Get(self.Focused and "Accent.Blue" or "Control.Border")
     end
 end
 
@@ -200,14 +198,14 @@ function Input:Lock(title)
     if title ~= nil then self.LockedTitle = tostring(title) end
     if self.Focused then self:Blur(false) end
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(120, 120, 130))
+        self.Label.Color = ThemeModule.Get("Text.Muted")
     end
 end
 
 function Input:Unlock()
     self.Locked = false
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.Label.Color = ThemeModule.Get("Text.Title")
     end
 end
 

@@ -56,7 +56,7 @@ function Code.new(section, config)
         local bg = pool:Get("Square")
         bg.Position = pos
         bg.Size = size
-        bg.Color = ThemeModule.Get("Window.Background", Color3.fromRGB(14, 14, 18))
+        bg.Color = ThemeModule.Get("Window.Background")
         bg.Filled = true
         bg.Corner = 10
         bg.ZIndex = 4
@@ -67,7 +67,7 @@ function Code.new(section, config)
         local border = pool:Get("Square")
         border.Position = pos
         border.Size = size
-        border.Color = ThemeModule.Get("Card.Border", Color3.fromRGB(44, 44, 52))
+        border.Color = ThemeModule.Get("Card.Border")
         border.Filled = false
         border.Thickness = 1
         border.Corner = 10
@@ -79,7 +79,7 @@ function Code.new(section, config)
         local hdrBg = pool:Get("Square")
         hdrBg.Position = pos
         hdrBg.Size = Vector2.new(size.X, headerH)
-        hdrBg.Color = ThemeModule.Get("Control.Background", Color3.fromRGB(32, 32, 38))
+        hdrBg.Color = ThemeModule.Get("Control.Background")
         hdrBg.Filled = true
         hdrBg.Corner = 8
         hdrBg.ZIndex = 5
@@ -92,7 +92,7 @@ function Code.new(section, config)
         titleTxt.Font = fontUI
         titleTxt.Outline = false
         titleTxt.Size = 12
-        titleTxt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(175, 175, 185))
+        titleTxt.Color = ThemeModule.Get("Text.Secondary")
         titleTxt.Position = Vector2.new(pos.X + 12, pos.Y + 8)
         titleTxt.ZIndex = 6
         titleTxt.Visible = section.Visible
@@ -103,7 +103,7 @@ function Code.new(section, config)
             local cBg = pool:Get("Square")
             cBg.Filled = true
             cBg.Corner = 5
-            cBg.Color = ThemeModule.Get("ElementBackground", Color3.fromRGB(46, 46, 54))
+            cBg.Color = ThemeModule.Get("ElementBackground")
             cBg.ZIndex = 6
             cBg.Visible = section.Visible
             self.CopyBg = cBg
@@ -114,7 +114,7 @@ function Code.new(section, config)
             cTxt.Font = fontUI
             cTxt.Outline = false
             cTxt.Size = 11
-            cTxt.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+            cTxt.Color = ThemeModule.Get("Text.Title")
             cTxt.ZIndex = 7
             cTxt.Visible = section.Visible
             self.CopyText = cTxt
@@ -127,7 +127,7 @@ function Code.new(section, config)
             ln.Font = fontUI
             ln.Outline = false
             ln.Size = 12
-            ln.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(220, 225, 235))
+            ln.Color = ThemeModule.Get("Text.Title")
             ln.Position = Vector2.new(pos.X + 12, pos.Y + headerH + 8 + (i - 1) * 16)
             ln.ZIndex = 5
             ln.Visible = section.Visible and (lines[i] ~= nil)
@@ -158,7 +158,7 @@ function Code:SetPosition(pos, size)
         self.HeaderBg.Size = Vector2.new(self.Size.X, 30)
     end
     if self.TitleText then
-        self.TitleText.Text = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(self.Title, self.Size.X - 90, 12) or self.Title
+        self.TitleText.Text = MetricsModule.Fit(self.Title, self.Size.X - 90, 12)
         self.TitleText.Position = Vector2.new(pos.X + 12, pos.Y + 8)
     end
     if self.CopyBg and self.CopyText then
@@ -206,13 +206,7 @@ function Code:_setCopyLabel(labelStr)
     self.CopyText.Center = false
     local r = self.CopyRect
     if r and r.W > 0 then
-        local ax, ay
-        if MetricsModule and MetricsModule.AlignCenter then
-            ax, ay = MetricsModule.AlignCenter(r.X, r.Y, r.W, r.H, labelStr, 11)
-        else
-            ax = r.X + math.floor((r.W - #labelStr * 6) * 0.5)
-            ay = r.Y + math.floor((r.H - 11) * 0.5)
-        end
+        local ax, ay = MetricsModule.AlignCenter(r.X, r.Y, r.W, r.H, labelStr, 11)
         self.CopyText.Position = Vector2.new(ax, ay)
     end
 end

@@ -14,12 +14,14 @@ local Dialog = {
     PrevM1 = false,
 }
 
-local function get_theme(key, fallback)
-    if ThemeModule and ThemeModule.Get then
-        return ThemeModule.Get(key, fallback)
-    end
-    return fallback
-end
+local str_win_bg  = "Window.Background"
+local str_border  = "Window.Border"
+local str_title   = "Text.Title"
+local str_sec     = "Text.Secondary"
+local str_primary = "Primary"
+local str_ctrl_bg = "Control.Background"
+local str_ctrl_hv = "Control.Hover"
+local str_card_bg = "Card.Background"
 
 local function clamp(v, lo, hi)
     if v < lo then return lo end
@@ -195,14 +197,14 @@ function Dialog.Show(cfg, window, mode)
         _buttonIcons = {},
     }
 
-    if inst.Icon and IconsModule and IconsModule.Get then
+    if inst.Icon then
         inst._iconData = IconsModule.Get(inst.Icon, function(png)
             inst._iconData = png
         end)
     end
 
     for idx, b in ipairs(inst.Buttons) do
-        if b.Icon and IconsModule and IconsModule.Get then
+        if b.Icon then
             inst._buttonIcons[idx] = IconsModule.Get(b.Icon, function(png)
                 inst._buttonIcons[idx] = png
             end)
@@ -313,14 +315,14 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
     local cx = math.floor(hostX + (hostW - cardW) * 0.5 + 0.5)
     local cy = math.floor(hostY + (hostH - cardH) * 0.5 + 0.5)
 
-    local cardBg = get_theme("Window.Background", Color3.fromRGB(20, 20, 24))
-    local cardBorder = get_theme("Window.Border", Color3.fromRGB(48, 48, 56))
-    local titleCol = get_theme("Text.Title", Color3.fromRGB(255, 255, 255))
-    local descCol = get_theme("Text.Secondary", Color3.fromRGB(172, 172, 182))
-    local priCol = get_theme("Primary", get_theme("Accent.Blue", Color3.fromRGB(0, 145, 255)))
-    local secBtnCol = get_theme("Control.Background", get_theme("Button", Color3.fromRGB(36, 36, 44)))
-    local secHoverCol = get_theme("Control.Hover", Color3.fromRGB(48, 48, 58))
-    local terBtnCol = get_theme("Card.Background", Color3.fromRGB(24, 24, 29))
+    local cardBg = ThemeModule.Get(str_win_bg)
+    local cardBorder = ThemeModule.Get(str_border)
+    local titleCol = ThemeModule.Get(str_title)
+    local descCol = ThemeModule.Get(str_sec)
+    local priCol = ThemeModule.Get(str_primary)
+    local secBtnCol = ThemeModule.Get(str_ctrl_bg)
+    local secHoverCol = ThemeModule.Get(str_ctrl_hv)
+    local terBtnCol = ThemeModule.Get(str_card_bg)
 
     -- Backdrop
     slot.Backdrop.Position = Vector2.new(hostX, hostY)
@@ -352,9 +354,7 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
         slot.IconImg.Visible = false
     end
 
-    local titleFitted = MetricsModule and MetricsModule.Fit
-        and MetricsModule.Fit(d.Title, textW - titleLeft, 16, 1)
-        or d.Title
+    local titleFitted = MetricsModule.Fit(d.Title, textW - titleLeft, 16, 1)
     slot.TitleText.Text = titleFitted
     slot.TitleText.Color = titleCol
     slot.TitleText.Position = Vector2.new(cx + pad + titleLeft, cy + pad)

@@ -67,7 +67,7 @@ function ProgressBar.new(section, id, config)
         local bg = pool:Get("Square")
         bg.Position = pos
         bg.Size = size
-        bg.Color = ThemeModule.Get("ElementBackground", Color3.fromRGB(42, 42, 44))
+        bg.Color = ThemeModule.Get("ElementBackground")
         bg.Filled = true
         bg.Corner = 8
         bg.ZIndex = 4
@@ -80,7 +80,7 @@ function ProgressBar.new(section, id, config)
         titleTxt.Font = fontUI
         titleTxt.Outline = false
         titleTxt.Size = 13
-        titleTxt.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        titleTxt.Color = ThemeModule.Get("Text.Title")
         titleTxt.Position = Vector2.new(pos.X + 14, pos.Y + 8)
         titleTxt.ZIndex = 5
         titleTxt.Visible = section.Visible
@@ -93,7 +93,7 @@ function ProgressBar.new(section, id, config)
             valTxt.Font = fontUI
             valTxt.Outline = false
             valTxt.Size = 12
-            valTxt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(165, 165, 175))
+            valTxt.Color = ThemeModule.Get("Text.Secondary")
             valTxt.ZIndex = 5
             valTxt.Visible = section.Visible
             self.ValueText = valTxt
@@ -103,7 +103,7 @@ function ProgressBar.new(section, id, config)
         local track = pool:Get("Square")
         track.Filled = true
         track.Corner = 3
-        track.Color = ThemeModule.Get("Slider.Track", Color3.fromRGB(48, 48, 56))
+        track.Color = ThemeModule.Get("Slider.TrackBg")
         track.ZIndex = 5
         track.Visible = section.Visible
         self.Track = track
@@ -112,7 +112,7 @@ function ProgressBar.new(section, id, config)
         local fill = pool:Get("Square")
         fill.Filled = true
         fill.Corner = 3
-        fill.Color = cfg.Color or ThemeModule.Get("Accent.Blue", Color3.fromRGB(0, 145, 255))
+        fill.Color = cfg.Color or ThemeModule.Get("Accent.Blue")
         fill.ZIndex = 6
         fill.Visible = section.Visible
         self.FillBar = fill
@@ -156,7 +156,7 @@ function ProgressBar:_syncVisual()
         if self.ValueText then
             local str = format_value(self.Value, self.Min, self.Max, self.DisplayMode, self.Format)
             self.ValueText.Text = str
-            local vw = math.floor(#str * 6.8)
+            local vw = MetricsModule.Measure(str, 12)
             self.ValueText.Position = Vector2.new(self.Position.X + self.Size.X - vw - 14, self.Position.Y + 9)
             self.ValueText.Visible = self.Visible
         end
@@ -192,7 +192,7 @@ function ProgressBar:SetPosition(pos, size)
         self.Visual.Size = self.Size
     end
     if self.TitleText then
-        self.TitleText.Text = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(self.Title, self.Size.X - 80, 13) or self.Title
+        self.TitleText.Text = MetricsModule.Fit(self.Title, self.Size.X - 80, 13)
         self.TitleText.Position = Vector2.new(pos.X + 14, pos.Y + 8)
     end
     self:_syncVisual()

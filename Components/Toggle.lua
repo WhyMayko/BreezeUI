@@ -42,9 +42,9 @@ function Toggle.new(section, id, config)
 
     local pool = section.Pool
     if pool then
-        local offCol = ThemeModule.Get("Toggle.TrackOff", Color3.fromRGB(54, 54, 62))
-        local onCol = ThemeModule.Get("Accent.Green", Color3.fromRGB(51, 199, 89))
-        local rowBgCol = ThemeModule.Get("ElementBackground", Color3.fromRGB(34, 34, 38))
+        local offCol = ThemeModule.Get("Toggle.TrackOff")
+        local onCol = ThemeModule.Get("Accent.Green")
+        local rowBgCol = ThemeModule.Get("ElementBackground")
         local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
         -- 1. Integrated Row Card
@@ -65,7 +65,7 @@ function Toggle.new(section, id, config)
         lbl.Font = fontUI
         lbl.Outline = false
         lbl.Size = 13
-        lbl.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        lbl.Color = ThemeModule.Get("Text.Title")
         local titleY = (self.Desc and self.Desc ~= "") and (pos.Y + 10) or (pos.Y + math.floor((size.Y - 13) * 0.5))
         lbl.Position = Vector2.new(pos.X + 14, titleY)
         lbl.ZIndex = 5
@@ -80,7 +80,7 @@ function Toggle.new(section, id, config)
             dLbl.Font = fontUI
             dLbl.Outline = false
             dLbl.Size = 11
-            dLbl.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+            dLbl.Color = ThemeModule.Get("Text.Secondary")
             dLbl.Position = Vector2.new(pos.X + 14, pos.Y + 28)
             dLbl.ZIndex = 5
             dLbl.Visible = section.Visible
@@ -100,7 +100,7 @@ function Toggle.new(section, id, config)
         track.Size = Vector2.new(trackW, trackH)
         track.Corner = isCheck and 7 or 11
         track.Filled = true
-        track.Color = togVal and (isCheck and ThemeModule.Get("Accent.Blue", Color3.fromRGB(0, 145, 255)) or onCol) or offCol
+        track.Color = togVal and (isCheck and ThemeModule.Get("Accent.Blue") or onCol) or offCol
         track.ZIndex = 5
         track.Visible = section.Visible
         self.Track = track
@@ -117,11 +117,9 @@ function Toggle.new(section, id, config)
             checkImg.Visible = section.Visible and togVal
             self.CheckIcon = checkImg
             section:_register(checkImg)
-            if IconsModule and IconsModule.Get then
-                IconsModule.Get("check", function(png)
-                    if self.CheckIcon and png then self.CheckIcon.Data = png end
-                end)
-            end
+            IconsModule.Get("check", function(png)
+                if self.CheckIcon and png then self.CheckIcon.Data = png end
+            end)
         else
             local knob = pool:Get("Square")
             knob.Size = Vector2.new(14, 14)
@@ -143,10 +141,8 @@ end
 function Toggle:_applyAnimVisual(progress)
     self.AnimProgress = progress
     local isCheck = self.Type == "Checkbox"
-    local offCol = ThemeModule.Get("Toggle.TrackOff", Color3.fromRGB(54, 54, 62))
-    local onCol = isCheck
-        and ThemeModule.Get("Accent.Blue", Color3.fromRGB(0, 145, 255))
-        or ThemeModule.Get("Accent.Green", Color3.fromRGB(51, 199, 89))
+    local offCol = ThemeModule.Get("Toggle.TrackOff")
+    local onCol = isCheck and ThemeModule.Get("Accent.Blue") or ThemeModule.Get("Accent.Green")
 
     if self.Track then
         self.Track.Color = lerp_color(offCol, onCol, progress)
@@ -253,14 +249,14 @@ function Toggle:Lock(title)
     self.Locked = true
     if title ~= nil then self.LockedTitle = tostring(title) end
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(120, 120, 130))
+        self.Label.Color = ThemeModule.Get("Text.Muted")
     end
 end
 
 function Toggle:Unlock()
     self.Locked = false
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.Label.Color = ThemeModule.Get("Text.Title")
     end
 end
 

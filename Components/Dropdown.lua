@@ -111,10 +111,10 @@ function Dropdown.new(section, id, config)
 
     local pool = section.Pool
     if pool then
-        local rowBgCol = ThemeModule.Get("ElementBackground", Color3.fromRGB(34, 34, 38))
-        local boxBg = ThemeModule.Get("Control.Background", Color3.fromRGB(48, 48, 54))
-        local txtCol = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
-        local subCol = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+        local rowBgCol = ThemeModule.Get("ElementBackground")
+        local boxBg = ThemeModule.Get("Control.Background")
+        local txtCol = ThemeModule.Get("Text.Title")
+        local subCol = ThemeModule.Get("Text.Secondary")
         local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
         -- 1. Integrated Row Background
@@ -182,11 +182,9 @@ function Dropdown.new(section, id, config)
         arrow.Visible = section.Visible
         self.Arrow = arrow
         section:_register(arrow)
-        if IconsModule and IconsModule.Get then
-            IconsModule.Get("chevrons-up-down", function(png)
-                if self.Arrow and png then self.Arrow.Data = png end
-            end)
-        end
+        IconsModule.Get("chevrons-up-down", function(png)
+            if self.Arrow and png then self.Arrow.Data = png end
+        end)
     end
 
     return self
@@ -253,14 +251,14 @@ function Dropdown:Lock(title)
     self.Locked = true
     if title ~= nil then self.LockedTitle = tostring(title) end
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(120, 120, 130))
+        self.Label.Color = ThemeModule.Get("Text.Muted")
     end
 end
 
 function Dropdown:Unlock()
     self.Locked = false
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.Label.Color = ThemeModule.Get("Text.Title")
     end
 end
 
@@ -333,7 +331,7 @@ function Dropdown:_ensurePopupPrimitives()
     if not pool then return end
 
     local bg = pool:Get("Square")
-    bg.Color = ThemeModule.Get("Card.Background", Color3.fromRGB(24, 24, 29))
+    bg.Color = ThemeModule.Get("Card.Background")
     bg.Filled = true
     bg.Corner = 8
     bg.ZIndex = 14
@@ -341,7 +339,7 @@ function Dropdown:_ensurePopupPrimitives()
     self.PopupBg = bg
 
     local border = pool:Get("Square")
-    border.Color = ThemeModule.Get("Card.Border", Color3.fromRGB(48, 48, 56))
+    border.Color = ThemeModule.Get("Card.Border")
     border.Filled = false
     border.Thickness = 1
     border.Corner = 8
@@ -350,7 +348,7 @@ function Dropdown:_ensurePopupPrimitives()
     self.PopupBorder = border
 
     local hover = pool:Get("Square")
-    hover.Color = ThemeModule.Get("Tab.ActiveBg", Color3.fromRGB(38, 38, 46))
+    hover.Color = ThemeModule.Get("Tab.ActiveBg")
     hover.Filled = true
     hover.Corner = 5
     hover.ZIndex = 15
@@ -363,7 +361,7 @@ function Dropdown:_ensurePopupPrimitives()
 
     if not self.PopupScrollThumb then
         local st = pool:Get("Square")
-        st.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(161, 161, 161))
+        st.Color = ThemeModule.Get("Text.Muted")
         st.Filled = true
         st.Corner = 4
         st.Transparency = 0.28
@@ -376,7 +374,7 @@ function Dropdown:_ensurePopupPrimitives()
     if self.SearchEnabled and not self.SearchBg then
         local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
         local sBg = pool:Get("Square")
-        sBg.Color = ThemeModule.Get("Control.Background", ThemeModule.Get("ElementBackground", Color3.fromRGB(48, 48, 52)))
+        sBg.Color = ThemeModule.Get("Control.Background")
         sBg.Filled = true
         sBg.Corner = 6
         sBg.ZIndex = 16
@@ -388,7 +386,7 @@ function Dropdown:_ensurePopupPrimitives()
         sTxt.Font = fontUI
         sTxt.Outline = false
         sTxt.Size = 11
-        sTxt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(160, 160, 170))
+        sTxt.Color = ThemeModule.Get("Text.Secondary")
         sTxt.ZIndex = 17
         sTxt.Visible = false
         self.SearchText = sTxt
@@ -405,13 +403,13 @@ function Dropdown:RefreshSearchDisplay()
     if #self.SearchQuery > 0 then
         local caret = (isFocused and math.floor(os.clock() * 2) % 2 == 0) and "|" or ""
         self.SearchText.Text = self.SearchQuery .. caret
-        self.SearchText.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.SearchText.Color = ThemeModule.Get("Text.Title")
     elseif isFocused then
         self.SearchText.Text = (math.floor(os.clock() * 2) % 2 == 0) and "|" or ""
-        self.SearchText.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.SearchText.Color = ThemeModule.Get("Text.Title")
     else
         self.SearchText.Text = "Search..."
-        self.SearchText.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(160, 160, 170))
+        self.SearchText.Color = ThemeModule.Get("Text.Secondary")
     end
 end
 
@@ -502,7 +500,7 @@ function Dropdown:_layoutPopup()
         local thumbY = listTop + math.floor(ratio * (trackH - thumbH))
         scrollTrack = { X = popX + popW - 12, Y = listTop, W = 12, H = trackH, ThumbH = thumbH }
         if self.PopupScrollThumb then
-            self.PopupScrollThumb.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(161, 161, 161))
+            self.PopupScrollThumb.Color = ThemeModule.Get("Text.Muted")
             self.PopupScrollThumb.Position = Vector2.new(popX + popW - 9, thumbY)
             self.PopupScrollThumb.Size = Vector2.new(5, thumbH)
             self.PopupScrollThumb.Visible = true
@@ -519,21 +517,21 @@ function Dropdown:_layoutPopup()
     }
 
     if self.PopupBg then
-        self.PopupBg.Color = ThemeModule.Get("Card.Background", Color3.fromRGB(24, 24, 29))
+        self.PopupBg.Color = ThemeModule.Get("Card.Background")
         self.PopupBg.Position = Vector2.new(popX, popY)
         self.PopupBg.Size = Vector2.new(popW, popH)
         self.PopupBg.Transparency = 0.2 + anim * 0.8
         self.PopupBg.Visible = true
     end
     if self.PopupBorder then
-        self.PopupBorder.Color = ThemeModule.Get("Card.Border", Color3.fromRGB(48, 48, 56))
+        self.PopupBorder.Color = ThemeModule.Get("Card.Border")
         self.PopupBorder.Position = Vector2.new(popX, popY)
         self.PopupBorder.Size = Vector2.new(popW, popH)
         self.PopupBorder.Transparency = anim
         self.PopupBorder.Visible = true
     end
     if self.SearchBg and self.SearchText and searchRect then
-        self.SearchBg.Color = ThemeModule.Get("Control.Background", ThemeModule.Get("ElementBackground", Color3.fromRGB(48, 48, 52)))
+        self.SearchBg.Color = ThemeModule.Get("Control.Background")
         self.SearchBg.Position = Vector2.new(searchRect.X, searchRect.Y)
         self.SearchBg.Size = Vector2.new(searchRect.W, searchRect.H)
         self.SearchBg.Visible = true
@@ -585,29 +583,29 @@ function Dropdown:_layoutPopup()
             selBg.Visible = false
             div.Position = Vector2.new(popX + 10, rowY + math.floor(itemH * 0.5))
             div.Size = Vector2.new(rowW - 12, 1)
-            div.Color = ThemeModule.Get("Card.Border", Color3.fromRGB(48, 48, 56))
+            div.Color = ThemeModule.Get("Card.Border")
             div.Visible = true
         else
             div.Visible = false
             local isSel = self:_isSelected(val)
             selBg.Position = Vector2.new(popX + 4, rowY)
             selBg.Size = Vector2.new(rowW, itemH)
-            selBg.Color = ThemeModule.Get("Tab.ActiveBg", Color3.fromRGB(38, 38, 46))
+            selBg.Color = ThemeModule.Get("Tab.ActiveBg")
             selBg.Visible = isSel
 
             txt.Text = item_label(val)
             if isLock then
-                local cardC = ThemeModule.Get("Card.Background", Color3.fromRGB(24, 24, 29))
-                local txtC = ThemeModule.Get("Text.Secondary", Color3.fromRGB(160, 160, 170))
+                local cardC = ThemeModule.Get("Card.Background")
+                local txtC = ThemeModule.Get("Text.Secondary")
                 txt.Color = Color3.new(
                     (txtC.R or 0.5) * 0.45 + (cardC.R or 0.1) * 0.55,
                     (txtC.G or 0.5) * 0.45 + (cardC.G or 0.1) * 0.55,
                     (txtC.B or 0.5) * 0.45 + (cardC.B or 0.1) * 0.55
                 )
             elseif isSel then
-                txt.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+                txt.Color = ThemeModule.Get("Text.Title")
             else
-                txt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(185, 185, 195))
+                txt.Color = ThemeModule.Get("Text.Secondary")
             end
             txt.Position = Vector2.new(popX + 10, rowY + 6)
             txt.Visible = true
@@ -651,7 +649,7 @@ function Dropdown:SetPopupHover(idx)
         end
         local r = self.PopupRect
         local listTop = r.ListTop or (r.Y + 4)
-        self.PopupHoverBg.Color = ThemeModule.Get("Tab.HoverBg", Color3.fromRGB(30, 30, 36))
+        self.PopupHoverBg.Color = ThemeModule.Get("Tab.HoverBg")
         self.PopupHoverBg.Position = Vector2.new(r.X + 4, listTop + (idx - 1) * r.ItemH)
         self.PopupHoverBg.Size = Vector2.new(r.W - 4 - (r.ItemRightPad or 4), r.ItemH)
         self.PopupHoverBg.Visible = true

@@ -15,12 +15,13 @@ local Overlay = {
     PrevM1 = false,
 }
 
-local function get_theme(key, fallback)
-    if ThemeModule and ThemeModule.Get then
-        return ThemeModule.Get(key, fallback)
-    end
-    return fallback
-end
+local str_win_bg  = "Window.Background"
+local str_border  = "Window.Border"
+local str_title   = "Text.Title"
+local str_sec     = "Text.Secondary"
+local str_accent  = "Accent"
+local str_ctrl_hv = "Control.Hover"
+local str_card_bg = "Card.Background"
 
 local function clamp(v, lo, hi)
     if v < lo then return lo end
@@ -264,10 +265,10 @@ local function update_open_button(window, vp, mx, my, m1Pressed, m1Clicked)
     local titleStr = tostring(ob.Title or window.Title or "Open")
     local iconName = ob.Icon or window.Icon or "wind"
 
-    if ob._dragData == nil and IconsModule and IconsModule.Get then
+    if ob._dragData == nil then
         ob._dragData = IconsModule.Get("move", function(png) ob._dragData = png end)
     end
-    if iconName ~= ob._lastIconName and IconsModule and IconsModule.Get then
+    if iconName ~= ob._lastIconName then
         ob._lastIconName = iconName
         ob._iconData = IconsModule.Get(iconName, function(png) ob._iconData = png end)
     end
@@ -275,9 +276,7 @@ local function update_open_button(window, vp, mx, my, m1Pressed, m1Clicked)
     local h = 40
     local dragW = draggable and 30 or 0
     local iconW = ob._iconData and 22 or 0
-    local textW = onlyIcon and 0 or (MetricsModule and MetricsModule.GetTextWidth
-        and math.floor(MetricsModule.GetTextWidth(titleStr, 14, 1) * 1.15 + 0.5)
-        or math.floor(#titleStr * 7.6))
+    local textW = onlyIcon and 0 or MetricsModule.Measure(titleStr, 14)
     local padX = 14
     local w = math.max(44, dragW + padX + iconW + ((iconW > 0 and textW > 0) and 8 or 0) + textW + padX)
 
@@ -312,10 +311,9 @@ local function update_open_button(window, vp, mx, my, m1Pressed, m1Clicked)
     end
 
     local overBtn = mx >= px + dragW and mx <= px + w and my >= py and my <= py + h
-    local bgCol = overBtn and get_theme("Button.Hover", Color3.fromRGB(36, 36, 44))
-        or get_theme("Window.Background", Color3.fromRGB(18, 18, 22))
-    local borderCol = ob.Color or get_theme("Accent", Color3.fromRGB(80, 175, 255))
-    local textCol = get_theme("Text.Title", Color3.fromRGB(255, 255, 255))
+    local bgCol = ThemeModule.Get(overBtn and str_ctrl_hv or str_win_bg)
+    local borderCol = ob.Color or ThemeModule.Get(str_accent)
+    local textCol = ThemeModule.Get(str_title)
 
     slot.Bg.Position = Vector2.new(px, py)
     slot.Bg.Size = Vector2.new(w, h)
@@ -341,7 +339,7 @@ local function update_open_button(window, vp, mx, my, m1Pressed, m1Clicked)
         end
         slot.Divider.Position = Vector2.new(px + dragW, py + 8)
         slot.Divider.Size = Vector2.new(1, h - 16)
-        slot.Divider.Color = get_theme("Window.Border", Color3.fromRGB(52, 52, 60))
+        slot.Divider.Color = ThemeModule.Get(str_border)
         slot.Divider.Transparency = 0.85
         slot.Divider.Visible = true
     else
@@ -410,11 +408,11 @@ local function update_keybind_menu(window, vp, mx, my, m1Pressed, m1Clicked)
         consumed = true
     end
 
-    local bgCol = get_theme("Window.Background", Color3.fromRGB(18, 18, 22))
-    local borderCol = get_theme("Window.Border", Color3.fromRGB(44, 44, 52))
-    local titleCol = get_theme("Text.Title", Color3.fromRGB(255, 255, 255))
-    local mutedCol = get_theme("Text.Secondary", Color3.fromRGB(160, 160, 170))
-    local accentCol = window.Accent or get_theme("Accent", Color3.fromRGB(59, 130, 246))
+    local bgCol = ThemeModule.Get(str_win_bg)
+    local borderCol = ThemeModule.Get(str_border)
+    local titleCol = ThemeModule.Get(str_title)
+    local mutedCol = ThemeModule.Get(str_sec)
+    local accentCol = window.Accent or ThemeModule.Get(str_accent)
 
     slot.Bg.Position = Vector2.new(px, py)
     slot.Bg.Size = Vector2.new(w, h)
@@ -456,14 +454,12 @@ local function update_keybind_menu(window, vp, mx, my, m1Pressed, m1Clicked)
                 rSlot.Dot.Color = row.Active and accentCol or borderCol
                 rSlot.Dot.Visible = true
 
-                rSlot.Name.Text = MetricsModule and MetricsModule.Fit
-                    and MetricsModule.Fit(row.Name, w - 82, 13, 1)
-                    or row.Name
+                rSlot.Name.Text = MetricsModule.Fit(row.Name, w - 82, 13, 1)
                 rSlot.Name.Color = row.Active and titleCol or mutedCol
                 rSlot.Name.Position = Vector2.new(px + 24, ry + 1)
                 rSlot.Name.Visible = true
 
-                local kw = math.floor(#row.Key * 6.6)
+                local kw = MetricsModule.Measure(row.Key, 12)
                 rSlot.Key.Text = row.Key
                 rSlot.Key.Color = row.Active and accentCol or mutedCol
                 rSlot.Key.Position = Vector2.new(px + w - kw - 12, ry + 2)
@@ -501,7 +497,7 @@ local function update_watermark(window, vp, mx, my, m1Pressed, m1Clicked)
 
     local totalTextW = 0
     for _, p in ipairs(pieces) do
-        local pw = math.floor(#p.Text * 7.0)
+        local pw = MetricsModule.Measure(p.Text, 13)
         p.Width = pw
         totalTextW = totalTextW + pw
     end
@@ -527,11 +523,11 @@ local function update_watermark(window, vp, mx, my, m1Pressed, m1Clicked)
         consumed = true
     end
 
-    local bgCol = get_theme("Window.Background", Color3.fromRGB(18, 18, 22))
-    local borderCol = get_theme("Window.Border", Color3.fromRGB(44, 44, 52))
-    local titleCol = get_theme("Text.Title", Color3.fromRGB(255, 255, 255))
-    local mutedCol = get_theme("Text.Secondary", Color3.fromRGB(160, 160, 170))
-    local accentCol = window.Accent or get_theme("Accent", Color3.fromRGB(59, 130, 246))
+    local bgCol = ThemeModule.Get(str_win_bg)
+    local borderCol = ThemeModule.Get(str_border)
+    local titleCol = ThemeModule.Get(str_title)
+    local mutedCol = ThemeModule.Get(str_sec)
+    local accentCol = window.Accent or ThemeModule.Get(str_accent)
 
     slot.Bg.Position = Vector2.new(px, py)
     slot.Bg.Size = Vector2.new(w, h)
@@ -644,7 +640,7 @@ function Overlay.RenderTooltip(text, mx, my, window)
     local slot = ensure_tooltip_slot()
     local vp = get_viewport()
     local str = tostring(text)
-    local tw = math.floor(#str * 6.8)
+    local tw = MetricsModule.Measure(str, 12)
     local w = math.max(56, tw + 18)
     local h = 24
     local px = clamp((mx or 0) + 14, 6, math.max(6, vp.X - w - 6))
@@ -652,16 +648,16 @@ function Overlay.RenderTooltip(text, mx, my, window)
 
     slot.Bg.Position = Vector2.new(px, py)
     slot.Bg.Size = Vector2.new(w, h)
-    slot.Bg.Color = get_theme("Card.Background", Color3.fromRGB(22, 22, 28))
+    slot.Bg.Color = ThemeModule.Get(str_card_bg)
     slot.Bg.Visible = true
 
     slot.Border.Position = Vector2.new(px, py)
     slot.Border.Size = Vector2.new(w, h)
-    slot.Border.Color = get_theme("Window.Border", Color3.fromRGB(54, 54, 64))
+    slot.Border.Color = ThemeModule.Get(str_border)
     slot.Border.Visible = true
 
     slot.Text.Text = str
-    slot.Text.Color = get_theme("Text.Title", Color3.fromRGB(255, 255, 255))
+    slot.Text.Color = ThemeModule.Get(str_title)
     slot.Text.Position = Vector2.new(px + 9, py + 5)
     slot.Text.Visible = true
 end

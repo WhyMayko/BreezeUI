@@ -44,7 +44,7 @@ function ImageBlock.new(section, config)
         local bg = pool:Get("Square")
         bg.Position = pos
         bg.Size = size
-        bg.Color = ThemeModule.Get("ElementBackground", Color3.fromRGB(20, 20, 25))
+        bg.Color = ThemeModule.Get("ElementBackground")
         bg.Filled = true
         bg.Corner = self.Radius
         bg.ZIndex = 4
@@ -55,7 +55,7 @@ function ImageBlock.new(section, config)
         local border = pool:Get("Square")
         border.Position = pos
         border.Size = size
-        border.Color = ThemeModule.Get("Window.Border", Color3.fromRGB(44, 44, 52))
+        border.Color = ThemeModule.Get("Window.Border")
         border.Filled = false
         border.Thickness = 1
         border.Corner = self.Radius
@@ -92,7 +92,7 @@ function ImageBlock:SetImage(src)
     end
 
     if self.Source:sub(1, 8) == "https://" or self.Source:sub(1, 7) == "http://" then
-        if IconsModule and IconsModule.Cache and IconsModule.Cache[self.Source] then
+        if IconsModule.Cache[self.Source] then
             apply_data(IconsModule.Cache[self.Source])
             return
         end
@@ -102,14 +102,12 @@ function ImageBlock:SetImage(src)
                     return game and game.HttpGet and game:HttpGet(self.Source) or nil
                 end)
                 if ok and data and (data:sub(1, 4) == "\x89PNG" or data:sub(2, 4) == "PNG") then
-                    if IconsModule and IconsModule.Cache then
-                        IconsModule.Cache[self.Source] = data
-                    end
+                    IconsModule.Cache[self.Source] = data
                     apply_data(data)
                 end
             end)
         end
-    elseif IconsModule and IconsModule.Get then
+    else
         local got = IconsModule.Get(self.Source, apply_data)
         if got then apply_data(got) end
     end

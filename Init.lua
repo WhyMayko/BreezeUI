@@ -291,12 +291,8 @@ end
 
 -- Theme & Scaling API
 function BreezeUI:SetTheme(themeName)
-    if ThemeModule and ThemeModule.SetCurrent then
-        ThemeModule.SetCurrent(themeName)
-    end
-    local theme = type(themeName) == "table" and themeName
-        or (ThemeModule.GetTheme and ThemeModule.GetTheme(themeName))
-        or themeName
+    ThemeModule.SetCurrent(themeName)
+    local theme = type(themeName) == "table" and themeName or ThemeModule.GetTheme(themeName)
     self.CurrentTheme = theme
     for _, win in ipairs(self._windows) do
         if not win.Destroyed and win.UpdateTheme then
@@ -325,9 +321,7 @@ end
 
 -- Notify side helper (delegates to NotifyModule)
 function BreezeUI:SetNotifySide(side)
-    if NotifyModule and NotifyModule.SetSide then
-        NotifyModule.SetSide(side)
-    end
+    NotifyModule.SetSide(side)
     if self._activeWindow then
         self._activeWindow.NotifySide = side
     end
@@ -340,6 +334,10 @@ function BreezeUI:SetupSettingsTab(win)
 end
 
 -- Window Construction
+local str_ui_state = "breeze_ui_state"
+local str_running  = "running:"
+local str_unload   = "unload"
+
 function BreezeUI:CreateWindow(config)
     -- Auto-close previous active window first so _cleanupRuntime does not clobber the new session state
     if self._activeWindow and not self._activeWindow.Destroyed then
@@ -353,14 +351,13 @@ function BreezeUI:CreateWindow(config)
     self.UnloadCallbacks = self.UnloadCallbacks or {}
 
     -- Cross-VM Matcha UI handshake: overwriting token immediately supersedes any prior running VM (and recovers cleanly from Lua VM resets)
-    local uiStateToken = "running:" .. tostring(os.clock()) .. ":" .. tostring(math.random(1000, 9999))
-    UI.SetValue("breeze_ui_state", uiStateToken)
+    local uiStateToken = str_running .. tostring(os.clock()) .. ":" .. tostring(math.random(1000, 9999))
+    UI.SetValue(str_ui_state, uiStateToken)
 
     assert(type(config) == "table", "CreateWindow requires configuration table!")
     if config.Folder and config.Folder ~= "" then
         SettingsModule.SetFolder(config.Folder)
     end
-    config = config or {}
 
     config.Env = self
     local win = WindowModule.new(config)
@@ -374,8 +371,8 @@ function BreezeUI:IsLoaded()
     if self.Unloaded or self.Destroyed then return false end
     local win = self._activeWindow
     if not win or win.Destroyed then return false end
-    local cur = UI and UI.GetValue and UI.GetValue("breeze_ui_state")
-    if cur == "unload" or (win._uiStateToken and cur ~= nil and cur ~= "" and cur ~= win._uiStateToken) then
+    local cur = UI and UI.GetValue and UI.GetValue(str_ui_state)
+    if cur == str_unload or (win._uiStateToken and cur ~= nil and cur ~= "" and cur ~= win._uiStateToken) then
         return false
     end
     return true
@@ -393,7 +390,8 @@ end
 
 function BreezeUI:Connect(signal, fn)
     assert(signal and signal.Connect and type(fn) == "function", "Connect requires signal and callback!")
-    local conn = signal:Connect(function(...)
+    local conn
+    conn = signal:Connect(function(...)
         if not self:IsLoaded() then return end
         fn(...)
     end)
@@ -434,21 +432,11 @@ function BreezeUI:Destroy()
     for k in pairs(rawOptions) do rawOptions[k] = nil end
     for k in pairs(rawToggles) do rawToggles[k] = nil end
 
-    if AnimationsModule.Reset then
-        AnimationsModule.Reset()
-    end
-    if NotifyModule and NotifyModule.Destroy then
-        NotifyModule.Destroy()
-    end
-    if DialogModule and DialogModule.Destroy then
-        DialogModule.Destroy()
-    end
-    if OverlayModule and OverlayModule.Destroy then
-        OverlayModule.Destroy()
-    end
-    if IconsModule.ClearCache then
-        IconsModule.ClearCache()
-    end
+    AnimationsModule.Reset()
+    NotifyModule.Destroy()
+    DialogModule.Destroy()
+    OverlayModule.Destroy()
+    IconsModule.ClearCache()
 end
 
 function BreezeUI:Unload()

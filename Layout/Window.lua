@@ -20,18 +20,18 @@ local OverlayModule = Overlay or require("../Subsystems/Overlay")
 local Window = {}
 Window.__index = Window
 
-local UI_STATE_KEY = "breeze_ui_state"
-local UI_STATE_RUNNING = "running"
-local UI_STATE_UNLOAD = "unload"
-local UI_STATE_EMPTY = ""
-
-local function get_theme_color(token, default)
-    if ThemeModule and ThemeModule.Get then
-        local val = ThemeModule.Get(token)
-        if val ~= nil then return val end
-    end
-    return default
-end
+local str_ui_state   = "breeze_ui_state"
+local str_unload     = "unload"
+local str_empty      = ""
+local str_win_bg     = "Window.Background"
+local str_win_border = "Window.Border"
+local str_panel_bg   = "PanelBackground"
+local str_txt_title  = "Text.Title"
+local str_ctrl_bg    = "Control.Background"
+local str_txt_muted  = "Text.Muted"
+local str_mac_close  = "Mac.Close"
+local str_mac_min    = "Mac.Minimize"
+local str_mac_max    = "Mac.Maximize"
 
 local function get_mouse()
     if not game or not game.GetService then return nil end
@@ -77,12 +77,9 @@ function Window.new(config)
     end
 
     local themeName = type(config.Theme) == "string" and config.Theme or "Dark"
-    local themeTokens = type(config.Theme) == "table" and config.Theme
-        or (ThemeModule and ThemeModule.GetTheme and ThemeModule.GetTheme(themeName))
-        or (ThemeModule and ThemeModule.DefaultPalette)
-        or {}
+    local themeTokens = type(config.Theme) == "table" and config.Theme or ThemeModule.GetTheme(themeName)
 
-    local poolInstance = PoolModule and PoolModule.new(350, MetaModule)
+    local poolInstance = PoolModule.new(350, MetaModule)
     local env = config.Env or (type(_G.Library) == "table" and _G.Library) or nil
     local topbarH = (type(config.Topbar) == "table" and config.Topbar.Height) or 44
 
@@ -177,7 +174,7 @@ function Window.new(config)
         Pool = poolInstance,
         Sidebar = nil,
         DragModule = nil,
-        Input = InputHandlerModule and InputHandlerModule.new() or nil,
+        Input = InputHandlerModule.new(),
 
         -- Hardware Input
         Mouse = nil,
@@ -224,12 +221,9 @@ function Window.new(config)
     }, Window)
 
     self:_createChrome()
-    self.DragModule = DragModule and DragModule.new(self) or nil
-
-    if SidebarModule then
-        self.Sidebar = SidebarModule.new(self, { Width = self.SidebarWidth })
-        self.VerticalDivider = self.Sidebar.Divider
-    end
+    self.DragModule = DragModule.new(self)
+    self.Sidebar = SidebarModule.new(self, { Width = self.SidebarWidth })
+    self.VerticalDivider = self.Sidebar.Divider
 
     pcall(function()
         local runService = game:GetService("RunService")
@@ -277,10 +271,10 @@ function Window:_createChrome()
     local corner = self.CornerRadius
     local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
-    local bgCol = self.ThemeTokens.Background or get_theme_color("Window.Background", Color3.fromRGB(16, 16, 18))
-    local borderCol = self.ThemeTokens.Border or get_theme_color("Window.Border", Color3.fromRGB(36, 36, 42))
-    local panelCol = self.ThemeTokens.PanelBackground or get_theme_color("PanelBackground", Color3.fromRGB(22, 22, 26))
-    local textCol = self.ThemeTokens.Text or get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+    local bgCol = ThemeModule.Resolve(self.ThemeTokens, str_win_bg)
+    local borderCol = ThemeModule.Resolve(self.ThemeTokens, str_win_border)
+    local panelCol = ThemeModule.Resolve(self.ThemeTokens, str_panel_bg)
+    local textCol = ThemeModule.Resolve(self.ThemeTokens, str_txt_title)
 
     -- 1. Main Window Frame Background & Border
     local bg = pool:Get("Square")
@@ -323,7 +317,7 @@ function Window:_createChrome()
     local sTrack = pool:Get("Square")
     sTrack.Position = Vector2.new(px + sx - 22, py + self.HeaderHeight + 10)
     sTrack.Size = Vector2.new(8, 40)
-    sTrack.Color = get_theme_color("Control.Background", Color3.fromRGB(48, 48, 52))
+    sTrack.Color = ThemeModule.Get(str_ctrl_bg)
     sTrack.Filled = true
     sTrack.Corner = 6
     sTrack.Transparency = 0.45
@@ -335,7 +329,7 @@ function Window:_createChrome()
     local sThumb = pool:Get("Square")
     sThumb.Position = Vector2.new(px + sx - 22, py + self.HeaderHeight + 10)
     sThumb.Size = Vector2.new(8, 40)
-    sThumb.Color = get_theme_color("Text.Muted", Color3.fromRGB(161, 161, 161))
+    sThumb.Color = ThemeModule.Get(str_txt_muted)
     sThumb.Filled = true
     sThumb.Corner = 6
     sThumb.Transparency = 0.28
@@ -347,9 +341,9 @@ function Window:_createChrome()
     self.HeaderBg = bg
 
     -- 4. macOS Traffic Lights
-    local closeCol = get_theme_color("Mac.Close", Color3.fromRGB(255, 95, 86))
-    local minCol = get_theme_color("Mac.Minimize", Color3.fromRGB(255, 189, 46))
-    local maxCol = get_theme_color("Mac.Maximize", Color3.fromRGB(39, 201, 63))
+    local closeCol = ThemeModule.Get(str_mac_close)
+    local minCol = ThemeModule.Get(str_mac_min)
+    local maxCol = ThemeModule.Get(str_mac_max)
 
     local macClose = pool:Get("Square")
     macClose.Position = Vector2.new(px + 16, py + 16)
@@ -402,7 +396,7 @@ function Window:_createChrome()
     self.Logo = logo
     self:_register(logo)
 
-    if showLogo and IconsModule and IconsModule.Get then
+    if showLogo then
         IconsModule.Get(self.Icon, function(pngData)
             if self.HeaderIcon and pngData then
                 self.HeaderIcon.Data = pngData
@@ -417,7 +411,7 @@ function Window:_createChrome()
     local fullTitle = (self.Subtitle and self.Subtitle ~= "" and self.Subtitle ~= "BreezeUI")
         and (self.Title .. "  |  " .. self.Subtitle)
         or tostring(self.Title)
-    local fitTitle = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(fullTitle, maxTitleW, 13) or fullTitle
+    local fitTitle = MetricsModule.Fit(fullTitle, maxTitleW, 13)
     titleText.Position = Vector2.new(px + titleOffset, py + 15)
     titleText.Text = fitTitle
     titleText.Color = textCol
@@ -429,8 +423,7 @@ function Window:_createChrome()
     self.TitleText = titleText
     self.HeaderText = titleText
     self.TitleOffset = titleOffset
-    local titleW = (MetricsModule and MetricsModule.Measure and MetricsModule.Measure(fitTitle, 13)) or math.floor(#fitTitle * 6.2)
-    self.TitleEndOffset = titleOffset + titleW
+    self.TitleEndOffset = titleOffset + MetricsModule.Measure(fitTitle, 13)
     self:_register(titleText)
 
     local subText = pool:Get("Text")
@@ -450,13 +443,11 @@ function Window:_createChrome()
     self.BottomDragPill = pill
     self:_register(pill)
 
-    if IconsModule and IconsModule.Get then
-        IconsModule.Get("drag-bar", function(pngData)
-            if self.BottomDragPill and pngData then
-                self.BottomDragPill.Data = pngData
-            end
-        end)
-    end
+    IconsModule.Get("drag-bar", function(pngData)
+        if self.BottomDragPill and pngData then
+            self.BottomDragPill.Data = pngData
+        end
+    end)
 
     -- 8. Bottom-Right Outside Corner Resize Arc (Concentric 6px outside window corner)
     local resizeIco = pool:Get("Image")
@@ -468,13 +459,11 @@ function Window:_createChrome()
     self.ResizeIcon = resizeIco
     self:_register(resizeIco)
 
-    if IconsModule and IconsModule.Get then
-        IconsModule.Get("resize-corner", function(pngData)
-            if self.ResizeIcon and pngData then
-                self.ResizeIcon.Data = pngData
-            end
-        end)
-    end
+    IconsModule.Get("resize-corner", function(pngData)
+        if self.ResizeIcon and pngData then
+            self.ResizeIcon.Data = pngData
+        end
+    end)
 end
 
 function Window:_register(obj)
@@ -699,7 +688,7 @@ function Window:SetSize(newSize, ignoreMaxClamp)
 
     -- Keep window safely clamped inside screen bounds after resize (no magnetic snap on resize/restore)
     if not self.IsMaximized and not ignoreMaxClamp then
-        local topInset = ClampingModule and ClampingModule.DefaultTopInset or 36
+        local topInset = ClampingModule.DefaultTopInset
         local maxX = math.max(0, vp.X - self.Size.X)
         local maxY = math.max(topInset, vp.Y - self.Size.Y)
         local safeX = math.clamp(self.Position.X, 0, maxX)
@@ -792,9 +781,7 @@ function Window:ToggleMaximize()
         self.PreMaximizeResizable = self.CanResize
         self.IsMaximized = true
         self.CanResize = false
-        if self.DragModule and self.DragModule.Set then
-            self.DragModule:Set(false)
-        end
+        self.DragModule:Set(false)
         if self.Minimized then
             self.Minimized = false
         end
@@ -805,9 +792,7 @@ function Window:ToggleMaximize()
     else
         self.IsMaximized = false
         self.CanResize = self.PreMaximizeResizable ~= false
-        if self.DragModule and self.DragModule.Set then
-            self.DragModule:Set(true)
-        end
+        self.DragModule:Set(true)
         if self.Minimized then
             self.Minimized = false
         end
@@ -897,10 +882,9 @@ function Window:_refreshTitleText()
     local fullTitle = (self.Subtitle and self.Subtitle ~= "" and self.Subtitle ~= "BreezeUI")
         and (self.Title .. "  |  " .. self.Subtitle)
         or tostring(self.Title)
-    local fitTitle = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(fullTitle, maxTitleW, 13) or fullTitle
+    local fitTitle = MetricsModule.Fit(fullTitle, maxTitleW, 13)
     self.TitleText.Text = fitTitle
-    local titleW = (MetricsModule and MetricsModule.Measure and MetricsModule.Measure(fitTitle, 13)) or math.floor(#fitTitle * 6.2)
-    self.TitleEndOffset = (self.TitleOffset or 74) + titleW
+    self.TitleEndOffset = (self.TitleOffset or 74) + MetricsModule.Measure(fitTitle, 13)
     self:_syncTagPositions()
 end
 
@@ -1015,7 +999,7 @@ function Window:SetBackgroundImage(urlOrName)
         self.BgImage = img
         self:_register(img)
     end
-    if self.BgImage and IconsModule and IconsModule.Get then
+    if self.BgImage then
         IconsModule.Get(urlOrName, function(png)
             if not self.Destroyed and self.BgImage and png then
                 self.BgImage.Data = png
@@ -1052,7 +1036,6 @@ function Window:SetCurrentConfig(name)
 end
 
 function Window:Popup(cfg)
-    assert(DialogModule and DialogModule.Show, "Dialog subsystem not loaded!")
     return DialogModule.Show(cfg, self, "Popup")
 end
 
@@ -1133,12 +1116,8 @@ end
 -- Public theme setter: accepts a theme name string or palette table.
 -- Calls ThemeModule.SetCurrent so all subscribers see the change, then propagates visuals.
 function Window:SetTheme(nameOrPalette)
-    if ThemeModule and ThemeModule.SetCurrent then
-        ThemeModule.SetCurrent(nameOrPalette)
-    end
-    local resolved = (type(nameOrPalette) == "table" and nameOrPalette)
-        or (ThemeModule and ThemeModule.GetTheme and ThemeModule.GetTheme(nameOrPalette))
-        or {}
+    ThemeModule.SetCurrent(nameOrPalette)
+    local resolved = type(nameOrPalette) == "table" and nameOrPalette or ThemeModule.GetTheme(nameOrPalette)
     self:UpdateTheme(resolved)
 end
 
@@ -1171,52 +1150,46 @@ function Window:SetCornerRadius(r)
 end
 
 function Window:UpdateTheme(newTheme)
-    local t = type(newTheme) == "table" and newTheme
-        or (ThemeModule and ThemeModule.GetTheme and ThemeModule.GetTheme(newTheme))
-        or (ThemeModule and ThemeModule.DefaultPalette)
-        or {}
+    local t = type(newTheme) == "table" and newTheme or ThemeModule.GetTheme(newTheme)
 
     self.Theme = type(newTheme) == "table" and (newTheme.Name or "Custom") or tostring(newTheme)
     self.ThemeTokens = t
 
-    if IconsModule and IconsModule.SetDarkMode then
-        IconsModule.SetDarkMode(self.Theme == "Light")
-    end
+    IconsModule.SetDarkMode(self.Theme == "Light")
 
-    local bgCol = t.Background or get_theme_color("Window.Background", Color3.fromRGB(16, 16, 18))
-    local borderCol = t.Border or get_theme_color("Window.Border", Color3.fromRGB(36, 36, 42))
-    local panelCol = t.PanelBackground or get_theme_color("PanelBackground", Color3.fromRGB(22, 22, 26))
-    local textCol = t.Text or get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+    local bgCol = ThemeModule.Resolve(t, str_win_bg)
+    local borderCol = ThemeModule.Resolve(t, str_win_border)
+    local panelCol = ThemeModule.Resolve(t, str_panel_bg)
+    local textCol = ThemeModule.Resolve(t, str_txt_title)
 
     if self.FrameBg then self.FrameBg.Color = bgCol end
     if self.Border then self.Border.Color = borderCol end
     if self.MainPanelBg then self.MainPanelBg.Color = panelCol end
     if self.TitleText then self.TitleText.Color = textCol end
     if self.SubtitleText then
-        self.SubtitleText.Color = t["Text.Secondary"] or t.SubText or get_theme_color("Text.Secondary", Color3.fromRGB(161, 161, 170))
+        self.SubtitleText.Color = ThemeModule.Resolve(t, "Text.Secondary")
     end
     if self.VerticalDivider then
-        self.VerticalDivider.Color = t["Sidebar.Divider"] or t.Divider or borderCol
+        self.VerticalDivider.Color = ThemeModule.Resolve(t, "Sidebar.Divider")
     end
     if self.TopbarDivider then
-        self.TopbarDivider.Color = t["Sidebar.Divider"] or t.Divider or borderCol
+        self.TopbarDivider.Color = ThemeModule.Resolve(t, "Sidebar.Divider")
     end
     if self.ScrollTrack then
-        self.ScrollTrack.Color = t["Control.Background"] or get_theme_color("Control.Background", Color3.fromRGB(48, 48, 52))
+        self.ScrollTrack.Color = ThemeModule.Resolve(t, str_ctrl_bg)
     end
     if self.ScrollThumb then
-        self.ScrollThumb.Color = t["Text.Muted"] or t.Border or get_theme_color("Text.Muted", Color3.fromRGB(161, 161, 161))
+        self.ScrollThumb.Color = ThemeModule.Resolve(t, str_txt_muted)
     end
     if self.BottomDragPill then
-        self.BottomDragPill.Color = t["Control.Hover"] or t.Border or get_theme_color("Control.Hover", Color3.fromRGB(80, 82, 92))
+        self.BottomDragPill.Color = ThemeModule.Resolve(t, "Control.Hover")
     end
 
     for _, tag in ipairs(self.Tags or {}) do
         if not tag.CustomColor then
             local isLight = (self.Theme == "Light")
             if tag.Bg then
-                tag.Bg.Color = isLight and Color3.fromRGB(52, 52, 58)
-                    or (t["Control.Background"] or get_theme_color("Control.Background", Color3.fromRGB(48, 48, 52)))
+                tag.Bg.Color = isLight and Color3.fromRGB(52, 52, 58) or ThemeModule.Resolve(t, str_ctrl_bg)
             end
             if tag.Border then
                 tag.Border.Color = isLight and Color3.fromRGB(72, 72, 80) or borderCol
@@ -1252,7 +1225,7 @@ function Window:SetUIScale(scale)
 end
 
 function Window:SetToggleKey(key)
-    if type(key) == "string" and MetricsModule and MetricsModule.KeyCode then
+    if type(key) == "string" then
         self.ToggleKey = MetricsModule.KeyCode(key)
     else
         self.ToggleKey = key
@@ -1266,7 +1239,6 @@ function Window:SetPanelBackground(enabled)
 end
 
 function Window:Dialog(cfg)
-    assert(DialogModule and DialogModule.Show, "Dialog subsystem not loaded!")
     return DialogModule.Show(cfg, self, "Dialog")
 end
 
@@ -1282,8 +1254,7 @@ function Window:Tag(tagConfig)
 
     local tagTitle = tostring(cfg.Title or "Tag")
     local hasIcon = cfg.Icon ~= nil and cfg.Icon ~= ""
-    local tagTxtW = (MetricsModule and MetricsModule.Measure and MetricsModule.Measure(tagTitle, 12)) or math.floor(#tagTitle * 6.2)
-    local tagW = tagTxtW + (hasIcon and 30 or 16)
+    local tagW = MetricsModule.Measure(tagTitle, 12) + (hasIcon and 30 or 16)
     local tagH = 22
     local relX = math.min((self.TitleEndOffset or 220) + 12, sx - tagW - 14)
     local relY = 11
@@ -1291,7 +1262,7 @@ function Window:Tag(tagConfig)
     local tagY = py + relY
 
     local isLight = (self.Theme == "Light")
-    local tagBgCol = cfg.Color or (isLight and Color3.fromRGB(52, 52, 58) or get_theme_color("Control.Background", Color3.fromRGB(48, 48, 52)))
+    local tagBgCol = cfg.Color or (isLight and Color3.fromRGB(52, 52, 58) or ThemeModule.Get(str_ctrl_bg))
     local bg = pool:Get("Square")
     bg.Position = Vector2.new(tagX, tagY)
     bg.Size = Vector2.new(tagW, tagH)
@@ -1307,7 +1278,7 @@ function Window:Tag(tagConfig)
         border = pool:Get("Square")
         border.Position = Vector2.new(tagX, tagY)
         border.Size = Vector2.new(tagW, tagH)
-        border.Color = isLight and Color3.fromRGB(72, 72, 80) or get_theme_color("Window.Border", Color3.fromRGB(48, 48, 56))
+        border.Color = isLight and Color3.fromRGB(72, 72, 80) or ThemeModule.Get(str_win_border)
         border.Filled = false
         border.Thickness = 1
         border.Corner = 11
@@ -1322,7 +1293,7 @@ function Window:Tag(tagConfig)
     txt.Font = fontUI
     txt.Outline = false
     txt.Size = 12
-    txt.Color = isLight and Color3.fromRGB(245, 245, 250) or get_theme_color("Text.Title", Color3.fromRGB(240, 240, 245))
+    txt.Color = isLight and Color3.fromRGB(245, 245, 250) or ThemeModule.Get(str_txt_title)
     txt.ZIndex = 6
     txt.Visible = self.Visible
     self:_register(txt)
@@ -1336,11 +1307,9 @@ function Window:Tag(tagConfig)
         ico.Transparency = 0.9
         ico.Visible = self.Visible
         self:_register(ico)
-        if IconsModule and IconsModule.Get then
-            IconsModule.Get(cfg.Icon, function(pngData)
-                if ico and pngData then ico.Data = pngData end
-            end)
-        end
+        IconsModule.Get(cfg.Icon, function(pngData)
+            if ico and pngData then ico.Data = pngData end
+        end)
     end
 
     table.insert(self.Tags, {
@@ -1433,8 +1402,8 @@ end
 
 function Window:Update(rawDt)
     if self.Destroyed or not self.Running then return end
-    local curState = UI.GetValue(UI_STATE_KEY)
-    if curState == UI_STATE_UNLOAD or (self._uiStateToken and curState ~= self._uiStateToken) then
+    local curState = UI.GetValue(str_ui_state)
+    if curState == str_unload or (self._uiStateToken and curState ~= self._uiStateToken) then
         self:Destroy()
         return
     end
@@ -1450,9 +1419,7 @@ function Window:Update(rawDt)
         self._idleDt = 0
     end
 
-    if AnimationsModule and AnimationsModule.Step then
-        AnimationsModule.Step(dt)
-    end
+    AnimationsModule.Step(dt)
 
     local m1Pressed = rbxFocused and (type(ismouse1pressed) == "function") and (ismouse1pressed() == true)
     local m2Pressed = rbxFocused and (type(ismouse2pressed) == "function") and (ismouse2pressed() == true)
@@ -1462,22 +1429,16 @@ function Window:Update(rawDt)
     self.PrevM2 = m2Pressed
 
     local mouse = self:_getMouse()
-    if NotifyModule and NotifyModule.Update then
-        if NotifyModule.Update(dt, self, mouse, m1Clicked) then
-            m1Clicked = false
-        end
+    if NotifyModule.Update(dt, self, mouse, m1Clicked) then
+        m1Clicked = false
     end
 
-    if DialogModule and DialogModule.Update then
-        if DialogModule.Update(dt, self, mouse, m1Clicked) then
-            return
-        end
+    if DialogModule.Update(dt, self, mouse, m1Clicked) then
+        return
     end
 
-    if OverlayModule and OverlayModule.Update then
-        if OverlayModule.Update(dt, self, mouse, m1Pressed, m1Clicked) then
-            m1Clicked = false
-        end
+    if OverlayModule.Update(dt, self, mouse, m1Pressed, m1Clicked) then
+        m1Clicked = false
     end
 
     self:_updateInputBlock(rbxFocused)
@@ -1586,7 +1547,7 @@ function Window:Update(rawDt)
     if closeHover then
         if self.MacClose then self.MacClose.Color = Color3.fromRGB(230, 75, 68) end
         if m1Clicked then
-            if not self.IgnoreAlerts and DialogModule and DialogModule.Show then
+            if not self.IgnoreAlerts then
                 self:Dialog({
                     Title = "Close Window",
                     Content = "Do you want to close this window? You will not be able to open it again.",
@@ -1611,7 +1572,7 @@ function Window:Update(rawDt)
             return
         end
     else
-        if self.MacClose then self.MacClose.Color = get_theme_color("Mac.Close", Color3.fromRGB(255, 95, 86)) end
+        if self.MacClose then self.MacClose.Color = ThemeModule.Get(str_mac_close) end
     end
 
     local minHover = (not dis.Minimize) and mx >= px + 32 and mx <= px + 47 and my >= py + 14 and my <= py + 29
@@ -1622,7 +1583,7 @@ function Window:Update(rawDt)
             return
         end
     else
-        if self.MacMin then self.MacMin.Color = get_theme_color("Mac.Minimize", Color3.fromRGB(255, 189, 46)) end
+        if self.MacMin then self.MacMin.Color = ThemeModule.Get(str_mac_min) end
     end
 
     local maxHover = (not dis.Maximize) and mx >= px + 50 and mx <= px + 65 and my >= py + 14 and my <= py + 29
@@ -1633,7 +1594,7 @@ function Window:Update(rawDt)
             return
         end
     else
-        if self.MacMax then self.MacMax.Color = get_theme_color("Mac.Maximize", Color3.fromRGB(39, 201, 63)) end
+        if self.MacMax then self.MacMax.Color = ThemeModule.Get(str_mac_max) end
     end
 
     -- 2. Bottom-Right Corner Resize Icon & Hit-Test (strictly disabled in Fullscreen & Minimized)
@@ -2002,9 +1963,7 @@ function Window:Update(rawDt)
         end
     end
 
-    if OverlayModule and OverlayModule.RenderTooltip then
-        OverlayModule.RenderTooltip((not m1Pressed) and hoverTip or nil, mx, my, self)
-    end
+    OverlayModule.RenderTooltip((not m1Pressed) and hoverTip or nil, mx, my, self)
 
     if m1Clicked and self.FocusedInput and not clickedFocusedInput then
         self.FocusedInput:Blur(false)
@@ -2025,12 +1984,10 @@ function Window:Destroy()
     self.OpenColorpicker = nil
     self.CapturingKeybind = nil
     self.Keybinds = {}
-    if IconsModule and IconsModule.ClearSubscribers then
-        IconsModule.ClearSubscribers()
-    end
-    local curState = UI.GetValue(UI_STATE_KEY)
-    if curState == UI_STATE_UNLOAD or (self._uiStateToken and curState == self._uiStateToken) then
-        UI.SetValue(UI_STATE_KEY, UI_STATE_EMPTY)
+    IconsModule.ClearSubscribers()
+    local curState = UI.GetValue(str_ui_state)
+    if curState == str_unload or (self._uiStateToken and curState == self._uiStateToken) then
+        UI.SetValue(str_ui_state, str_empty)
     end
 
     for _, cb in ipairs(self._onDestroyCallbacks or {}) do
@@ -2102,10 +2059,10 @@ function Window:Destroy()
     end
 
     if (not self.Env or not self.Env._windows or #self.Env._windows == 0) then
-        if AnimationsModule and AnimationsModule.Reset then AnimationsModule.Reset() end
-        if NotifyModule and NotifyModule.Destroy then NotifyModule.Destroy() end
-        if DialogModule and DialogModule.Destroy then DialogModule.Destroy() end
-        if OverlayModule and OverlayModule.Destroy then OverlayModule.Destroy() end
+        AnimationsModule.Reset()
+        NotifyModule.Destroy()
+        DialogModule.Destroy()
+        OverlayModule.Destroy()
         if self.Env and self.Env._cleanupRuntime then self.Env:_cleanupRuntime() end
     end
     if self._lastInputBlocked then

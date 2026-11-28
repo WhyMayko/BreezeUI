@@ -39,7 +39,7 @@ local function wrap_lines(text, maxW, fontSize, maxLines)
     return out
 end
 
-local NAMED_COLORS = {
+local named_colors = {
     Red = Color3.fromRGB(239, 79, 55),
     Blue = Color3.fromRGB(48, 93, 255),
     Green = Color3.fromRGB(34, 197, 94),
@@ -63,10 +63,10 @@ function Paragraph.new(section, config)
 
     local pos, size = section:AllocateControlSlot(false, rowH)
 
-    local cardColor = ThemeModule.Get("ElementBackground", Color3.fromRGB(42, 42, 44))
-    local borderColor = ThemeModule.Get("Window.Border", Color3.fromRGB(46, 46, 54))
-    if type(cfg.Color) == "string" and NAMED_COLORS[cfg.Color] then
-        borderColor = NAMED_COLORS[cfg.Color]
+    local cardColor = ThemeModule.Get("ElementBackground")
+    local borderColor = ThemeModule.Get("Window.Border")
+    if type(cfg.Color) == "string" and named_colors[cfg.Color] then
+        borderColor = named_colors[cfg.Color]
     elseif type(cfg.Color) == "table" or typeof(cfg.Color) == "Color3" then
         cardColor = cfg.Color
     end
@@ -125,17 +125,15 @@ function Paragraph.new(section, config)
             self.ImgDrawing = img
             section:_register(img)
 
-            if IconsModule and IconsModule.Get then
-                local got = IconsModule.Get(cfg.Image, function(png)
-                    self._imgData = png
-                    img.Data = png
-                    if self.Visible then img.Visible = true end
-                end)
-                if got then
-                    self._imgData = got
-                    img.Data = got
-                    img.Visible = section.Visible
-                end
+            local got = IconsModule.Get(cfg.Image, function(png)
+                self._imgData = png
+                img.Data = png
+                if self.Visible then img.Visible = true end
+            end)
+            if got then
+                self._imgData = got
+                img.Data = got
+                img.Visible = section.Visible
             end
         end
 
@@ -144,7 +142,7 @@ function Paragraph.new(section, config)
         titleTxt.Font = fontUI
         titleTxt.Outline = false
         titleTxt.Size = cfg.TextSize or 14
-        titleTxt.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        titleTxt.Color = ThemeModule.Get("Text.Title")
         titleTxt.Position = Vector2.new(pos.X + 14 + textLeft, pos.Y + 11)
         titleTxt.ZIndex = 5
         titleTxt.Visible = section.Visible
@@ -157,7 +155,7 @@ function Paragraph.new(section, config)
             ln.Font = fontUI
             ln.Outline = false
             ln.Size = 12
-            ln.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(165, 165, 175))
+            ln.Color = ThemeModule.Get("Text.Secondary")
             ln.Position = Vector2.new(pos.X + 14 + textLeft, pos.Y + 32 + (i - 1) * 16)
             ln.ZIndex = 5
             ln.Visible = section.Visible and (lines[i] ~= nil)
@@ -170,7 +168,7 @@ function Paragraph.new(section, config)
             local bBg = pool:Get("Square")
             bBg.Filled = true
             bBg.Corner = 7
-            bBg.Color = ThemeModule.Get("Button.Background", Color3.fromRGB(48, 48, 56))
+            bBg.Color = ThemeModule.Get("Control.Background")
             bBg.ZIndex = 5
             bBg.Visible = section.Visible
             section:_register(bBg)
@@ -180,7 +178,7 @@ function Paragraph.new(section, config)
             bTxt.Font = fontUI
             bTxt.Outline = false
             bTxt.Size = 12
-            bTxt.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+            bTxt.Color = ThemeModule.Get("Text.Title")
             bTxt.ZIndex = 6
             bTxt.Visible = section.Visible
             section:_register(bTxt)
@@ -226,7 +224,7 @@ function Paragraph:SetPosition(pos, size)
         self.ImgDrawing.Size = Vector2.new(self.ImageSize, self.ImageSize)
     end
     if self.TitleText then
-        self.TitleText.Text = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(self.Title, availW, 14) or self.Title
+        self.TitleText.Text = MetricsModule.Fit(self.Title, availW, 14)
         self.TitleText.Position = Vector2.new(pos.X + 14 + textLeft, pos.Y + 11)
     end
     for i = 1, 6 do
@@ -249,13 +247,7 @@ function Paragraph:SetPosition(pos, size)
             bSlot.Bg.Size = Vector2.new(bw, 26)
             bSlot.Text.Center = false
             local str = tostring(bSlot.Text.Text or "")
-            local ax, ay
-            if MetricsModule and MetricsModule.AlignCenter then
-                ax, ay = MetricsModule.AlignCenter(bx, bTop, bw, 26, str, 12)
-            else
-                ax = bx + math.floor((bw - #str * 6.5) * 0.5)
-                ay = bTop + math.floor((26 - 12) * 0.5)
-            end
+            local ax, ay = MetricsModule.AlignCenter(bx, bTop, bw, 26, str, 12)
             bSlot.Text.Position = Vector2.new(ax, ay)
             bSlot.Rect = { X = bx, Y = bTop, W = bw, H = 26 }
         end

@@ -9,19 +9,13 @@ Keybind.__index = Keybind
 
 local function format_key(k)
     if k == nil then return "?" end
-    if MetricsModule and MetricsModule.KeyName then
-        return MetricsModule.KeyName(k)
-    end
-    return tostring(k)
+    return MetricsModule.KeyName(k)
 end
 
 local function normalize_key(k)
     if k == nil then return nil end
     if type(k) == "number" then return k end
-    if MetricsModule and MetricsModule.KeyCode then
-        return MetricsModule.KeyCode(k) or k
-    end
-    return k
+    return MetricsModule.KeyCode(k) or k
 end
 
 local function is_blacklisted(blacklist, vk)
@@ -116,7 +110,7 @@ function Keybind.new(parent, id, config)
             local rowBg = pool:Get("Square")
             rowBg.Position = pos
             rowBg.Size = size
-            rowBg.Color = ThemeModule.Get("ElementBackground", Color3.fromRGB(34, 34, 38))
+            rowBg.Color = ThemeModule.Get("ElementBackground")
             rowBg.Filled = true
             rowBg.Corner = 8
             rowBg.ZIndex = 4
@@ -129,7 +123,7 @@ function Keybind.new(parent, id, config)
             lbl.Font = fontUI
             lbl.Outline = false
             lbl.Size = 13
-            lbl.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+            lbl.Color = ThemeModule.Get("Text.Title")
             local titleY = (self.Desc and self.Desc ~= "") and (pos.Y + 10) or (pos.Y + math.floor((size.Y - 13) * 0.5))
             lbl.Position = Vector2.new(pos.X + 14, titleY)
             lbl.ZIndex = 5
@@ -143,7 +137,7 @@ function Keybind.new(parent, id, config)
                 dLbl.Font = fontUI
                 dLbl.Outline = false
                 dLbl.Size = 11
-                dLbl.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+                dLbl.Color = ThemeModule.Get("Text.Secondary")
                 dLbl.Position = Vector2.new(pos.X + 14, pos.Y + 28)
                 dLbl.ZIndex = 5
                 dLbl.Visible = self.Visible
@@ -156,7 +150,7 @@ function Keybind.new(parent, id, config)
             local bg = pool:Get("Square")
             bg.Position = Vector2.new(bx, by)
             bg.Size = Vector2.new(badgeW, badgeH)
-            bg.Color = ThemeModule.Get("Control.Background", Color3.fromRGB(48, 48, 54))
+            bg.Color = ThemeModule.Get("Control.Background")
             bg.Filled = true
             bg.Corner = 5
             bg.ZIndex = 5
@@ -170,7 +164,7 @@ function Keybind.new(parent, id, config)
             txt.Outline = false
             txt.Center = false
             txt.Size = 11
-            txt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+            txt.Color = ThemeModule.Get("Text.Secondary")
             txt.ZIndex = 6
             txt.Visible = self.Visible
             self.BadgeText = txt
@@ -186,7 +180,7 @@ function Keybind.new(parent, id, config)
             local bg = pool:Get("Square")
             bg.Position = self.Position
             bg.Size = self.Size
-            bg.Color = ThemeModule.Get("Control.Background", Color3.fromRGB(48, 48, 54))
+            bg.Color = ThemeModule.Get("Control.Background")
             bg.Filled = true
             bg.Corner = 5
             bg.ZIndex = 5
@@ -199,7 +193,7 @@ function Keybind.new(parent, id, config)
             txt.Outline = false
             txt.Center = false
             txt.Size = 11
-            txt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+            txt.Color = ThemeModule.Get("Text.Secondary")
             txt.ZIndex = 6
             txt.Visible = self.Visible
             self.BadgeText = txt
@@ -240,13 +234,7 @@ function Keybind:_centerBadgeText(bx, by, bw, bh)
     if not self.BadgeText then return end
     self.BadgeText.Center = false
     local str = tostring(self.BadgeText.Text or "")
-    local ax, ay
-    if MetricsModule and MetricsModule.AlignCenter then
-        ax, ay = MetricsModule.AlignCenter(bx, by, bw, bh, str, 11)
-    else
-        ax = bx + math.floor((bw - #str * 5.8) * 0.5)
-        ay = by + math.floor((bh - 11) * 0.5)
-    end
+    local ax, ay = MetricsModule.AlignCenter(bx, by, bw, bh, str, 11)
     self.BadgeText.Position = Vector2.new(ax, ay)
 end
 
@@ -313,8 +301,7 @@ function Keybind:Set(vk)
     self.KeyName = format_key(resolved)
 
     local badgeStr = "[" .. self.KeyName .. "]"
-    local tw = (MetricsModule and MetricsModule.GetTextWidth and MetricsModule.GetTextWidth(badgeStr, 11)) or (#badgeStr * 5.8)
-    local badgeW = math.max(40, math.floor(tw + 14))
+    local badgeW = math.max(40, MetricsModule.Measure(badgeStr, 11) + 14)
     if self.BadgeBg then
         self.BadgeBg.Size = Vector2.new(badgeW, 22)
     end
@@ -348,7 +335,7 @@ function Keybind:SetMode(mode)
     pcall(self.Callback, self.ActiveState)
 end
 
-local MODE_LIST = { "Toggle", "Hold", "Always" }
+local mode_list = { "Toggle", "Hold", "Always" }
 
 function Keybind:OpenModeMenu()
     if self.Locked then return end
@@ -391,10 +378,10 @@ function Keybind:OpenModeMenu()
             rTxt.Font = fontUI
             rTxt.Outline = false
             rTxt.Size = 12
-            rTxt.Text = MODE_LIST[i]
+            rTxt.Text = mode_list[i]
             rTxt.ZIndex = 32
             rTxt.Visible = false
-            menu.Rows[i] = { Bg = rBg, Text = rTxt, Mode = MODE_LIST[i], Rect = nil }
+            menu.Rows[i] = { Bg = rBg, Text = rTxt, Mode = mode_list[i], Rect = nil }
         end
 
         if self.Section and self.Section._register then
@@ -411,7 +398,7 @@ function Keybind:OpenModeMenu()
     local bx, by, bw, bh = self:_getBadgeRect()
     local mw = 84
     local rowH = 22
-    local mh = 8 + #MODE_LIST * rowH
+    local mh = 8 + #mode_list * rowH
     local mx = bx + bw - mw
     local my = by + bh + 4
     local cam = workspace and workspace.CurrentCamera
@@ -427,12 +414,12 @@ function Keybind:OpenModeMenu()
     menu.Rect = { X = mx, Y = my, W = mw, H = mh }
     menu.Bg.Position = Vector2.new(mx, my)
     menu.Bg.Size = Vector2.new(mw, mh)
-    menu.Bg.Color = ThemeModule.Get("Card.Background", Color3.fromRGB(24, 24, 27))
+    menu.Bg.Color = ThemeModule.Get("Card.Background")
     menu.Bg.Visible = true
 
     menu.Border.Position = Vector2.new(mx, my)
     menu.Border.Size = Vector2.new(mw, mh)
-    menu.Border.Color = ThemeModule.Get("Window.Border", Color3.fromRGB(52, 52, 62))
+    menu.Border.Color = ThemeModule.Get("Window.Border")
     menu.Border.Visible = true
 
     for i, row in ipairs(menu.Rows) do
@@ -443,14 +430,10 @@ function Keybind:OpenModeMenu()
         row.Rect = { X = rx, Y = ry, W = rw, H = rowH }
         row.Bg.Position = Vector2.new(rx, ry)
         row.Bg.Size = Vector2.new(rw, rowH - 2)
-        row.Bg.Color = selected
-            and ThemeModule.Get("Tab.ActiveBg", Color3.fromRGB(45, 45, 55))
-            or ThemeModule.Get("Card.Background", Color3.fromRGB(24, 24, 27))
+        row.Bg.Color = ThemeModule.Get(selected and "Tab.ActiveBg" or "Card.Background")
         row.Bg.Visible = selected
         row.Text.Position = Vector2.new(rx + 8, ry + 4)
-        row.Text.Color = selected
-            and ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
-            or ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+        row.Text.Color = ThemeModule.Get(selected and "Text.Title" or "Text.Secondary")
         row.Text.Visible = true
     end
 
@@ -507,7 +490,7 @@ function Keybind:StartCapture()
     self.CaptureStarted = os.clock()
     if self.BadgeText then
         self.BadgeText.Text = "[...]"
-        self.BadgeText.Color = ThemeModule.Get("Accent.Blue", Color3.fromRGB(0, 145, 255))
+        self.BadgeText.Color = ThemeModule.Get("Accent.Blue")
         local bx, by, bw, bh = self:_getBadgeRect()
         self:_centerBadgeText(bx, by, bw, bh)
         if self.Visible and self._clipTop and self._clipBottom and self.Section and self.Section.ClipControl then
@@ -530,7 +513,7 @@ function Keybind:CancelCapture()
     self.Capturing = false
     if self.BadgeText then
         self.BadgeText.Text = "[" .. self.KeyName .. "]"
-        self.BadgeText.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+        self.BadgeText.Color = ThemeModule.Get("Text.Secondary")
         local bx, by, bw, bh = self:_getBadgeRect()
         self:_centerBadgeText(bx, by, bw, bh)
         if self.Visible and self._clipTop and self._clipBottom and self.Section and self.Section.ClipControl then
@@ -597,14 +580,14 @@ function Keybind:Lock(title)
     if title ~= nil then self.LockedTitle = tostring(title) end
     if self.Capturing then self:CancelCapture() end
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(120, 120, 130))
+        self.Label.Color = ThemeModule.Get("Text.Muted")
     end
 end
 
 function Keybind:Unlock()
     self.Locked = false
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.Label.Color = ThemeModule.Get("Text.Title")
     end
 end
 

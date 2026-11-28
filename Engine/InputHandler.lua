@@ -4,17 +4,17 @@
 
 local InputHandler = {}
 
-local TEXT_CHARS = {}
-for k = 48, 57 do TEXT_CHARS[k] = string.char(k) end
-for k = 65, 90 do TEXT_CHARS[k] = string.char(k + 32) end
-for k = 96, 105 do TEXT_CHARS[k] = tostring(k - 96) end -- Numpad 0-9
+local text_chars = {}
+for k = 48, 57 do text_chars[k] = string.char(k) end
+for k = 65, 90 do text_chars[k] = string.char(k + 32) end
+for k = 96, 105 do text_chars[k] = tostring(k - 96) end -- Numpad 0-9
 
-local SHIFT_NUMS = {
+local shift_nums = {
     ["0"] = ")", ["1"] = "!", ["2"] = "@", ["3"] = "#", ["4"] = "$",
     ["5"] = "%", ["6"] = "^", ["7"] = "&", ["8"] = "*", ["9"] = "(",
 }
 
-local OEM_KEYS = {
+local oem_keys = {
     [0xBA] = { ";", ":" },
     [0xBB] = { "=", "+" },
     [0xBC] = { ",", "<" },
@@ -106,16 +106,16 @@ function InputHandler:ReadTextInput()
 
     local shiftHeld = (iskeypressed(0x10) == true) or (iskeypressed(0xA0) == true) or (iskeypressed(0xA1) == true)
 
-    for vk, ch in pairs(TEXT_CHARS) do
+    for vk, ch in pairs(text_chars) do
         if self:KeyPressed(vk) then
             if shiftHeld then
-                return SHIFT_NUMS[ch] or string.upper(ch)
+                return shift_nums[ch] or string.upper(ch)
             end
             return ch
         end
     end
 
-    for vk, pair in pairs(OEM_KEYS) do
+    for vk, pair in pairs(oem_keys) do
         if self:KeyPressed(vk) then
             return shiftHeld and pair[2] or pair[1]
         end

@@ -128,7 +128,7 @@ function Colorpicker.new(section, id, config)
         local bg = pool:Get("Square")
         bg.Position = pos
         bg.Size = size
-        bg.Color = ThemeModule.Get("ElementBackground", Color3.fromRGB(42, 42, 44))
+        bg.Color = ThemeModule.Get("ElementBackground")
         bg.Filled = true
         bg.Corner = 8
         bg.ZIndex = 4
@@ -141,7 +141,7 @@ function Colorpicker.new(section, id, config)
         titleTxt.Font = fontUI
         titleTxt.Outline = false
         titleTxt.Size = 13
-        titleTxt.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        titleTxt.Color = ThemeModule.Get("Text.Title")
         titleTxt.ZIndex = 5
         titleTxt.Visible = section.Visible
         self.TitleText = titleTxt
@@ -153,7 +153,7 @@ function Colorpicker.new(section, id, config)
             dTxt.Font = fontUI
             dTxt.Outline = false
             dTxt.Size = 11
-            dTxt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+            dTxt.Color = ThemeModule.Get("Text.Secondary")
             dTxt.ZIndex = 5
             dTxt.Visible = section.Visible
             self.DescText = dTxt
@@ -170,21 +170,19 @@ function Colorpicker.new(section, id, config)
             self.SwatchGrid = swGrid
             section:_register(swGrid)
 
-            if IconsModule and IconsModule.GetTexture then
-                local got = IconsModule.GetTexture("transparency-grid", function(png)
-                    self._textures.Grid = png
-                    if self.SwatchGrid and png then
-                        self.SwatchGrid.Data = png
-                        if self.Visible and self.HasAlpha then
-                            self.SwatchGrid.Visible = true
-                        end
+            local got = IconsModule.GetTexture("transparency-grid", function(png)
+                self._textures.Grid = png
+                if self.SwatchGrid and png then
+                    self.SwatchGrid.Data = png
+                    if self.Visible and self.HasAlpha then
+                        self.SwatchGrid.Visible = true
                     end
-                end)
-                if got then
-                    self._textures.Grid = got
-                    swGrid.Data = got
-                    swGrid.Visible = section.Visible
                 end
+            end)
+            if got then
+                self._textures.Grid = got
+                swGrid.Data = got
+                swGrid.Visible = section.Visible
             end
         end
 
@@ -201,7 +199,7 @@ function Colorpicker.new(section, id, config)
 
         local swBorder = pool:Get("Square")
         swBorder.Size = Vector2.new(32, 18)
-        swBorder.Color = ThemeModule.Get("Window.Border", Color3.fromRGB(64, 64, 76))
+        swBorder.Color = ThemeModule.Get("Window.Border")
         swBorder.Filled = false
         swBorder.Thickness = 1
         swBorder.Corner = 6
@@ -215,9 +213,9 @@ function Colorpicker.new(section, id, config)
     return self
 end
 
-local ALPHA_TILE_COLS = 24
-local ALPHA_TILE_ROWS = 2
-local ALPHA_SEGMENTS = 24
+local alpha_cols = 24
+local alpha_rows = 2
+local alpha_segments = 24
 
 function Colorpicker:_ensurePopup()
     if self.PopupDrawings then return self.PopupDrawings end
@@ -291,8 +289,8 @@ function Colorpicker:_ensurePopup()
     pd.HueCursor.ZIndex = 28
     pd.HueCursor.Visible = false
 
-    for r = 1, ALPHA_TILE_ROWS do
-        for c = 1, ALPHA_TILE_COLS do
+    for r = 1, alpha_rows do
+        for c = 1, alpha_cols do
             local tile = pool:Get("Square")
             tile.Filled = true
             tile.Color = ((r + c) % 2 == 0) and Color3.fromRGB(220, 220, 225) or Color3.fromRGB(130, 130, 140)
@@ -303,7 +301,7 @@ function Colorpicker:_ensurePopup()
         end
     end
 
-    for i = 1, ALPHA_SEGMENTS do
+    for i = 1, alpha_segments do
         local seg = pool:Get("Square")
         seg.Filled = true
         seg.ZIndex = 26
@@ -343,55 +341,53 @@ function Colorpicker:_ensurePopup()
         end
     end
 
-    if IconsModule and IconsModule.GetTexture then
-        local satData = IconsModule.GetTexture("saturation-map", function(png)
-            self._textures.Sat = png
-            if self.PopupDrawings and self.PopupDrawings.SVMap and png then
-                self.PopupDrawings.SVMap.Data = png
-                pd._lastSatData = png
-                if self.IsOpen then self.PopupDrawings.SVMap.Visible = true end
-            end
-        end)
-        if satData then
-            self._textures.Sat = satData
-            pd.SVMap.Data = satData
-            pd._lastSatData = satData
+    local satData = IconsModule.GetTexture("saturation-map", function(png)
+        self._textures.Sat = png
+        if self.PopupDrawings and self.PopupDrawings.SVMap and png then
+            self.PopupDrawings.SVMap.Data = png
+            pd._lastSatData = png
+            if self.IsOpen then self.PopupDrawings.SVMap.Visible = true end
         end
+    end)
+    if satData then
+        self._textures.Sat = satData
+        pd.SVMap.Data = satData
+        pd._lastSatData = satData
+    end
 
-        local hueData = IconsModule.GetTexture("hue-bar", function(png)
-            self._textures.Hue = png
-            if self.PopupDrawings and self.PopupDrawings.HueImg and png then
-                self.PopupDrawings.HueImg.Data = png
-                pd._lastHueData = png
-                if self.IsOpen then
-                    self.PopupDrawings.HueImg.Visible = true
-                    self.PopupDrawings.HueBg.Visible = false
+    local hueData = IconsModule.GetTexture("hue-bar", function(png)
+        self._textures.Hue = png
+        if self.PopupDrawings and self.PopupDrawings.HueImg and png then
+            self.PopupDrawings.HueImg.Data = png
+            pd._lastHueData = png
+            if self.IsOpen then
+                self.PopupDrawings.HueImg.Visible = true
+                self.PopupDrawings.HueBg.Visible = false
+            end
+        end
+    end)
+    if hueData then
+        self._textures.Hue = hueData
+        pd.HueImg.Data = hueData
+        pd._lastHueData = hueData
+    end
+
+    local gridData = IconsModule.GetTexture("transparency-grid", function(png)
+        self._textures.Grid = png
+        if self.PopupDrawings and png then
+            if self.PopupDrawings.PreviewGrid then
+                self.PopupDrawings.PreviewGrid.Data = png
+                pd._lastGridData = png
+                if self.IsOpen and self.HasAlpha then
+                    self.PopupDrawings.PreviewGrid.Visible = true
                 end
             end
-        end)
-        if hueData then
-            self._textures.Hue = hueData
-            pd.HueImg.Data = hueData
-            pd._lastHueData = hueData
         end
-
-        local gridData = IconsModule.GetTexture("transparency-grid", function(png)
-            self._textures.Grid = png
-            if self.PopupDrawings and png then
-                if self.PopupDrawings.PreviewGrid then
-                    self.PopupDrawings.PreviewGrid.Data = png
-                    pd._lastGridData = png
-                    if self.IsOpen and self.HasAlpha then
-                        self.PopupDrawings.PreviewGrid.Visible = true
-                    end
-                end
-            end
-        end)
-        if gridData then
-            self._textures.Grid = gridData
-            pd.PreviewGrid.Data = gridData
-            pd._lastGridData = gridData
-        end
+    end)
+    if gridData then
+        self._textures.Grid = gridData
+        pd.PreviewGrid.Data = gridData
+        pd._lastGridData = gridData
     end
 
     self.PopupDrawings = pd
@@ -420,12 +416,12 @@ function Colorpicker:_syncPopup()
 
     pd.Bg.Position = Vector2.new(x, y)
     pd.Bg.Size = Vector2.new(popW, popH)
-    pd.Bg.Color = ThemeModule.Get("Card.Background", Color3.fromRGB(22, 22, 28))
+    pd.Bg.Color = ThemeModule.Get("Card.Background")
     pd.Bg.Visible = true
 
     pd.Border.Position = Vector2.new(x, y)
     pd.Border.Size = Vector2.new(popW, popH)
-    pd.Border.Color = ThemeModule.Get("Window.Border", Color3.fromRGB(52, 52, 62))
+    pd.Border.Color = ThemeModule.Get("Window.Border")
     pd.Border.Visible = true
 
     local sv = self.PopupRect.SV
@@ -470,16 +466,16 @@ function Colorpicker:_syncPopup()
 
     if self.PopupRect.Alpha then
         local ab = self.PopupRect.Alpha
-        local tileW = math.floor(ab.W / ALPHA_TILE_COLS)
-        local tileH = math.floor(ab.H / ALPHA_TILE_ROWS)
+        local tileW = math.floor(ab.W / alpha_cols)
+        local tileH = math.floor(ab.H / alpha_rows)
         local idx = 1
-        for r = 1, ALPHA_TILE_ROWS do
-            for c = 1, ALPHA_TILE_COLS do
+        for r = 1, alpha_rows do
+            for c = 1, alpha_cols do
                 local tile = pd.AlphaTiles[idx]
                 local tx = ab.X + (c - 1) * tileW
                 local ty = ab.Y + (r - 1) * tileH
-                local tw = (c == ALPHA_TILE_COLS) and (ab.X + ab.W - tx) or tileW
-                local th = (r == ALPHA_TILE_ROWS) and (ab.Y + ab.H - ty) or tileH
+                local tw = (c == alpha_cols) and (ab.X + ab.W - tx) or tileW
+                local th = (r == alpha_rows) and (ab.Y + ab.H - ty) or tileH
                 tile.Position = Vector2.new(tx, ty)
                 tile.Size = Vector2.new(math.max(1, tw), math.max(1, th))
                 tile.Visible = true
@@ -487,14 +483,14 @@ function Colorpicker:_syncPopup()
             end
         end
 
-        for i = 1, ALPHA_SEGMENTS do
+        for i = 1, alpha_segments do
             local seg = pd.AlphaSegments[i]
-            local x0 = ab.X + math.floor((i - 1) * ab.W / ALPHA_SEGMENTS)
-            local x1 = ab.X + math.floor(i * ab.W / ALPHA_SEGMENTS)
+            local x0 = ab.X + math.floor((i - 1) * ab.W / alpha_segments)
+            local x1 = ab.X + math.floor(i * ab.W / alpha_segments)
             seg.Position = Vector2.new(x0, ab.Y)
             seg.Size = Vector2.new(math.max(1, x1 - x0), ab.H)
             seg.Color = self.Value
-            seg.Transparency = (i - 1) / (ALPHA_SEGMENTS - 1)
+            seg.Transparency = (i - 1) / (alpha_segments - 1)
             seg.Visible = true
         end
 
@@ -521,7 +517,7 @@ function Colorpicker:_syncPopup()
     pd.Preview.Visible = true
 
     pd.HexText.Text = rgb_to_hex(self.Value)
-    pd.HexText.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+    pd.HexText.Color = ThemeModule.Get("Text.Title")
     pd.HexText.Position = Vector2.new(x + 42, fy + 4)
     pd.HexText.Visible = true
 end
@@ -668,12 +664,12 @@ function Colorpicker:SetPosition(pos, size)
     end
     local maxTextW = math.max(60, self.Size.X - 64)
     if self.TitleText then
-        self.TitleText.Text = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(self.Title, maxTextW, 13) or self.Title
+        self.TitleText.Text = MetricsModule.Fit(self.Title, maxTextW, 13)
         local ty = (self.Desc and self.Desc ~= "") and (pos.Y + 9) or (pos.Y + math.floor((self.Size.Y - 13) * 0.5))
         self.TitleText.Position = Vector2.new(pos.X + 14, ty)
     end
     if self.DescText then
-        self.DescText.Text = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(self.Desc, maxTextW, 11) or self.Desc
+        self.DescText.Text = MetricsModule.Fit(self.Desc, maxTextW, 11)
         self.DescText.Position = Vector2.new(pos.X + 14, pos.Y + 27)
     end
     local sx = pos.X + self.Size.X - 46
@@ -727,14 +723,14 @@ function Colorpicker:Lock(title)
     if title ~= nil then self.LockedTitle = tostring(title) end
     if self.IsOpen then self:Close() end
     if self.TitleText then
-        self.TitleText.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(120, 120, 130))
+        self.TitleText.Color = ThemeModule.Get("Text.Muted")
     end
 end
 
 function Colorpicker:Unlock()
     self.Locked = false
     if self.TitleText then
-        self.TitleText.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.TitleText.Color = ThemeModule.Get("Text.Title")
     end
 end
 

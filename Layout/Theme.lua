@@ -30,6 +30,9 @@ local function build_theme(spec)
     t["Accent.Danger"]      = t["Accent.Danger"] or Color3.fromRGB(239, 68, 68)
     t["Slider.Thumb"]       = t["Slider.Thumb"] or Color3.fromRGB(255, 255, 255)
     t["Toggle.Thumb"]       = t["Toggle.Thumb"] or Color3.fromRGB(255, 255, 255)
+    t["Button.Hover"]       = t["Button.Hover"] or t["Control.Hover"]
+    t["Button.Background"]  = t["Button.Background"] or t["Control.Background"]
+    t["Slider.Track"]       = t["Slider.Track"] or t["Slider.TrackBg"]
     return t
 end
 
@@ -665,6 +668,14 @@ function theme.Get(tokenPath, fallback)
 
     if fallback ~= nil then return fallback end
     assert(false, "Unknown theme token: " .. tostring(tokenPath) .. "!")
+end
+
+function theme.Resolve(palette, token)
+    if palette then
+        local val = palette[token]
+        if val ~= nil then return val end
+    end
+    return theme.Get(token)
 end
 
 -- Theme Registry & Switching

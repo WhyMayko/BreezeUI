@@ -201,7 +201,7 @@ function ProfileCard:_initDrawings()
     self:_reg(pDiv)
 
     self:_rebuildRows()
-    self:UpdateTheme(ThemeModule.GetCurrent and ThemeModule.GetCurrent() or {})
+    self:UpdateTheme(ThemeModule.GetCurrent())
 end
 
 function ProfileCard:_buildRowSpecs()
@@ -296,7 +296,7 @@ function ProfileCard:SetProfile(opts)
     if opts.Callback ~= nil then self.Callback = opts.Callback end
     if self.Enabled then
         self:_rebuildRows()
-        self:UpdateTheme(ThemeModule.GetCurrent and ThemeModule.GetCurrent() or {})
+        self:UpdateTheme(ThemeModule.GetCurrent())
         self:UpdateLayout()
     else
         self:SetVisible(false)
@@ -449,15 +449,12 @@ end
 
 function ProfileCard:UpdateTheme(t)
     if not self.Enabled or not self.CardBg then return end
-    t = t or {}
-    local bgCol = self.Open
-        and (t["Tab.ActiveBg"] or ThemeModule.Get("Tab.ActiveBg", Color3.fromRGB(33, 33, 34)))
-        or (t["Tab.HoverBg"] or ThemeModule.Get("Tab.HoverBg", Color3.fromRGB(23, 23, 24)))
-    local borderCol = t["Card.Border"] or t.Border or ThemeModule.Get("Card.Border", Color3.fromRGB(38, 38, 42))
-    local ctrlCol = t["Control.Background"] or ThemeModule.Get("Control.Background", Color3.fromRGB(48, 48, 52))
-    local titleCol = t["Text.Title"] or ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
-    local mutedCol = t["Text.Muted"] or ThemeModule.Get("Text.Muted", Color3.fromRGB(161, 161, 161))
-    local accentCol = t["Accent.Blue"] or ThemeModule.Get("Accent.Blue", Color3.fromRGB(0, 145, 255))
+    local bgCol = ThemeModule.Resolve(t, self.Open and "Tab.ActiveBg" or "Tab.HoverBg")
+    local borderCol = ThemeModule.Resolve(t, "Card.Border")
+    local ctrlCol = ThemeModule.Resolve(t, "Control.Background")
+    local titleCol = ThemeModule.Resolve(t, "Text.Title")
+    local mutedCol = ThemeModule.Resolve(t, "Text.Muted")
+    local accentCol = ThemeModule.Resolve(t, "Accent.Blue")
 
     self.CardBg.Color = bgCol
     self.AvatarBg.Color = ctrlCol
@@ -465,11 +462,11 @@ function ProfileCard:UpdateTheme(t)
     self.NameText.Color = titleCol
     self.HandleText.Color = mutedCol
 
-    self.PopBg.Color = t["Card.Background"] or t.Dialog or ThemeModule.Get("Card.Background", Color3.fromRGB(24, 24, 27))
+    self.PopBg.Color = ThemeModule.Resolve(t, "Card.Background")
     self.PopBorder.Color = borderCol
     self.PopName.Color = titleCol
     self.PopHandle.Color = mutedCol
-    self.PopDivider.Color = t["Sidebar.Divider"] or borderCol
+    self.PopDivider.Color = ThemeModule.Resolve(t, "Sidebar.Divider")
 
     local tagCfg = self:_getTagConfig()
     self.PopTagBg.Color = (tagCfg and tagCfg.Color) or accentCol
@@ -522,7 +519,7 @@ function ProfileCard:Update(mx, my, m1Clicked, dt)
     local overCard = mx >= cx and mx <= cx + cw and my >= cy and my <= cy + ch
     if overCard ~= self.Hovered then
         self.Hovered = overCard
-        self:UpdateTheme(ThemeModule.GetCurrent and ThemeModule.GetCurrent() or {})
+        self:UpdateTheme(ThemeModule.GetCurrent())
         AnimationsModule.Tween("profile_hover_" .. tostring(self), self.HoverAnim, overCard and 1 or 0, 22, function(v)
             self.HoverAnim = v
             self:UpdateLayout()
@@ -532,7 +529,7 @@ function ProfileCard:Update(mx, my, m1Clicked, dt)
     if m1Clicked then
         if overCard then
             self:_animatePopover(not self.Open)
-            self:UpdateTheme(ThemeModule.GetCurrent and ThemeModule.GetCurrent() or {})
+            self:UpdateTheme(ThemeModule.GetCurrent())
             if self.Callback then
                 task.spawn(self.Callback)
             end
@@ -544,7 +541,7 @@ function ProfileCard:Update(mx, my, m1Clicked, dt)
                 return true
             end
             self:_animatePopover(false)
-            self:UpdateTheme(ThemeModule.GetCurrent and ThemeModule.GetCurrent() or {})
+            self:UpdateTheme(ThemeModule.GetCurrent())
         end
     end
     return false

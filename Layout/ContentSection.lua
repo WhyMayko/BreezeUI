@@ -23,7 +23,12 @@ local ColorpickerModule = Colorpicker or require("../Components/Colorpicker")
 local ContentSection = {}
 ContentSection.__index = ContentSection
 
-local SKIP_CLIP_KEYS = {
+local str_square = "Square"
+local str_circle = "Circle"
+local str_image  = "Image"
+local str_text   = "Text"
+
+local skip_clip_keys = {
     Section = true, Parent = true, Window = true, Pool = true, Env = true,
     Values = true, VisibleItems = true, Config = true, Callback = true,
     PopupItems = true, PopupDividers = true, PopupSelectedBgs = true,
@@ -34,20 +39,16 @@ local SKIP_CLIP_KEYS = {
 }
 
 local function get_drawing_kind(obj)
-    local entry = MetaModule and MetaModule.Get and MetaModule.Get(obj)
+    local entry = MetaModule.Get(obj)
     if entry and entry.Kind then
         return entry.Kind
     end
-    local sz = obj.Size
-    if type(sz) == "number" then
-        return "Text"
-    end
-    return "Square"
+    return type(obj.Size) == "number" and str_text or str_square
 end
 
 local function restore_drawing(obj)
     if not obj then return end
-    local entry = MetaModule and MetaModule.Get and MetaModule.Get(obj)
+    local entry = MetaModule.Get(obj)
     if entry and entry.ClippedCorner ~= nil then
         obj.Corner = entry.ClippedCorner
         entry.ClippedCorner = nil
@@ -59,13 +60,13 @@ local function clip_drawing(obj, clipTop, clipBottom)
     local kind = get_drawing_kind(obj)
     local y = obj.Position.Y
     local sz = obj.Size
-    if kind == "Square" then
-        local h = (type(sz) == "table" or type(sz) == "userdata") and (sz.Y or 0) or 0
+    if kind == str_square then
+        local h = sz.Y or 0
         local vt = math.max(y, clipTop)
         local vb = math.min(y + h, clipBottom)
         local vh = math.max(0, vb - vt)
         if vh >= 4 then
-            local entry = MetaModule and MetaModule.Get and MetaModule.Get(obj)
+            local entry = MetaModule.Get(obj)
             local baseC = (entry and entry.ClippedCorner) or obj.Corner or 0
             if entry and entry.ClippedCorner == nil then
                 entry.ClippedCorner = baseC
@@ -77,17 +78,16 @@ local function clip_drawing(obj, clipTop, clipBottom)
         else
             obj.Visible = false
         end
-    elseif kind == "Circle" then
+    elseif kind == str_circle then
         local r = obj.Radius or 7
         obj.Visible = (y - r >= clipTop) and (y + r <= clipBottom)
-    elseif kind == "Image" then
-        local h = (type(sz) == "table" or type(sz) == "userdata") and (sz.Y or 16) or 16
+    elseif kind == str_image then
+        local h = sz.Y or 16
         obj.Visible = (y >= clipTop) and (y + h <= clipBottom)
     else
-        local h = (type(sz) == "number") and sz or ((type(sz) == "table" or type(sz) == "userdata") and (sz.Y or 14) or 14)
+        local h = type(sz) == "number" and sz or 14
         local topY = obj.Center and (y - h * 0.5) or y
-        local botY = topY + h
-        obj.Visible = (topY >= clipTop) and (botY <= clipBottom)
+        obj.Visible = (topY >= clipTop) and (topY + h <= clipBottom)
     end
 end
 
@@ -96,7 +96,7 @@ local function traverse_control(tbl, fn, visited)
     if visited[tbl] then return end
     visited[tbl] = true
     for k, v in pairs(tbl) do
-        if not SKIP_CLIP_KEYS[k] and (type(v) == "table" or type(v) == "userdata") then
+        if not skip_clip_keys[k] and (type(v) == "table" or type(v) == "userdata") then
             if v.Position ~= nil and v.Visible ~= nil then
                 if not visited[v] then
                     visited[v] = true
@@ -120,10 +120,6 @@ local function restore_control(tbl)
 end
 
 ContentSection.ClipControl = clip_control
-
-local function get_theme_color(token, default)
-    return ThemeModule.Get(token, default)
-end
 
 function ContentSection.new(config, parentTab, window)
     local cfg = type(config) == "table" and config or { Title = tostring(config or "Section") }
@@ -204,9 +200,7 @@ function ContentSection.new(config, parentTab, window)
         self._chevCb = function(png)
             if self.ChevronImg and png then self.ChevronImg.Data = png end
         end
-        if IconsModule and IconsModule.Get then
-            IconsModule.Get(startOpened and "chevron-down" or "chevron-up", self._chevCb)
-        end
+        IconsModule.Get(startOpened and "chevron-down" or "chevron-up", self._chevCb)
     end
     -- When collapsed initially, collapse content
     if expandable and not startOpened then
@@ -271,8 +265,8 @@ function ContentSection:_renderCard()
     local absPos = Vector2.new(basePos.X + self.Position.X, basePos.Y + self.Position.Y)
 
     -- Matcha Transparency is opacity (1 = opaque, 0 = invisible): 0.04 = subtle 4% white overlay, 0.16 = subtle border
-    local bgCol = get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
-    local borderCol = get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+    local bgCol = ThemeModule.Get("Text.Title")
+    local borderCol = ThemeModule.Get("Text.Title")
 
     local bg = self.Pool:Get("Square")
     bg.Position = absPos
@@ -319,12 +313,11 @@ function ContentSection:_renderHeader()
 
     if self.Title and self.Title ~= "" then
         local titleObj = self.Pool:Get("Text")
-        local fitTitle = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(self.Title, usableW, self.TextSize) or tostring(self.Title)
-        titleObj.Text = fitTitle
+        titleObj.Text = MetricsModule.Fit(self.Title, usableW, self.TextSize)
         titleObj.Size = self.TextSize
         titleObj.Font = fontUI
         titleObj.Outline = false
-        titleObj.Color = get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+        titleObj.Color = ThemeModule.Get("Text.Title")
         titleObj.Position = Vector2.new(innerX, currentY)
         titleObj.ZIndex = 4
         titleObj.Visible = self.Visible
@@ -335,12 +328,11 @@ function ContentSection:_renderHeader()
 
     if self.Description and self.Description ~= "" then
         local descObj = self.Pool:Get("Text")
-        local fitDesc = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(self.Description, usableW, 11) or tostring(self.Description)
-        descObj.Text = fitDesc
+        descObj.Text = MetricsModule.Fit(self.Description, usableW, 11)
         descObj.Size = 11
         descObj.Font = fontUI
         descObj.Outline = false
-        descObj.Color = get_theme_color("Text.Secondary", Color3.fromRGB(161, 161, 170))
+        descObj.Color = ThemeModule.Get("Text.Secondary")
         descObj.Position = Vector2.new(innerX, currentY)
         descObj.ZIndex = 4
         descObj.Visible = self.Visible
@@ -439,10 +431,7 @@ end
 function ContentSection:Open()
     if not self.Expandable or self.IsExpanded then return end
     self.IsExpanded = true
-    if self.ChevronImg and IconsModule and IconsModule.Get then
-        self._chevCb = self._chevCb or function(png)
-            if self.ChevronImg and png then self.ChevronImg.Data = png end
-        end
+    if self.ChevronImg then
         IconsModule.Get("chevron-down", self._chevCb)
     end
     if self.ParentTab then self.ParentTab._layoutDirty = true end
@@ -451,10 +440,7 @@ end
 function ContentSection:Close()
     if not self.Expandable or not self.IsExpanded then return end
     self.IsExpanded = false
-    if self.ChevronImg and IconsModule and IconsModule.Get then
-        self._chevCb = self._chevCb or function(png)
-            if self.ChevronImg and png then self.ChevronImg.Data = png end
-        end
+    if self.ChevronImg then
         IconsModule.Get("chevron-up", self._chevCb)
     end
     if self.ParentTab then self.ParentTab._layoutDirty = true end
@@ -510,9 +496,7 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
     local currentY = innerY
     if self.TitleText then
         self.TitleText.Position = Vector2.new(innerX, currentY)
-        if MetricsModule and MetricsModule.Fit then
-            self.TitleText.Text = MetricsModule.Fit(self.Title or "", usableW, self.TextSize)
-        end
+        self.TitleText.Text = MetricsModule.Fit(self.Title or "", usableW, self.TextSize)
         local tVis = self.Visible
         if clipTop and clipBottom then
             tVis = tVis and (currentY >= clipTop) and (currentY + self.TextSize <= clipBottom)
@@ -522,9 +506,7 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
     end
     if self.DescText then
         self.DescText.Position = Vector2.new(innerX, currentY)
-        if MetricsModule and MetricsModule.Fit then
-            self.DescText.Text = MetricsModule.Fit(self.Description or "", usableW, 11)
-        end
+        self.DescText.Text = MetricsModule.Fit(self.Description or "", usableW, 11)
         local dVis = self.Visible
         if clipTop and clipBottom then
             dVis = dVis and (currentY >= clipTop) and (currentY + 11 <= clipBottom)
@@ -727,7 +709,7 @@ local function sync_lock_overlay(ctrl)
         lo.Bg.Size = size
         local label = tostring(ctrl.LockedTitle or "Locked")
         lo.Text.Text = label
-        local tw = (MetricsModule and MetricsModule.GetTextWidth and MetricsModule.GetTextWidth(label, 13)) or (#label * 6.5)
+        local tw = MetricsModule.Measure(label, 13)
         local totalW = 16 + 6 + tw
         local sx = pos.X + math.floor((size.X - totalW) * 0.5)
         lo.Icon.Position = Vector2.new(sx, pos.Y + math.floor((size.Y - 16) * 0.5))
@@ -775,16 +757,14 @@ local function ensure_lock_overlay(sec, ctrl)
     local lo = { Bg = bg, Icon = ico, Text = txt, IconData = nil }
     ctrl._lockOverlay = lo
 
-    if IconsModule and IconsModule.Get then
-        local got = IconsModule.Get("lock", function(png)
-            lo.IconData = png
-            ico.Data = png
-            sync_lock_overlay(ctrl)
-        end)
-        if got then
-            lo.IconData = got
-            ico.Data = got
-        end
+    local got = IconsModule.Get("lock", function(png)
+        lo.IconData = png
+        ico.Data = png
+        sync_lock_overlay(ctrl)
+    end)
+    if got then
+        lo.IconData = got
+        ico.Data = got
     end
 end
 

@@ -13,7 +13,7 @@ local Icons = {
     TextureBase = "https://raw.githubusercontent.com/WhyMayko/BreezeUI/main/assets/textures/",
 }
 
-local ALIASES = {
+local aliases = {
     ["home"] = "home-2-bold",
     ["home-2"] = "home-2-bold",
     ["main"] = "home-2-bold",
@@ -61,7 +61,7 @@ function Icons.NormalizeName(rawName)
     if colon then
         clean = clean:sub(colon + 1)
     end
-    return ALIASES[clean] or clean
+    return aliases[clean] or clean
 end
 
 function Icons.ValidatePNG(data)

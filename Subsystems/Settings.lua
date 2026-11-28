@@ -79,21 +79,22 @@ local function deserialize_value(v)
     return v
 end
 
-function Settings.Save(arg1, arg2)
+local function resolve_profile_args(arg1, arg2)
     local targetEnv, targetName
     if type(arg1) == "string" then
         targetName = arg1
-        targetEnv = (type(arg2) == "table" and arg2) or Settings._lastEnv or (type(_G.Library) == "table" and _G.Library)
+        targetEnv = type(arg2) == "table" and arg2 or Settings._lastEnv or _G.Library
     elseif type(arg1) == "table" then
-        targetEnv = (arg1._rawOptions and arg1) or (arg1.Env and arg1.Env._rawOptions and arg1.Env) or Settings._lastEnv or (type(_G.Library) == "table" and _G.Library)
-        targetName = (type(arg2) == "string" and arg2) or (arg1 ~= targetEnv and type(arg1) == "string" and arg1)
+        targetEnv = (arg1._rawOptions and arg1) or (arg1.Env and arg1.Env._rawOptions and arg1.Env) or Settings._lastEnv or _G.Library
+        targetName = type(arg2) == "string" and arg2 or nil
     end
-    if not targetName and type(arg2) == "string" then
-        targetName = arg2
-    end
-
     local ok, err = Settings.ValidateProfileName(targetName)
     assert(ok, err or "Invalid profile name!")
+    return targetEnv, targetName
+end
+
+function Settings.Save(arg1, arg2)
+    local targetEnv, targetName = resolve_profile_args(arg1, arg2)
 
     local dump = { Options = {}, Toggles = {} }
     if targetEnv and targetEnv._rawOptions then
@@ -134,20 +135,7 @@ function Settings.Save(arg1, arg2)
 end
 
 function Settings.Load(arg1, arg2)
-    local targetEnv, targetName
-    if type(arg1) == "string" then
-        targetName = arg1
-        targetEnv = (type(arg2) == "table" and arg2) or Settings._lastEnv or (type(_G.Library) == "table" and _G.Library)
-    elseif type(arg1) == "table" then
-        targetEnv = (arg1._rawOptions and arg1) or (arg1.Env and arg1.Env._rawOptions and arg1.Env) or Settings._lastEnv or (type(_G.Library) == "table" and _G.Library)
-        targetName = (type(arg2) == "string" and arg2) or (arg1 ~= targetEnv and type(arg1) == "string" and arg1)
-    end
-    if not targetName and type(arg2) == "string" then
-        targetName = arg2
-    end
-
-    local ok, err = Settings.ValidateProfileName(targetName)
-    assert(ok, err or "Invalid profile name!")
+    local targetEnv, targetName = resolve_profile_args(arg1, arg2)
 
     local folder = Settings.GetFolder()
     local folderProfiles = Settings._profilesByFolder[folder]
@@ -183,16 +171,7 @@ function Settings.Load(arg1, arg2)
 end
 
 function Settings.Delete(arg1, arg2)
-    local targetEnv, targetName
-    if type(arg1) == "string" then
-        targetName = arg1
-        targetEnv = (type(arg2) == "table" and arg2) or Settings._lastEnv or (type(_G.Library) == "table" and _G.Library)
-    elseif type(arg1) == "table" then
-        targetEnv = (arg1._rawOptions and arg1) or (arg1.Env and arg1.Env._rawOptions and arg1.Env) or Settings._lastEnv or (type(_G.Library) == "table" and _G.Library)
-        targetName = (type(arg2) == "string" and arg2)
-    end
-    local ok, err = Settings.ValidateProfileName(targetName)
-    assert(ok, err or "Invalid profile name!")
+    local targetEnv, targetName = resolve_profile_args(arg1, arg2)
 
     local folder = Settings.GetFolder()
     if Settings._profilesByFolder[folder] then

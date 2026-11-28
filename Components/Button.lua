@@ -9,7 +9,7 @@ local Button = {}
 Button.__index = Button
 
 -- WindUI tag color palette
-local TAG_COLORS = {
+local tag_colors = {
     Blue   = Color3.fromRGB(37, 122, 247),
     Green  = Color3.fromRGB(34, 197, 94),
     Red    = Color3.fromRGB(239, 68, 68),
@@ -23,7 +23,7 @@ local function layout_button(self)
     local pos = self.Position
     local size = self.Size
     local hasDesc = self.Desc and self.Desc ~= ""
-    local txtW = (MetricsModule and MetricsModule.GetTextWidth and MetricsModule.GetTextWidth(self.Text, 13)) or math.floor(#self.Text * 6.5)
+    local txtW = MetricsModule.Measure(self.Text, 13)
     local lblY = hasDesc and (pos.Y + 9) or (pos.Y + math.floor((size.Y - 13) * 0.5))
     local icoY = pos.Y + math.floor((size.Y - 16) * 0.5)
 
@@ -35,20 +35,13 @@ local function layout_button(self)
         for i = #self.TagBadges, 1, -1 do
             local tb = self.TagBadges[i]
             local str = tostring(tb.Label.Text or "")
-            local tagTxtW = (MetricsModule and MetricsModule.GetTextWidth and MetricsModule.GetTextWidth(str, 11)) or math.floor(#str * 6.0)
-            local tagW = math.max(math.floor(#str * 6.5) + 14, tagTxtW + 14)
+            local tagW = MetricsModule.Measure(str, 11) + 14
             tagEndX = tagEndX - tagW
             local tagY = pos.Y + math.floor((size.Y - tagH) * 0.5)
             tb.Bg.Position = Vector2.new(tagEndX, tagY)
             tb.Bg.Size = Vector2.new(tagW, tagH)
             tb.Label.Center = false
-            local ax, ay
-            if MetricsModule and MetricsModule.AlignCenter then
-                ax, ay = MetricsModule.AlignCenter(tagEndX, tagY, tagW, tagH, str, 11)
-            else
-                ax = tagEndX + math.floor((tagW - tagTxtW) * 0.5)
-                ay = tagY + math.floor((tagH - 11) * 0.5)
-            end
+            local ax, ay = MetricsModule.AlignCenter(tagEndX, tagY, tagW, tagH, str, 11)
             tb.Label.Position = Vector2.new(ax, ay)
             tagEndX = tagEndX - 6
         end
@@ -68,10 +61,7 @@ local function layout_button(self)
             end
         elseif self.Label then
             self.Label.Center = false
-            local ax = pos.X + math.floor((size.X - txtW) * 0.5)
-            if MetricsModule and MetricsModule.AlignCenter then
-                ax = MetricsModule.AlignCenter(pos.X, pos.Y, size.X, size.Y, self.Text, 13)
-            end
+            local ax = MetricsModule.AlignCenter(pos.X, pos.Y, size.X, size.Y, self.Text, 13)
             self.Label.Position = Vector2.new(ax, lblY)
         end
         if self.DescLabel then
@@ -121,8 +111,8 @@ function Button.new(section, config)
 
     local pool = section.Pool
     if pool then
-        local btnBg = self.CustomColor or ThemeModule.Get("ElementBackground", Color3.fromRGB(42, 42, 44))
-        local txtCol = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        local btnBg = self.CustomColor or ThemeModule.Get("ElementBackground")
+        local txtCol = ThemeModule.Get("Text.Title")
         local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
         -- 1. Button Surface Card
@@ -155,7 +145,7 @@ function Button.new(section, config)
             dLbl.Font = fontUI
             dLbl.Outline = false
             dLbl.Size = 11
-            dLbl.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+            dLbl.Color = ThemeModule.Get("Text.Secondary")
             dLbl.ZIndex = 5
             dLbl.Visible = section.Visible
             self.DescLabel = dLbl
@@ -170,11 +160,9 @@ function Button.new(section, config)
             ico.Visible = section.Visible
             self.IconImg = ico
             section:_register(ico)
-            if IconsModule and IconsModule.Get then
-                IconsModule.Get(iconOpt, function(png)
-                    if self.IconImg and png then self.IconImg.Data = png end
-                end)
-            end
+            IconsModule.Get(iconOpt, function(png)
+                if self.IconImg and png then self.IconImg.Data = png end
+            end)
         end
 
         -- 3. Tags badges (WindUI parity: small colored pill badges after title)
@@ -183,9 +171,8 @@ function Button.new(section, config)
             local tagTitle = tostring(tagDef.Title or tagDef.Text or "")
             if tagTitle ~= "" then
                 local tagColName = tagDef.Color or "Blue"
-                local tagCol = TAG_COLORS[tagColName] or TAG_COLORS.Blue
-                local tagTxtW = (MetricsModule and MetricsModule.GetTextWidth and MetricsModule.GetTextWidth(tagTitle, 11)) or math.floor(#tagTitle * 6.0)
-                local tagW = math.max(math.floor(#tagTitle * 6.5) + 14, tagTxtW + 14)
+                local tagCol = tag_colors[tagColName] or tag_colors.Blue
+                local tagW = MetricsModule.Measure(tagTitle, 11) + 14
 
                 local tagBg = pool:Get("Square")
                 tagBg.Filled = true
@@ -267,14 +254,14 @@ function Button:Lock(title)
     self.Locked = true
     if title ~= nil then self.LockedTitle = tostring(title) end
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(120, 120, 130))
+        self.Label.Color = ThemeModule.Get("Text.Muted")
     end
 end
 
 function Button:Unlock()
     self.Locked = false
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.Label.Color = ThemeModule.Get("Text.Title")
     end
 end
 

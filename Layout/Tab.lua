@@ -9,18 +9,15 @@ local ThemeModule = Theme or require("./Theme")
 local ContentSectionModule = ContentSection or require("./ContentSection")
 local AnimationsModule = Animations or require("../Engine/Animations")
 
-local IconsModule = Icons
-if not IconsModule then
-    local ok, mod = pcall(function() return require("../Subsystems/Icons") end)
-    if ok then IconsModule = mod end
-end
+local IconsModule = Icons or require("../Subsystems/Icons")
 
 local Tab = {}
 Tab.__index = Tab
 
-local function get_theme_color(token, default)
-    return ThemeModule.Get(token, default)
-end
+local str_tab_active = "Tab.ActiveBg"
+local str_tab_hover  = "Tab.HoverBg"
+local str_txt_title  = "Text.Title"
+local str_txt_sec    = "Text.Secondary"
 
 local function get_tab_badge_color(title, icon, customColor)
     if customColor then return customColor end
@@ -46,7 +43,7 @@ end
 function Tab.new(config, window, parentSection)
     local cfg = type(config) == "table" and config or { Title = tostring(config or "Tab") }
     local win = window or (parentSection and parentSection.Sidebar and parentSection.Sidebar.Window)
-    local pool = (win and win.Pool) or (PoolModule and PoolModule.new(100, MetaModule))
+    local pool = (win and win.Pool) or PoolModule.new(100, MetaModule)
     local topH = win and win.HeaderHeight or 44
 
     local self = setmetatable({
@@ -115,17 +112,10 @@ function Tab:_initSidebarDrawings()
     local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
     local cap = pool:Get("Square")
-    if MetaModule then
-        MetaModule.SetValue(cap, "Filled", true)
-        MetaModule.SetValue(cap, "Corner", self.Rounding)
-        MetaModule.SetValue(cap, "ZIndex", 4)
-        MetaModule.SetVisible(cap, false)
-    else
-        cap.Filled = true
-        cap.Corner = self.Rounding
-        cap.ZIndex = 4
-        cap.Visible = false
-    end
+    MetaModule.SetValue(cap, "Filled", true)
+    MetaModule.SetValue(cap, "Corner", self.Rounding)
+    MetaModule.SetValue(cap, "ZIndex", 4)
+    MetaModule.SetVisible(cap, false)
     self.Capsule = cap
 
     if self.IconShape and self.IconColor then
@@ -148,7 +138,7 @@ function Tab:_initSidebarDrawings()
     self.TabIcon = icon
     self.IconVisual = icon
 
-    if IconsModule and IconsModule.Get and self.Icon then
+    if self.Icon then
         local forceWhite = (self.IconBadge ~= nil)
         IconsModule.Get(self.Icon, function(pngData)
             if self.TabIcon and pngData then
@@ -161,7 +151,7 @@ function Tab:_initSidebarDrawings()
     txt.Size = 13
     txt.Font = fontUI
     txt.Outline = false
-    txt.Color = get_theme_color("Text.Secondary", Color3.fromRGB(161, 161, 170))
+    txt.Color = ThemeModule.Get(str_txt_sec)
     txt.ZIndex = 5
     txt.Text = tostring(self.Title)
     self.TitleVisual = txt
@@ -173,7 +163,7 @@ function Tab:_initSidebarDrawings()
         local bBg = pool:Get("Square")
         bBg.Filled = true
         bBg.Corner = 3
-        bBg.Color = self.BadgeColor or get_theme_color("Accent.Blue", Color3.fromRGB(0, 145, 255))
+        bBg.Color = self.BadgeColor or ThemeModule.Get("Accent.Blue")
         bBg.ZIndex = 5
         self.BadgeBg = bBg
 
@@ -183,8 +173,7 @@ function Tab:_initSidebarDrawings()
         bTxt.Outline = false
         bTxt.Color = Color3.fromRGB(255, 255, 255)
         bTxt.ZIndex = 6
-        local fmtBadge = MetricsModule and MetricsModule.FormatBadge and MetricsModule.FormatBadge(self.Badge) or ("[" .. tostring(self.Badge) .. "]")
-        bTxt.Text = fmtBadge
+        bTxt.Text = MetricsModule.FormatBadge(self.Badge)
         self.BadgeText = bTxt
     end
 
@@ -204,8 +193,8 @@ function Tab:UpdateVisualState()
     local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
     if self.IsActive then
-        local activeBg = get_theme_color("Tab.ActiveBg", Color3.fromRGB(35, 35, 41))
-        local titleCol = get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+        local activeBg = ThemeModule.Get(str_tab_active)
+        local titleCol = ThemeModule.Get(str_txt_title)
         if self.Capsule then
             self.Capsule.Color = activeBg
             self.Capsule.Transparency = 1.0
@@ -220,8 +209,8 @@ function Tab:UpdateVisualState()
             self.TabIcon.Transparency = 1.0
         end
     elseif self.IsHovered or (self.HoverAnim or 0) > 0.02 then
-        local hoverBg = get_theme_color("Tab.HoverBg", Color3.fromRGB(26, 26, 31))
-        local titleCol = get_theme_color("Text.Title", Color3.fromRGB(240, 240, 245))
+        local hoverBg = ThemeModule.Get(str_tab_hover)
+        local titleCol = ThemeModule.Get(str_txt_title)
         if self.Capsule then
             self.Capsule.Color = hoverBg
             self.Capsule.Transparency = self.HoverAnim or 1.0
@@ -236,7 +225,7 @@ function Tab:UpdateVisualState()
             self.TabIcon.Transparency = 0.92
         end
     else
-        local subCol = get_theme_color("Text.Secondary", Color3.fromRGB(161, 161, 170))
+        local subCol = ThemeModule.Get(str_txt_sec)
         if self.Capsule then
             self.Capsule.Visible = false
         end
@@ -267,13 +256,8 @@ function Tab:UpdateSidebarPositions(winPos)
     local ty = winPos.Y + self.RelY
 
     if self.Capsule then
-        if MetaModule then
-            MetaModule.SetPosition(self.Capsule, tx, ty)
-            MetaModule.SetSize(self.Capsule, self.Width, self.Height)
-        else
-            self.Capsule.Position = Vector2.new(tx, ty)
-            self.Capsule.Size = Vector2.new(self.Width, self.Height)
-        end
+        MetaModule.SetPosition(self.Capsule, tx, ty)
+        MetaModule.SetSize(self.Capsule, self.Width, self.Height)
     end
 
     if self.IconBadge then
@@ -281,41 +265,27 @@ function Tab:UpdateSidebarPositions(winPos)
     end
 
     if self.TabIcon then
-        if MetaModule then
-            MetaModule.SetPosition(self.TabIcon, tx + 10, ty + 9)
-        else
-            self.TabIcon.Position = Vector2.new(tx + 10, ty + 9)
-        end
+        MetaModule.SetPosition(self.TabIcon, tx + 10, ty + 9)
     end
 
     local badgeW = 0
     if self.BadgeBg and self.BadgeText then
         local bStr = tostring(self.BadgeText.Text or "")
-        local bTxtW = (MetricsModule and MetricsModule.Measure and MetricsModule.Measure(bStr, 11)) or (#bStr * 6)
-        badgeW = math.floor(bTxtW + 10)
+        badgeW = math.floor(MetricsModule.Measure(bStr, 11) + 10)
         local bX = tx + self.Width - badgeW - 6
         local bY = ty + 8
         self.BadgeBg.Position = Vector2.new(bX, bY)
         self.BadgeBg.Size = Vector2.new(badgeW, 16)
-        if MetricsModule and MetricsModule.AlignCenter then
-            local ax, ay = MetricsModule.AlignCenter(bX, bY, badgeW, 16, bStr, 11)
-            self.BadgeText.Position = Vector2.new(ax, ay)
-        else
-            self.BadgeText.Position = Vector2.new(bX + 4, bY + 2)
-        end
+        local ax, ay = MetricsModule.AlignCenter(bX, bY, badgeW, 16, bStr, 11)
+        self.BadgeText.Position = Vector2.new(ax, ay)
     end
 
     if self.TitleVisual then
         local titleX = tx + 36
         local maxTitleW = math.max(30, self.Width - 44 - (badgeW > 0 and (badgeW + 8) or 0))
-        local fitted = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(tostring(self.Title), maxTitleW, 13) or tostring(self.Title)
-        if MetaModule then
-            MetaModule.SetText(self.TitleVisual, fitted)
-            MetaModule.SetPosition(self.TitleVisual, titleX, ty + 9)
-        else
-            self.TitleVisual.Text = fitted
-            self.TitleVisual.Position = Vector2.new(titleX, ty + 9)
-        end
+        local fitted = MetricsModule.Fit(tostring(self.Title), maxTitleW, 13)
+        MetaModule.SetText(self.TitleVisual, fitted)
+        MetaModule.SetPosition(self.TitleVisual, titleX, ty + 9)
     end
 
     if self.SidebarVisible then
@@ -559,15 +529,15 @@ end
 
 function Tab:UpdateTheme(t)
     self:UpdateVisualState()
-    local cardBg = t.Card or get_theme_color("Card.Background", Color3.fromRGB(24, 24, 29))
-    local borderCol = t.Border or get_theme_color("Card.Border", Color3.fromRGB(38, 38, 45))
-    local elemBg = t.ElementBackground or get_theme_color("ElementBackground", Color3.fromRGB(42, 42, 44))
-    local ctrlBg = t["Control.Background"] or get_theme_color("Control.Background", Color3.fromRGB(48, 48, 54))
-    local txtTitle = t.Text or get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
-    local txtSub = t["Text.Secondary"] or t.SubText or get_theme_color("Text.Secondary", Color3.fromRGB(161, 161, 170))
-    local txtMuted = t["Text.Muted"] or get_theme_color("Text.Muted", Color3.fromRGB(120, 120, 130))
-    local accentBlue = t["Accent.Blue"] or t.Accent or get_theme_color("Accent.Blue", Color3.fromRGB(0, 145, 255))
-    local sldTrack = t["Slider.TrackBg"] or ctrlBg
+    local cardBg = ThemeModule.Resolve(t, "Card.Background")
+    local borderCol = ThemeModule.Resolve(t, "Card.Border")
+    local elemBg = ThemeModule.Resolve(t, "ElementBackground")
+    local ctrlBg = ThemeModule.Resolve(t, "Control.Background")
+    local txtTitle = ThemeModule.Resolve(t, str_txt_title)
+    local txtSub = ThemeModule.Resolve(t, str_txt_sec)
+    local txtMuted = ThemeModule.Resolve(t, "Text.Muted")
+    local accentBlue = ThemeModule.Resolve(t, "Accent.Blue")
+    local sldTrack = ThemeModule.Resolve(t, "Slider.TrackBg")
 
     for _, sec in ipairs(self.Sections) do
         -- Boxed collapsible sections use Text.Title at near-full transparency (WindUI SectionBox style)
@@ -579,7 +549,7 @@ function Tab:UpdateTheme(t)
         for _, ctrl in ipairs(sec.Controls or {}) do
             if ctrl.RowBg then ctrl.RowBg.Color = elemBg end
             if ctrl.Visual and not ctrl.CustomColor then
-                ctrl.Visual.Color = ctrl.Code and (t.Background or get_theme_color("Window.Background", Color3.fromRGB(14, 14, 18))) or elemBg
+                ctrl.Visual.Color = ctrl.Code and ThemeModule.Resolve(t, "Window.Background") or elemBg
             end
             if ctrl.HeaderBg then ctrl.HeaderBg.Color = ctrlBg end
             if ctrl.CopyBg then ctrl.CopyBg.Color = elemBg end
@@ -588,7 +558,7 @@ function Tab:UpdateTheme(t)
             if ctrl.SwatchBorder then ctrl.SwatchBorder.Color = borderCol end
             if ctrl.PopupBg then ctrl.PopupBg.Color = cardBg end
             if ctrl.PopupBorder then ctrl.PopupBorder.Color = borderCol end
-            if ctrl.PopupHoverBg then ctrl.PopupHoverBg.Color = get_theme_color("Tab.ActiveBg", ctrlBg) end
+            if ctrl.PopupHoverBg then ctrl.PopupHoverBg.Color = ThemeModule.Resolve(t, str_tab_active) end
             if ctrl.SearchBg then ctrl.SearchBg.Color = elemBg end
             if ctrl.SearchText then
                 ctrl.SearchText.Color = (ctrl.SearchQuery and ctrl.SearchQuery ~= "") and txtTitle or txtSub

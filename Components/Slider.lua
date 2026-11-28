@@ -66,9 +66,9 @@ function Slider.new(section, id, config)
 
     local pool = section.Pool
     if pool then
-        local trackCol = ThemeModule.Get("Slider.TrackBg", Color3.fromRGB(54, 54, 62))
-        local fillCol = ThemeModule.Get("Accent.Blue", Color3.fromRGB(0, 145, 255))
-        local rowBgCol = ThemeModule.Get("ElementBackground", Color3.fromRGB(34, 34, 38))
+        local trackCol = ThemeModule.Get("Slider.TrackBg")
+        local fillCol = ThemeModule.Get("Accent.Blue")
+        local rowBgCol = ThemeModule.Get("ElementBackground")
         local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
         -- 1. Integrated Row Card Container
@@ -92,7 +92,7 @@ function Slider.new(section, id, config)
             lbl.Font = fontUI
             lbl.Outline = false
             lbl.Size = 13
-            lbl.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+            lbl.Color = ThemeModule.Get("Text.Title")
             lbl.Position = Vector2.new(pos.X + 14, pos.Y + math.floor((size.Y - 13) * 0.5))
             lbl.ZIndex = 5
             lbl.Visible = section.Visible
@@ -105,7 +105,7 @@ function Slider.new(section, id, config)
             badge.Font = fontUI
             badge.Outline = false
             badge.Size = 12
-            badge.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+            badge.Color = ThemeModule.Get("Text.Secondary")
             badge.Position = Vector2.new(trackX - 38, pos.Y + math.floor((size.Y - 12) * 0.5))
             badge.ZIndex = 5
             badge.Visible = section.Visible
@@ -124,11 +124,9 @@ function Slider.new(section, id, config)
                 icoFrom.Visible = section.Visible
                 self.IconFrom = icoFrom
                 section:_register(icoFrom)
-                if IconsModule and IconsModule.Get then
-                    IconsModule.Get(self.Icons.From, function(png)
-                        if self.IconFrom and png then self.IconFrom.Data = png end
-                    end)
-                end
+                IconsModule.Get(self.Icons.From, function(png)
+                    if self.IconFrom and png then self.IconFrom.Data = png end
+                end)
             end
 
             if self.Icons.To then
@@ -140,11 +138,9 @@ function Slider.new(section, id, config)
                 icoTo.Visible = section.Visible
                 self.IconTo = icoTo
                 section:_register(icoTo)
-                if IconsModule and IconsModule.Get then
-                    IconsModule.Get(self.Icons.To, function(png)
-                        if self.IconTo and png then self.IconTo.Data = png end
-                    end)
-                end
+                IconsModule.Get(self.Icons.To, function(png)
+                    if self.IconTo and png then self.IconTo.Data = png end
+                end)
             end
         end
 
@@ -302,14 +298,14 @@ function Slider:Lock(title)
     self.Locked = true
     if title ~= nil then self.LockedTitle = tostring(title) end
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(120, 120, 130))
+        self.Label.Color = ThemeModule.Get("Text.Muted")
     end
 end
 
 function Slider:Unlock()
     self.Locked = false
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.Label.Color = ThemeModule.Get("Text.Title")
     end
 end
 

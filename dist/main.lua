@@ -1116,6 +1116,9 @@ local function build_theme(spec)
     t["Accent.Danger"]      = t["Accent.Danger"] or Color3.fromRGB(239, 68, 68)
     t["Slider.Thumb"]       = t["Slider.Thumb"] or Color3.fromRGB(255, 255, 255)
     t["Toggle.Thumb"]       = t["Toggle.Thumb"] or Color3.fromRGB(255, 255, 255)
+    t["Button.Hover"]       = t["Button.Hover"] or t["Control.Hover"]
+    t["Button.Background"]  = t["Button.Background"] or t["Control.Background"]
+    t["Slider.Track"]       = t["Slider.Track"] or t["Slider.TrackBg"]
     return t
 end
 
@@ -1753,6 +1756,14 @@ function theme.Get(tokenPath, fallback)
     assert(false, "Unknown theme token: " .. tostring(tokenPath) .. "!")
 end
 
+function theme.Resolve(palette, token)
+    if palette then
+        local val = palette[token]
+        if val ~= nil then return val end
+    end
+    return theme.Get(token)
+end
+
 -- Theme Registry & Switching
 function theme.Register(name, palette)
     assert(type(name) == "string", "Theme name must be a string!")
@@ -2208,17 +2219,17 @@ InputHandlerModule = (function()
 
 local InputHandler = {}
 
-local TEXT_CHARS = {}
-for k = 48, 57 do TEXT_CHARS[k] = string.char(k) end
-for k = 65, 90 do TEXT_CHARS[k] = string.char(k + 32) end
-for k = 96, 105 do TEXT_CHARS[k] = tostring(k - 96) end -- Numpad 0-9
+local text_chars = {}
+for k = 48, 57 do text_chars[k] = string.char(k) end
+for k = 65, 90 do text_chars[k] = string.char(k + 32) end
+for k = 96, 105 do text_chars[k] = tostring(k - 96) end -- Numpad 0-9
 
-local SHIFT_NUMS = {
+local shift_nums = {
     ["0"] = ")", ["1"] = "!", ["2"] = "@", ["3"] = "#", ["4"] = "$",
     ["5"] = "%", ["6"] = "^", ["7"] = "&", ["8"] = "*", ["9"] = "(",
 }
 
-local OEM_KEYS = {
+local oem_keys = {
     [0xBA] = { ";", ":" },
     [0xBB] = { "=", "+" },
     [0xBC] = { ",", "<" },
@@ -2310,16 +2321,16 @@ function InputHandler:ReadTextInput()
 
     local shiftHeld = (iskeypressed(0x10) == true) or (iskeypressed(0xA0) == true) or (iskeypressed(0xA1) == true)
 
-    for vk, ch in pairs(TEXT_CHARS) do
+    for vk, ch in pairs(text_chars) do
         if self:KeyPressed(vk) then
             if shiftHeld then
-                return SHIFT_NUMS[ch] or string.upper(ch)
+                return shift_nums[ch] or string.upper(ch)
             end
             return ch
         end
     end
 
-    for vk, pair in pairs(OEM_KEYS) do
+    for vk, pair in pairs(oem_keys) do
         if self:KeyPressed(vk) then
             return shiftHeld and pair[2] or pair[1]
         end
@@ -2415,7 +2426,7 @@ local Icons = {
     TextureBase = "https://raw.githubusercontent.com/WhyMayko/BreezeUI/main/assets/textures/",
 }
 
-local ALIASES = {
+local aliases = {
     ["home"] = "home-2-bold",
     ["home-2"] = "home-2-bold",
     ["main"] = "home-2-bold",
@@ -2463,7 +2474,7 @@ function Icons.NormalizeName(rawName)
     if colon then
         clean = clean:sub(colon + 1)
     end
-    return ALIASES[clean] or clean
+    return aliases[clean] or clean
 end
 
 function Icons.ValidatePNG(data)
@@ -2734,21 +2745,22 @@ local function deserialize_value(v)
     return v
 end
 
-function Settings.Save(arg1, arg2)
+local function resolve_profile_args(arg1, arg2)
     local targetEnv, targetName
     if type(arg1) == "string" then
         targetName = arg1
-        targetEnv = (type(arg2) == "table" and arg2) or Settings._lastEnv or (type(_G.Library) == "table" and _G.Library)
+        targetEnv = type(arg2) == "table" and arg2 or Settings._lastEnv or _G.Library
     elseif type(arg1) == "table" then
-        targetEnv = (arg1._rawOptions and arg1) or (arg1.Env and arg1.Env._rawOptions and arg1.Env) or Settings._lastEnv or (type(_G.Library) == "table" and _G.Library)
-        targetName = (type(arg2) == "string" and arg2) or (arg1 ~= targetEnv and type(arg1) == "string" and arg1)
+        targetEnv = (arg1._rawOptions and arg1) or (arg1.Env and arg1.Env._rawOptions and arg1.Env) or Settings._lastEnv or _G.Library
+        targetName = type(arg2) == "string" and arg2 or nil
     end
-    if not targetName and type(arg2) == "string" then
-        targetName = arg2
-    end
-
     local ok, err = Settings.ValidateProfileName(targetName)
     assert(ok, err or "Invalid profile name!")
+    return targetEnv, targetName
+end
+
+function Settings.Save(arg1, arg2)
+    local targetEnv, targetName = resolve_profile_args(arg1, arg2)
 
     local dump = { Options = {}, Toggles = {} }
     if targetEnv and targetEnv._rawOptions then
@@ -2789,20 +2801,7 @@ function Settings.Save(arg1, arg2)
 end
 
 function Settings.Load(arg1, arg2)
-    local targetEnv, targetName
-    if type(arg1) == "string" then
-        targetName = arg1
-        targetEnv = (type(arg2) == "table" and arg2) or Settings._lastEnv or (type(_G.Library) == "table" and _G.Library)
-    elseif type(arg1) == "table" then
-        targetEnv = (arg1._rawOptions and arg1) or (arg1.Env and arg1.Env._rawOptions and arg1.Env) or Settings._lastEnv or (type(_G.Library) == "table" and _G.Library)
-        targetName = (type(arg2) == "string" and arg2) or (arg1 ~= targetEnv and type(arg1) == "string" and arg1)
-    end
-    if not targetName and type(arg2) == "string" then
-        targetName = arg2
-    end
-
-    local ok, err = Settings.ValidateProfileName(targetName)
-    assert(ok, err or "Invalid profile name!")
+    local targetEnv, targetName = resolve_profile_args(arg1, arg2)
 
     local folder = Settings.GetFolder()
     local folderProfiles = Settings._profilesByFolder[folder]
@@ -2838,16 +2837,7 @@ function Settings.Load(arg1, arg2)
 end
 
 function Settings.Delete(arg1, arg2)
-    local targetEnv, targetName
-    if type(arg1) == "string" then
-        targetName = arg1
-        targetEnv = (type(arg2) == "table" and arg2) or Settings._lastEnv or (type(_G.Library) == "table" and _G.Library)
-    elseif type(arg1) == "table" then
-        targetEnv = (arg1._rawOptions and arg1) or (arg1.Env and arg1.Env._rawOptions and arg1.Env) or Settings._lastEnv or (type(_G.Library) == "table" and _G.Library)
-        targetName = (type(arg2) == "string" and arg2)
-    end
-    local ok, err = Settings.ValidateProfileName(targetName)
-    assert(ok, err or "Invalid profile name!")
+    local targetEnv, targetName = resolve_profile_args(arg1, arg2)
 
     local folder = Settings.GetFolder()
     if Settings._profilesByFolder[folder] then
@@ -3292,12 +3282,14 @@ local Notify = {
     PrevM1 = false,
 }
 
-local function get_theme(key, fallback)
-    if ThemeModule and ThemeModule.Get then
-        return ThemeModule.Get(key, fallback)
-    end
-    return fallback
-end
+local str_card_bg = "Card.Background"
+local str_border  = "Window.Border"
+local str_title   = "Text.Title"
+local str_sec     = "Text.Secondary"
+local str_track   = "Slider.TrackBg"
+local str_blue    = "Accent.Blue"
+local str_ctrl_bg = "Control.Background"
+local str_ctrl_hv = "Control.Hover"
 
 local function clamp(v, lo, hi)
     if v < lo then return lo end
@@ -3547,12 +3539,12 @@ function Notify.Push(cfg, titleArg, durationArg)
         _released = false,
     }
 
-    if icon and IconsModule and IconsModule.Get then
+    if icon then
         toast._iconData = IconsModule.Get(icon, function(png)
             toast._iconData = png
         end)
     end
-    if canClose and IconsModule and IconsModule.Get then
+    if canClose then
         toast._closeData = IconsModule.Get("x", function(png)
             toast._closeData = png
         end)
@@ -3649,14 +3641,14 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
 
     local side = (window and window.NotifySide) or Notify.DefaultSide or "Right"
     local anchor = (window and window.NotifyAnchor) or Notify.DefaultAnchor or "Bottom"
-    local cardBg = get_theme("Card.Background", Color3.fromRGB(24, 24, 29))
-    local borderCol = get_theme("Window.Border", Color3.fromRGB(46, 46, 54))
-    local titleCol = get_theme("Text.Title", Color3.fromRGB(255, 255, 255))
-    local descCol = get_theme("Text.Secondary", Color3.fromRGB(165, 165, 175))
-    local trackCol = get_theme("Slider.TrackBg", get_theme("Control.Background", Color3.fromRGB(48, 48, 56)))
-    local accentCol = (window and window.Accent) or get_theme("Accent.Blue", get_theme("Accent", Color3.fromRGB(59, 130, 246)))
-    local btnCol = get_theme("Control.Background", get_theme("Button", Color3.fromRGB(48, 48, 54)))
-    local btnHoverCol = get_theme("Control.Hover", Color3.fromRGB(60, 60, 68))
+    local cardBg = ThemeModule.Get(str_card_bg)
+    local borderCol = ThemeModule.Get(str_border)
+    local titleCol = ThemeModule.Get(str_title)
+    local descCol = ThemeModule.Get(str_sec)
+    local trackCol = ThemeModule.Get(str_track)
+    local accentCol = (window and window.Accent) or ThemeModule.Get(str_blue)
+    local btnCol = ThemeModule.Get(str_ctrl_bg)
+    local btnHoverCol = ThemeModule.Get(str_ctrl_hv)
 
     local cardW = 296
     local padX = 14
@@ -3704,9 +3696,7 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         local textW = cardW - padX * 2 - textLeftOffset - rightPad
 
         local lines = wrap_lines(toast.Content, textW, 13, 5)
-        local titleFitted = MetricsModule and MetricsModule.Fit
-            and MetricsModule.Fit(toast.Title, textW, 14, 1)
-            or toast.Title
+        local titleFitted = MetricsModule.Fit(toast.Title, textW, 14, 1)
 
         local hasButtons = toast.Buttons and #toast.Buttons > 0
         local btnRowH = hasButtons and 32 or 0
@@ -3987,12 +3977,14 @@ local Dialog = {
     PrevM1 = false,
 }
 
-local function get_theme(key, fallback)
-    if ThemeModule and ThemeModule.Get then
-        return ThemeModule.Get(key, fallback)
-    end
-    return fallback
-end
+local str_win_bg  = "Window.Background"
+local str_border  = "Window.Border"
+local str_title   = "Text.Title"
+local str_sec     = "Text.Secondary"
+local str_primary = "Primary"
+local str_ctrl_bg = "Control.Background"
+local str_ctrl_hv = "Control.Hover"
+local str_card_bg = "Card.Background"
 
 local function clamp(v, lo, hi)
     if v < lo then return lo end
@@ -4168,14 +4160,14 @@ function Dialog.Show(cfg, window, mode)
         _buttonIcons = {},
     }
 
-    if inst.Icon and IconsModule and IconsModule.Get then
+    if inst.Icon then
         inst._iconData = IconsModule.Get(inst.Icon, function(png)
             inst._iconData = png
         end)
     end
 
     for idx, b in ipairs(inst.Buttons) do
-        if b.Icon and IconsModule and IconsModule.Get then
+        if b.Icon then
             inst._buttonIcons[idx] = IconsModule.Get(b.Icon, function(png)
                 inst._buttonIcons[idx] = png
             end)
@@ -4286,14 +4278,14 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
     local cx = math.floor(hostX + (hostW - cardW) * 0.5 + 0.5)
     local cy = math.floor(hostY + (hostH - cardH) * 0.5 + 0.5)
 
-    local cardBg = get_theme("Window.Background", Color3.fromRGB(20, 20, 24))
-    local cardBorder = get_theme("Window.Border", Color3.fromRGB(48, 48, 56))
-    local titleCol = get_theme("Text.Title", Color3.fromRGB(255, 255, 255))
-    local descCol = get_theme("Text.Secondary", Color3.fromRGB(172, 172, 182))
-    local priCol = get_theme("Primary", get_theme("Accent.Blue", Color3.fromRGB(0, 145, 255)))
-    local secBtnCol = get_theme("Control.Background", get_theme("Button", Color3.fromRGB(36, 36, 44)))
-    local secHoverCol = get_theme("Control.Hover", Color3.fromRGB(48, 48, 58))
-    local terBtnCol = get_theme("Card.Background", Color3.fromRGB(24, 24, 29))
+    local cardBg = ThemeModule.Get(str_win_bg)
+    local cardBorder = ThemeModule.Get(str_border)
+    local titleCol = ThemeModule.Get(str_title)
+    local descCol = ThemeModule.Get(str_sec)
+    local priCol = ThemeModule.Get(str_primary)
+    local secBtnCol = ThemeModule.Get(str_ctrl_bg)
+    local secHoverCol = ThemeModule.Get(str_ctrl_hv)
+    local terBtnCol = ThemeModule.Get(str_card_bg)
 
     -- Backdrop
     slot.Backdrop.Position = Vector2.new(hostX, hostY)
@@ -4325,9 +4317,7 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
         slot.IconImg.Visible = false
     end
 
-    local titleFitted = MetricsModule and MetricsModule.Fit
-        and MetricsModule.Fit(d.Title, textW - titleLeft, 16, 1)
-        or d.Title
+    local titleFitted = MetricsModule.Fit(d.Title, textW - titleLeft, 16, 1)
     slot.TitleText.Text = titleFitted
     slot.TitleText.Color = titleCol
     slot.TitleText.Position = Vector2.new(cx + pad + titleLeft, cy + pad)
@@ -4528,12 +4518,13 @@ local Overlay = {
     PrevM1 = false,
 }
 
-local function get_theme(key, fallback)
-    if ThemeModule and ThemeModule.Get then
-        return ThemeModule.Get(key, fallback)
-    end
-    return fallback
-end
+local str_win_bg  = "Window.Background"
+local str_border  = "Window.Border"
+local str_title   = "Text.Title"
+local str_sec     = "Text.Secondary"
+local str_accent  = "Accent"
+local str_ctrl_hv = "Control.Hover"
+local str_card_bg = "Card.Background"
 
 local function clamp(v, lo, hi)
     if v < lo then return lo end
@@ -4777,10 +4768,10 @@ local function update_open_button(window, vp, mx, my, m1Pressed, m1Clicked)
     local titleStr = tostring(ob.Title or window.Title or "Open")
     local iconName = ob.Icon or window.Icon or "wind"
 
-    if ob._dragData == nil and IconsModule and IconsModule.Get then
+    if ob._dragData == nil then
         ob._dragData = IconsModule.Get("move", function(png) ob._dragData = png end)
     end
-    if iconName ~= ob._lastIconName and IconsModule and IconsModule.Get then
+    if iconName ~= ob._lastIconName then
         ob._lastIconName = iconName
         ob._iconData = IconsModule.Get(iconName, function(png) ob._iconData = png end)
     end
@@ -4788,9 +4779,7 @@ local function update_open_button(window, vp, mx, my, m1Pressed, m1Clicked)
     local h = 40
     local dragW = draggable and 30 or 0
     local iconW = ob._iconData and 22 or 0
-    local textW = onlyIcon and 0 or (MetricsModule and MetricsModule.GetTextWidth
-        and math.floor(MetricsModule.GetTextWidth(titleStr, 14, 1) * 1.15 + 0.5)
-        or math.floor(#titleStr * 7.6))
+    local textW = onlyIcon and 0 or MetricsModule.Measure(titleStr, 14)
     local padX = 14
     local w = math.max(44, dragW + padX + iconW + ((iconW > 0 and textW > 0) and 8 or 0) + textW + padX)
 
@@ -4825,10 +4814,9 @@ local function update_open_button(window, vp, mx, my, m1Pressed, m1Clicked)
     end
 
     local overBtn = mx >= px + dragW and mx <= px + w and my >= py and my <= py + h
-    local bgCol = overBtn and get_theme("Button.Hover", Color3.fromRGB(36, 36, 44))
-        or get_theme("Window.Background", Color3.fromRGB(18, 18, 22))
-    local borderCol = ob.Color or get_theme("Accent", Color3.fromRGB(80, 175, 255))
-    local textCol = get_theme("Text.Title", Color3.fromRGB(255, 255, 255))
+    local bgCol = ThemeModule.Get(overBtn and str_ctrl_hv or str_win_bg)
+    local borderCol = ob.Color or ThemeModule.Get(str_accent)
+    local textCol = ThemeModule.Get(str_title)
 
     slot.Bg.Position = Vector2.new(px, py)
     slot.Bg.Size = Vector2.new(w, h)
@@ -4854,7 +4842,7 @@ local function update_open_button(window, vp, mx, my, m1Pressed, m1Clicked)
         end
         slot.Divider.Position = Vector2.new(px + dragW, py + 8)
         slot.Divider.Size = Vector2.new(1, h - 16)
-        slot.Divider.Color = get_theme("Window.Border", Color3.fromRGB(52, 52, 60))
+        slot.Divider.Color = ThemeModule.Get(str_border)
         slot.Divider.Transparency = 0.85
         slot.Divider.Visible = true
     else
@@ -4923,11 +4911,11 @@ local function update_keybind_menu(window, vp, mx, my, m1Pressed, m1Clicked)
         consumed = true
     end
 
-    local bgCol = get_theme("Window.Background", Color3.fromRGB(18, 18, 22))
-    local borderCol = get_theme("Window.Border", Color3.fromRGB(44, 44, 52))
-    local titleCol = get_theme("Text.Title", Color3.fromRGB(255, 255, 255))
-    local mutedCol = get_theme("Text.Secondary", Color3.fromRGB(160, 160, 170))
-    local accentCol = window.Accent or get_theme("Accent", Color3.fromRGB(59, 130, 246))
+    local bgCol = ThemeModule.Get(str_win_bg)
+    local borderCol = ThemeModule.Get(str_border)
+    local titleCol = ThemeModule.Get(str_title)
+    local mutedCol = ThemeModule.Get(str_sec)
+    local accentCol = window.Accent or ThemeModule.Get(str_accent)
 
     slot.Bg.Position = Vector2.new(px, py)
     slot.Bg.Size = Vector2.new(w, h)
@@ -4969,14 +4957,12 @@ local function update_keybind_menu(window, vp, mx, my, m1Pressed, m1Clicked)
                 rSlot.Dot.Color = row.Active and accentCol or borderCol
                 rSlot.Dot.Visible = true
 
-                rSlot.Name.Text = MetricsModule and MetricsModule.Fit
-                    and MetricsModule.Fit(row.Name, w - 82, 13, 1)
-                    or row.Name
+                rSlot.Name.Text = MetricsModule.Fit(row.Name, w - 82, 13, 1)
                 rSlot.Name.Color = row.Active and titleCol or mutedCol
                 rSlot.Name.Position = Vector2.new(px + 24, ry + 1)
                 rSlot.Name.Visible = true
 
-                local kw = math.floor(#row.Key * 6.6)
+                local kw = MetricsModule.Measure(row.Key, 12)
                 rSlot.Key.Text = row.Key
                 rSlot.Key.Color = row.Active and accentCol or mutedCol
                 rSlot.Key.Position = Vector2.new(px + w - kw - 12, ry + 2)
@@ -5014,7 +5000,7 @@ local function update_watermark(window, vp, mx, my, m1Pressed, m1Clicked)
 
     local totalTextW = 0
     for _, p in ipairs(pieces) do
-        local pw = math.floor(#p.Text * 7.0)
+        local pw = MetricsModule.Measure(p.Text, 13)
         p.Width = pw
         totalTextW = totalTextW + pw
     end
@@ -5040,11 +5026,11 @@ local function update_watermark(window, vp, mx, my, m1Pressed, m1Clicked)
         consumed = true
     end
 
-    local bgCol = get_theme("Window.Background", Color3.fromRGB(18, 18, 22))
-    local borderCol = get_theme("Window.Border", Color3.fromRGB(44, 44, 52))
-    local titleCol = get_theme("Text.Title", Color3.fromRGB(255, 255, 255))
-    local mutedCol = get_theme("Text.Secondary", Color3.fromRGB(160, 160, 170))
-    local accentCol = window.Accent or get_theme("Accent", Color3.fromRGB(59, 130, 246))
+    local bgCol = ThemeModule.Get(str_win_bg)
+    local borderCol = ThemeModule.Get(str_border)
+    local titleCol = ThemeModule.Get(str_title)
+    local mutedCol = ThemeModule.Get(str_sec)
+    local accentCol = window.Accent or ThemeModule.Get(str_accent)
 
     slot.Bg.Position = Vector2.new(px, py)
     slot.Bg.Size = Vector2.new(w, h)
@@ -5157,7 +5143,7 @@ function Overlay.RenderTooltip(text, mx, my, window)
     local slot = ensure_tooltip_slot()
     local vp = get_viewport()
     local str = tostring(text)
-    local tw = math.floor(#str * 6.8)
+    local tw = MetricsModule.Measure(str, 12)
     local w = math.max(56, tw + 18)
     local h = 24
     local px = clamp((mx or 0) + 14, 6, math.max(6, vp.X - w - 6))
@@ -5165,16 +5151,16 @@ function Overlay.RenderTooltip(text, mx, my, window)
 
     slot.Bg.Position = Vector2.new(px, py)
     slot.Bg.Size = Vector2.new(w, h)
-    slot.Bg.Color = get_theme("Card.Background", Color3.fromRGB(22, 22, 28))
+    slot.Bg.Color = ThemeModule.Get(str_card_bg)
     slot.Bg.Visible = true
 
     slot.Border.Position = Vector2.new(px, py)
     slot.Border.Size = Vector2.new(w, h)
-    slot.Border.Color = get_theme("Window.Border", Color3.fromRGB(54, 54, 64))
+    slot.Border.Color = ThemeModule.Get(str_border)
     slot.Border.Visible = true
 
     slot.Text.Text = str
-    slot.Text.Color = get_theme("Text.Title", Color3.fromRGB(255, 255, 255))
+    slot.Text.Color = ThemeModule.Get(str_title)
     slot.Text.Position = Vector2.new(px + 9, py + 5)
     slot.Text.Visible = true
 end
@@ -5243,19 +5229,13 @@ Keybind.__index = Keybind
 
 local function format_key(k)
     if k == nil then return "?" end
-    if MetricsModule and MetricsModule.KeyName then
-        return MetricsModule.KeyName(k)
-    end
-    return tostring(k)
+    return MetricsModule.KeyName(k)
 end
 
 local function normalize_key(k)
     if k == nil then return nil end
     if type(k) == "number" then return k end
-    if MetricsModule and MetricsModule.KeyCode then
-        return MetricsModule.KeyCode(k) or k
-    end
-    return k
+    return MetricsModule.KeyCode(k) or k
 end
 
 local function is_blacklisted(blacklist, vk)
@@ -5350,7 +5330,7 @@ function Keybind.new(parent, id, config)
             local rowBg = pool:Get("Square")
             rowBg.Position = pos
             rowBg.Size = size
-            rowBg.Color = ThemeModule.Get("ElementBackground", Color3.fromRGB(34, 34, 38))
+            rowBg.Color = ThemeModule.Get("ElementBackground")
             rowBg.Filled = true
             rowBg.Corner = 8
             rowBg.ZIndex = 4
@@ -5363,7 +5343,7 @@ function Keybind.new(parent, id, config)
             lbl.Font = fontUI
             lbl.Outline = false
             lbl.Size = 13
-            lbl.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+            lbl.Color = ThemeModule.Get("Text.Title")
             local titleY = (self.Desc and self.Desc ~= "") and (pos.Y + 10) or (pos.Y + math.floor((size.Y - 13) * 0.5))
             lbl.Position = Vector2.new(pos.X + 14, titleY)
             lbl.ZIndex = 5
@@ -5377,7 +5357,7 @@ function Keybind.new(parent, id, config)
                 dLbl.Font = fontUI
                 dLbl.Outline = false
                 dLbl.Size = 11
-                dLbl.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+                dLbl.Color = ThemeModule.Get("Text.Secondary")
                 dLbl.Position = Vector2.new(pos.X + 14, pos.Y + 28)
                 dLbl.ZIndex = 5
                 dLbl.Visible = self.Visible
@@ -5390,7 +5370,7 @@ function Keybind.new(parent, id, config)
             local bg = pool:Get("Square")
             bg.Position = Vector2.new(bx, by)
             bg.Size = Vector2.new(badgeW, badgeH)
-            bg.Color = ThemeModule.Get("Control.Background", Color3.fromRGB(48, 48, 54))
+            bg.Color = ThemeModule.Get("Control.Background")
             bg.Filled = true
             bg.Corner = 5
             bg.ZIndex = 5
@@ -5404,7 +5384,7 @@ function Keybind.new(parent, id, config)
             txt.Outline = false
             txt.Center = false
             txt.Size = 11
-            txt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+            txt.Color = ThemeModule.Get("Text.Secondary")
             txt.ZIndex = 6
             txt.Visible = self.Visible
             self.BadgeText = txt
@@ -5420,7 +5400,7 @@ function Keybind.new(parent, id, config)
             local bg = pool:Get("Square")
             bg.Position = self.Position
             bg.Size = self.Size
-            bg.Color = ThemeModule.Get("Control.Background", Color3.fromRGB(48, 48, 54))
+            bg.Color = ThemeModule.Get("Control.Background")
             bg.Filled = true
             bg.Corner = 5
             bg.ZIndex = 5
@@ -5433,7 +5413,7 @@ function Keybind.new(parent, id, config)
             txt.Outline = false
             txt.Center = false
             txt.Size = 11
-            txt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+            txt.Color = ThemeModule.Get("Text.Secondary")
             txt.ZIndex = 6
             txt.Visible = self.Visible
             self.BadgeText = txt
@@ -5474,13 +5454,7 @@ function Keybind:_centerBadgeText(bx, by, bw, bh)
     if not self.BadgeText then return end
     self.BadgeText.Center = false
     local str = tostring(self.BadgeText.Text or "")
-    local ax, ay
-    if MetricsModule and MetricsModule.AlignCenter then
-        ax, ay = MetricsModule.AlignCenter(bx, by, bw, bh, str, 11)
-    else
-        ax = bx + math.floor((bw - #str * 5.8) * 0.5)
-        ay = by + math.floor((bh - 11) * 0.5)
-    end
+    local ax, ay = MetricsModule.AlignCenter(bx, by, bw, bh, str, 11)
     self.BadgeText.Position = Vector2.new(ax, ay)
 end
 
@@ -5547,8 +5521,7 @@ function Keybind:Set(vk)
     self.KeyName = format_key(resolved)
 
     local badgeStr = "[" .. self.KeyName .. "]"
-    local tw = (MetricsModule and MetricsModule.GetTextWidth and MetricsModule.GetTextWidth(badgeStr, 11)) or (#badgeStr * 5.8)
-    local badgeW = math.max(40, math.floor(tw + 14))
+    local badgeW = math.max(40, MetricsModule.Measure(badgeStr, 11) + 14)
     if self.BadgeBg then
         self.BadgeBg.Size = Vector2.new(badgeW, 22)
     end
@@ -5582,7 +5555,7 @@ function Keybind:SetMode(mode)
     pcall(self.Callback, self.ActiveState)
 end
 
-local MODE_LIST = { "Toggle", "Hold", "Always" }
+local mode_list = { "Toggle", "Hold", "Always" }
 
 function Keybind:OpenModeMenu()
     if self.Locked then return end
@@ -5625,10 +5598,10 @@ function Keybind:OpenModeMenu()
             rTxt.Font = fontUI
             rTxt.Outline = false
             rTxt.Size = 12
-            rTxt.Text = MODE_LIST[i]
+            rTxt.Text = mode_list[i]
             rTxt.ZIndex = 32
             rTxt.Visible = false
-            menu.Rows[i] = { Bg = rBg, Text = rTxt, Mode = MODE_LIST[i], Rect = nil }
+            menu.Rows[i] = { Bg = rBg, Text = rTxt, Mode = mode_list[i], Rect = nil }
         end
 
         if self.Section and self.Section._register then
@@ -5645,7 +5618,7 @@ function Keybind:OpenModeMenu()
     local bx, by, bw, bh = self:_getBadgeRect()
     local mw = 84
     local rowH = 22
-    local mh = 8 + #MODE_LIST * rowH
+    local mh = 8 + #mode_list * rowH
     local mx = bx + bw - mw
     local my = by + bh + 4
     local cam = workspace and workspace.CurrentCamera
@@ -5661,12 +5634,12 @@ function Keybind:OpenModeMenu()
     menu.Rect = { X = mx, Y = my, W = mw, H = mh }
     menu.Bg.Position = Vector2.new(mx, my)
     menu.Bg.Size = Vector2.new(mw, mh)
-    menu.Bg.Color = ThemeModule.Get("Card.Background", Color3.fromRGB(24, 24, 27))
+    menu.Bg.Color = ThemeModule.Get("Card.Background")
     menu.Bg.Visible = true
 
     menu.Border.Position = Vector2.new(mx, my)
     menu.Border.Size = Vector2.new(mw, mh)
-    menu.Border.Color = ThemeModule.Get("Window.Border", Color3.fromRGB(52, 52, 62))
+    menu.Border.Color = ThemeModule.Get("Window.Border")
     menu.Border.Visible = true
 
     for i, row in ipairs(menu.Rows) do
@@ -5677,14 +5650,10 @@ function Keybind:OpenModeMenu()
         row.Rect = { X = rx, Y = ry, W = rw, H = rowH }
         row.Bg.Position = Vector2.new(rx, ry)
         row.Bg.Size = Vector2.new(rw, rowH - 2)
-        row.Bg.Color = selected
-            and ThemeModule.Get("Tab.ActiveBg", Color3.fromRGB(45, 45, 55))
-            or ThemeModule.Get("Card.Background", Color3.fromRGB(24, 24, 27))
+        row.Bg.Color = ThemeModule.Get(selected and "Tab.ActiveBg" or "Card.Background")
         row.Bg.Visible = selected
         row.Text.Position = Vector2.new(rx + 8, ry + 4)
-        row.Text.Color = selected
-            and ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
-            or ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+        row.Text.Color = ThemeModule.Get(selected and "Text.Title" or "Text.Secondary")
         row.Text.Visible = true
     end
 
@@ -5741,7 +5710,7 @@ function Keybind:StartCapture()
     self.CaptureStarted = os.clock()
     if self.BadgeText then
         self.BadgeText.Text = "[...]"
-        self.BadgeText.Color = ThemeModule.Get("Accent.Blue", Color3.fromRGB(0, 145, 255))
+        self.BadgeText.Color = ThemeModule.Get("Accent.Blue")
         local bx, by, bw, bh = self:_getBadgeRect()
         self:_centerBadgeText(bx, by, bw, bh)
         if self.Visible and self._clipTop and self._clipBottom and self.Section and self.Section.ClipControl then
@@ -5764,7 +5733,7 @@ function Keybind:CancelCapture()
     self.Capturing = false
     if self.BadgeText then
         self.BadgeText.Text = "[" .. self.KeyName .. "]"
-        self.BadgeText.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+        self.BadgeText.Color = ThemeModule.Get("Text.Secondary")
         local bx, by, bw, bh = self:_getBadgeRect()
         self:_centerBadgeText(bx, by, bw, bh)
         if self.Visible and self._clipTop and self._clipBottom and self.Section and self.Section.ClipControl then
@@ -5831,14 +5800,14 @@ function Keybind:Lock(title)
     if title ~= nil then self.LockedTitle = tostring(title) end
     if self.Capturing then self:CancelCapture() end
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(120, 120, 130))
+        self.Label.Color = ThemeModule.Get("Text.Muted")
     end
 end
 
 function Keybind:Unlock()
     self.Locked = false
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.Label.Color = ThemeModule.Get("Text.Title")
     end
 end
 
@@ -5896,7 +5865,7 @@ local Button = {}
 Button.__index = Button
 
 -- WindUI tag color palette
-local TAG_COLORS = {
+local tag_colors = {
     Blue   = Color3.fromRGB(37, 122, 247),
     Green  = Color3.fromRGB(34, 197, 94),
     Red    = Color3.fromRGB(239, 68, 68),
@@ -5910,7 +5879,7 @@ local function layout_button(self)
     local pos = self.Position
     local size = self.Size
     local hasDesc = self.Desc and self.Desc ~= ""
-    local txtW = (MetricsModule and MetricsModule.GetTextWidth and MetricsModule.GetTextWidth(self.Text, 13)) or math.floor(#self.Text * 6.5)
+    local txtW = MetricsModule.Measure(self.Text, 13)
     local lblY = hasDesc and (pos.Y + 9) or (pos.Y + math.floor((size.Y - 13) * 0.5))
     local icoY = pos.Y + math.floor((size.Y - 16) * 0.5)
 
@@ -5922,20 +5891,13 @@ local function layout_button(self)
         for i = #self.TagBadges, 1, -1 do
             local tb = self.TagBadges[i]
             local str = tostring(tb.Label.Text or "")
-            local tagTxtW = (MetricsModule and MetricsModule.GetTextWidth and MetricsModule.GetTextWidth(str, 11)) or math.floor(#str * 6.0)
-            local tagW = math.max(math.floor(#str * 6.5) + 14, tagTxtW + 14)
+            local tagW = MetricsModule.Measure(str, 11) + 14
             tagEndX = tagEndX - tagW
             local tagY = pos.Y + math.floor((size.Y - tagH) * 0.5)
             tb.Bg.Position = Vector2.new(tagEndX, tagY)
             tb.Bg.Size = Vector2.new(tagW, tagH)
             tb.Label.Center = false
-            local ax, ay
-            if MetricsModule and MetricsModule.AlignCenter then
-                ax, ay = MetricsModule.AlignCenter(tagEndX, tagY, tagW, tagH, str, 11)
-            else
-                ax = tagEndX + math.floor((tagW - tagTxtW) * 0.5)
-                ay = tagY + math.floor((tagH - 11) * 0.5)
-            end
+            local ax, ay = MetricsModule.AlignCenter(tagEndX, tagY, tagW, tagH, str, 11)
             tb.Label.Position = Vector2.new(ax, ay)
             tagEndX = tagEndX - 6
         end
@@ -5955,10 +5917,7 @@ local function layout_button(self)
             end
         elseif self.Label then
             self.Label.Center = false
-            local ax = pos.X + math.floor((size.X - txtW) * 0.5)
-            if MetricsModule and MetricsModule.AlignCenter then
-                ax = MetricsModule.AlignCenter(pos.X, pos.Y, size.X, size.Y, self.Text, 13)
-            end
+            local ax = MetricsModule.AlignCenter(pos.X, pos.Y, size.X, size.Y, self.Text, 13)
             self.Label.Position = Vector2.new(ax, lblY)
         end
         if self.DescLabel then
@@ -6008,8 +5967,8 @@ function Button.new(section, config)
 
     local pool = section.Pool
     if pool then
-        local btnBg = self.CustomColor or ThemeModule.Get("ElementBackground", Color3.fromRGB(42, 42, 44))
-        local txtCol = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        local btnBg = self.CustomColor or ThemeModule.Get("ElementBackground")
+        local txtCol = ThemeModule.Get("Text.Title")
         local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
         -- 1. Button Surface Card
@@ -6042,7 +6001,7 @@ function Button.new(section, config)
             dLbl.Font = fontUI
             dLbl.Outline = false
             dLbl.Size = 11
-            dLbl.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+            dLbl.Color = ThemeModule.Get("Text.Secondary")
             dLbl.ZIndex = 5
             dLbl.Visible = section.Visible
             self.DescLabel = dLbl
@@ -6057,11 +6016,9 @@ function Button.new(section, config)
             ico.Visible = section.Visible
             self.IconImg = ico
             section:_register(ico)
-            if IconsModule and IconsModule.Get then
-                IconsModule.Get(iconOpt, function(png)
-                    if self.IconImg and png then self.IconImg.Data = png end
-                end)
-            end
+            IconsModule.Get(iconOpt, function(png)
+                if self.IconImg and png then self.IconImg.Data = png end
+            end)
         end
 
         -- 3. Tags badges (WindUI parity: small colored pill badges after title)
@@ -6070,9 +6027,8 @@ function Button.new(section, config)
             local tagTitle = tostring(tagDef.Title or tagDef.Text or "")
             if tagTitle ~= "" then
                 local tagColName = tagDef.Color or "Blue"
-                local tagCol = TAG_COLORS[tagColName] or TAG_COLORS.Blue
-                local tagTxtW = (MetricsModule and MetricsModule.GetTextWidth and MetricsModule.GetTextWidth(tagTitle, 11)) or math.floor(#tagTitle * 6.0)
-                local tagW = math.max(math.floor(#tagTitle * 6.5) + 14, tagTxtW + 14)
+                local tagCol = tag_colors[tagColName] or tag_colors.Blue
+                local tagW = MetricsModule.Measure(tagTitle, 11) + 14
 
                 local tagBg = pool:Get("Square")
                 tagBg.Filled = true
@@ -6154,14 +6110,14 @@ function Button:Lock(title)
     self.Locked = true
     if title ~= nil then self.LockedTitle = tostring(title) end
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(120, 120, 130))
+        self.Label.Color = ThemeModule.Get("Text.Muted")
     end
 end
 
 function Button:Unlock()
     self.Locked = false
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.Label.Color = ThemeModule.Get("Text.Title")
     end
 end
 
@@ -6275,9 +6231,9 @@ function Slider.new(section, id, config)
 
     local pool = section.Pool
     if pool then
-        local trackCol = ThemeModule.Get("Slider.TrackBg", Color3.fromRGB(54, 54, 62))
-        local fillCol = ThemeModule.Get("Accent.Blue", Color3.fromRGB(0, 145, 255))
-        local rowBgCol = ThemeModule.Get("ElementBackground", Color3.fromRGB(34, 34, 38))
+        local trackCol = ThemeModule.Get("Slider.TrackBg")
+        local fillCol = ThemeModule.Get("Accent.Blue")
+        local rowBgCol = ThemeModule.Get("ElementBackground")
         local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
         -- 1. Integrated Row Card Container
@@ -6301,7 +6257,7 @@ function Slider.new(section, id, config)
             lbl.Font = fontUI
             lbl.Outline = false
             lbl.Size = 13
-            lbl.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+            lbl.Color = ThemeModule.Get("Text.Title")
             lbl.Position = Vector2.new(pos.X + 14, pos.Y + math.floor((size.Y - 13) * 0.5))
             lbl.ZIndex = 5
             lbl.Visible = section.Visible
@@ -6314,7 +6270,7 @@ function Slider.new(section, id, config)
             badge.Font = fontUI
             badge.Outline = false
             badge.Size = 12
-            badge.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+            badge.Color = ThemeModule.Get("Text.Secondary")
             badge.Position = Vector2.new(trackX - 38, pos.Y + math.floor((size.Y - 12) * 0.5))
             badge.ZIndex = 5
             badge.Visible = section.Visible
@@ -6333,11 +6289,9 @@ function Slider.new(section, id, config)
                 icoFrom.Visible = section.Visible
                 self.IconFrom = icoFrom
                 section:_register(icoFrom)
-                if IconsModule and IconsModule.Get then
-                    IconsModule.Get(self.Icons.From, function(png)
-                        if self.IconFrom and png then self.IconFrom.Data = png end
-                    end)
-                end
+                IconsModule.Get(self.Icons.From, function(png)
+                    if self.IconFrom and png then self.IconFrom.Data = png end
+                end)
             end
 
             if self.Icons.To then
@@ -6349,11 +6303,9 @@ function Slider.new(section, id, config)
                 icoTo.Visible = section.Visible
                 self.IconTo = icoTo
                 section:_register(icoTo)
-                if IconsModule and IconsModule.Get then
-                    IconsModule.Get(self.Icons.To, function(png)
-                        if self.IconTo and png then self.IconTo.Data = png end
-                    end)
-                end
+                IconsModule.Get(self.Icons.To, function(png)
+                    if self.IconTo and png then self.IconTo.Data = png end
+                end)
             end
         end
 
@@ -6511,14 +6463,14 @@ function Slider:Lock(title)
     self.Locked = true
     if title ~= nil then self.LockedTitle = tostring(title) end
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(120, 120, 130))
+        self.Label.Color = ThemeModule.Get("Text.Muted")
     end
 end
 
 function Slider:Unlock()
     self.Locked = false
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.Label.Color = ThemeModule.Get("Text.Title")
     end
 end
 
@@ -6695,10 +6647,10 @@ function Dropdown.new(section, id, config)
 
     local pool = section.Pool
     if pool then
-        local rowBgCol = ThemeModule.Get("ElementBackground", Color3.fromRGB(34, 34, 38))
-        local boxBg = ThemeModule.Get("Control.Background", Color3.fromRGB(48, 48, 54))
-        local txtCol = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
-        local subCol = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+        local rowBgCol = ThemeModule.Get("ElementBackground")
+        local boxBg = ThemeModule.Get("Control.Background")
+        local txtCol = ThemeModule.Get("Text.Title")
+        local subCol = ThemeModule.Get("Text.Secondary")
         local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
         -- 1. Integrated Row Background
@@ -6766,11 +6718,9 @@ function Dropdown.new(section, id, config)
         arrow.Visible = section.Visible
         self.Arrow = arrow
         section:_register(arrow)
-        if IconsModule and IconsModule.Get then
-            IconsModule.Get("chevrons-up-down", function(png)
-                if self.Arrow and png then self.Arrow.Data = png end
-            end)
-        end
+        IconsModule.Get("chevrons-up-down", function(png)
+            if self.Arrow and png then self.Arrow.Data = png end
+        end)
     end
 
     return self
@@ -6837,14 +6787,14 @@ function Dropdown:Lock(title)
     self.Locked = true
     if title ~= nil then self.LockedTitle = tostring(title) end
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(120, 120, 130))
+        self.Label.Color = ThemeModule.Get("Text.Muted")
     end
 end
 
 function Dropdown:Unlock()
     self.Locked = false
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.Label.Color = ThemeModule.Get("Text.Title")
     end
 end
 
@@ -6917,7 +6867,7 @@ function Dropdown:_ensurePopupPrimitives()
     if not pool then return end
 
     local bg = pool:Get("Square")
-    bg.Color = ThemeModule.Get("Card.Background", Color3.fromRGB(24, 24, 29))
+    bg.Color = ThemeModule.Get("Card.Background")
     bg.Filled = true
     bg.Corner = 8
     bg.ZIndex = 14
@@ -6925,7 +6875,7 @@ function Dropdown:_ensurePopupPrimitives()
     self.PopupBg = bg
 
     local border = pool:Get("Square")
-    border.Color = ThemeModule.Get("Card.Border", Color3.fromRGB(48, 48, 56))
+    border.Color = ThemeModule.Get("Card.Border")
     border.Filled = false
     border.Thickness = 1
     border.Corner = 8
@@ -6934,7 +6884,7 @@ function Dropdown:_ensurePopupPrimitives()
     self.PopupBorder = border
 
     local hover = pool:Get("Square")
-    hover.Color = ThemeModule.Get("Tab.ActiveBg", Color3.fromRGB(38, 38, 46))
+    hover.Color = ThemeModule.Get("Tab.ActiveBg")
     hover.Filled = true
     hover.Corner = 5
     hover.ZIndex = 15
@@ -6947,7 +6897,7 @@ function Dropdown:_ensurePopupPrimitives()
 
     if not self.PopupScrollThumb then
         local st = pool:Get("Square")
-        st.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(161, 161, 161))
+        st.Color = ThemeModule.Get("Text.Muted")
         st.Filled = true
         st.Corner = 4
         st.Transparency = 0.28
@@ -6960,7 +6910,7 @@ function Dropdown:_ensurePopupPrimitives()
     if self.SearchEnabled and not self.SearchBg then
         local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
         local sBg = pool:Get("Square")
-        sBg.Color = ThemeModule.Get("Control.Background", ThemeModule.Get("ElementBackground", Color3.fromRGB(48, 48, 52)))
+        sBg.Color = ThemeModule.Get("Control.Background")
         sBg.Filled = true
         sBg.Corner = 6
         sBg.ZIndex = 16
@@ -6972,7 +6922,7 @@ function Dropdown:_ensurePopupPrimitives()
         sTxt.Font = fontUI
         sTxt.Outline = false
         sTxt.Size = 11
-        sTxt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(160, 160, 170))
+        sTxt.Color = ThemeModule.Get("Text.Secondary")
         sTxt.ZIndex = 17
         sTxt.Visible = false
         self.SearchText = sTxt
@@ -6989,13 +6939,13 @@ function Dropdown:RefreshSearchDisplay()
     if #self.SearchQuery > 0 then
         local caret = (isFocused and math.floor(os.clock() * 2) % 2 == 0) and "|" or ""
         self.SearchText.Text = self.SearchQuery .. caret
-        self.SearchText.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.SearchText.Color = ThemeModule.Get("Text.Title")
     elseif isFocused then
         self.SearchText.Text = (math.floor(os.clock() * 2) % 2 == 0) and "|" or ""
-        self.SearchText.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.SearchText.Color = ThemeModule.Get("Text.Title")
     else
         self.SearchText.Text = "Search..."
-        self.SearchText.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(160, 160, 170))
+        self.SearchText.Color = ThemeModule.Get("Text.Secondary")
     end
 end
 
@@ -7086,7 +7036,7 @@ function Dropdown:_layoutPopup()
         local thumbY = listTop + math.floor(ratio * (trackH - thumbH))
         scrollTrack = { X = popX + popW - 12, Y = listTop, W = 12, H = trackH, ThumbH = thumbH }
         if self.PopupScrollThumb then
-            self.PopupScrollThumb.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(161, 161, 161))
+            self.PopupScrollThumb.Color = ThemeModule.Get("Text.Muted")
             self.PopupScrollThumb.Position = Vector2.new(popX + popW - 9, thumbY)
             self.PopupScrollThumb.Size = Vector2.new(5, thumbH)
             self.PopupScrollThumb.Visible = true
@@ -7103,21 +7053,21 @@ function Dropdown:_layoutPopup()
     }
 
     if self.PopupBg then
-        self.PopupBg.Color = ThemeModule.Get("Card.Background", Color3.fromRGB(24, 24, 29))
+        self.PopupBg.Color = ThemeModule.Get("Card.Background")
         self.PopupBg.Position = Vector2.new(popX, popY)
         self.PopupBg.Size = Vector2.new(popW, popH)
         self.PopupBg.Transparency = 0.2 + anim * 0.8
         self.PopupBg.Visible = true
     end
     if self.PopupBorder then
-        self.PopupBorder.Color = ThemeModule.Get("Card.Border", Color3.fromRGB(48, 48, 56))
+        self.PopupBorder.Color = ThemeModule.Get("Card.Border")
         self.PopupBorder.Position = Vector2.new(popX, popY)
         self.PopupBorder.Size = Vector2.new(popW, popH)
         self.PopupBorder.Transparency = anim
         self.PopupBorder.Visible = true
     end
     if self.SearchBg and self.SearchText and searchRect then
-        self.SearchBg.Color = ThemeModule.Get("Control.Background", ThemeModule.Get("ElementBackground", Color3.fromRGB(48, 48, 52)))
+        self.SearchBg.Color = ThemeModule.Get("Control.Background")
         self.SearchBg.Position = Vector2.new(searchRect.X, searchRect.Y)
         self.SearchBg.Size = Vector2.new(searchRect.W, searchRect.H)
         self.SearchBg.Visible = true
@@ -7169,29 +7119,29 @@ function Dropdown:_layoutPopup()
             selBg.Visible = false
             div.Position = Vector2.new(popX + 10, rowY + math.floor(itemH * 0.5))
             div.Size = Vector2.new(rowW - 12, 1)
-            div.Color = ThemeModule.Get("Card.Border", Color3.fromRGB(48, 48, 56))
+            div.Color = ThemeModule.Get("Card.Border")
             div.Visible = true
         else
             div.Visible = false
             local isSel = self:_isSelected(val)
             selBg.Position = Vector2.new(popX + 4, rowY)
             selBg.Size = Vector2.new(rowW, itemH)
-            selBg.Color = ThemeModule.Get("Tab.ActiveBg", Color3.fromRGB(38, 38, 46))
+            selBg.Color = ThemeModule.Get("Tab.ActiveBg")
             selBg.Visible = isSel
 
             txt.Text = item_label(val)
             if isLock then
-                local cardC = ThemeModule.Get("Card.Background", Color3.fromRGB(24, 24, 29))
-                local txtC = ThemeModule.Get("Text.Secondary", Color3.fromRGB(160, 160, 170))
+                local cardC = ThemeModule.Get("Card.Background")
+                local txtC = ThemeModule.Get("Text.Secondary")
                 txt.Color = Color3.new(
                     (txtC.R or 0.5) * 0.45 + (cardC.R or 0.1) * 0.55,
                     (txtC.G or 0.5) * 0.45 + (cardC.G or 0.1) * 0.55,
                     (txtC.B or 0.5) * 0.45 + (cardC.B or 0.1) * 0.55
                 )
             elseif isSel then
-                txt.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+                txt.Color = ThemeModule.Get("Text.Title")
             else
-                txt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(185, 185, 195))
+                txt.Color = ThemeModule.Get("Text.Secondary")
             end
             txt.Position = Vector2.new(popX + 10, rowY + 6)
             txt.Visible = true
@@ -7235,7 +7185,7 @@ function Dropdown:SetPopupHover(idx)
         end
         local r = self.PopupRect
         local listTop = r.ListTop or (r.Y + 4)
-        self.PopupHoverBg.Color = ThemeModule.Get("Tab.HoverBg", Color3.fromRGB(30, 30, 36))
+        self.PopupHoverBg.Color = ThemeModule.Get("Tab.HoverBg")
         self.PopupHoverBg.Position = Vector2.new(r.X + 4, listTop + (idx - 1) * r.ItemH)
         self.PopupHoverBg.Size = Vector2.new(r.W - 4 - (r.ItemRightPad or 4), r.ItemH)
         self.PopupHoverBg.Visible = true
@@ -7382,11 +7332,11 @@ function Input.new(section, id, config)
 
     local pool = section.Pool
     if pool then
-        local rowBgCol = ThemeModule.Get("ElementBackground", Color3.fromRGB(34, 34, 38))
-        local boxBg = ThemeModule.Get("Control.Background", Color3.fromRGB(48, 48, 54))
-        local borderCol = ThemeModule.Get("Control.Border", Color3.fromRGB(58, 58, 66))
-        local txtCol = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
-        local subCol = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+        local rowBgCol = ThemeModule.Get("ElementBackground")
+        local boxBg = ThemeModule.Get("Control.Background")
+        local borderCol = ThemeModule.Get("Control.Border")
+        local txtCol = ThemeModule.Get("Text.Title")
+        local subCol = ThemeModule.Get("Text.Secondary")
         local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
         -- 1. Integrated Row Background
@@ -7462,8 +7412,8 @@ end
 
 function Input:_refreshDisplay()
     if not self.InputText then return end
-    local txtCol = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
-    local subCol = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+    local txtCol = ThemeModule.Get("Text.Title")
+    local subCol = ThemeModule.Get("Text.Secondary")
     local boxW = self.Box and self.Box.Size.X or 120
     local maxChars = math.max(4, math.floor((boxW - 16) / 6.2))
 
@@ -7482,9 +7432,7 @@ function Input:_refreshDisplay()
     end
 
     if self.BoxBorder then
-        self.BoxBorder.Color = self.Focused
-            and ThemeModule.Get("Accent.Blue", Color3.fromRGB(0, 145, 255))
-            or ThemeModule.Get("Control.Border", Color3.fromRGB(58, 58, 66))
+        self.BoxBorder.Color = ThemeModule.Get(self.Focused and "Accent.Blue" or "Control.Border")
     end
 end
 
@@ -7548,14 +7496,14 @@ function Input:Lock(title)
     if title ~= nil then self.LockedTitle = tostring(title) end
     if self.Focused then self:Blur(false) end
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(120, 120, 130))
+        self.Label.Color = ThemeModule.Get("Text.Muted")
     end
 end
 
 function Input:Unlock()
     self.Locked = false
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.Label.Color = ThemeModule.Get("Text.Title")
     end
 end
 
@@ -7724,9 +7672,9 @@ function Toggle.new(section, id, config)
 
     local pool = section.Pool
     if pool then
-        local offCol = ThemeModule.Get("Toggle.TrackOff", Color3.fromRGB(54, 54, 62))
-        local onCol = ThemeModule.Get("Accent.Green", Color3.fromRGB(51, 199, 89))
-        local rowBgCol = ThemeModule.Get("ElementBackground", Color3.fromRGB(34, 34, 38))
+        local offCol = ThemeModule.Get("Toggle.TrackOff")
+        local onCol = ThemeModule.Get("Accent.Green")
+        local rowBgCol = ThemeModule.Get("ElementBackground")
         local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
         -- 1. Integrated Row Card
@@ -7747,7 +7695,7 @@ function Toggle.new(section, id, config)
         lbl.Font = fontUI
         lbl.Outline = false
         lbl.Size = 13
-        lbl.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        lbl.Color = ThemeModule.Get("Text.Title")
         local titleY = (self.Desc and self.Desc ~= "") and (pos.Y + 10) or (pos.Y + math.floor((size.Y - 13) * 0.5))
         lbl.Position = Vector2.new(pos.X + 14, titleY)
         lbl.ZIndex = 5
@@ -7762,7 +7710,7 @@ function Toggle.new(section, id, config)
             dLbl.Font = fontUI
             dLbl.Outline = false
             dLbl.Size = 11
-            dLbl.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+            dLbl.Color = ThemeModule.Get("Text.Secondary")
             dLbl.Position = Vector2.new(pos.X + 14, pos.Y + 28)
             dLbl.ZIndex = 5
             dLbl.Visible = section.Visible
@@ -7782,7 +7730,7 @@ function Toggle.new(section, id, config)
         track.Size = Vector2.new(trackW, trackH)
         track.Corner = isCheck and 7 or 11
         track.Filled = true
-        track.Color = togVal and (isCheck and ThemeModule.Get("Accent.Blue", Color3.fromRGB(0, 145, 255)) or onCol) or offCol
+        track.Color = togVal and (isCheck and ThemeModule.Get("Accent.Blue") or onCol) or offCol
         track.ZIndex = 5
         track.Visible = section.Visible
         self.Track = track
@@ -7799,11 +7747,9 @@ function Toggle.new(section, id, config)
             checkImg.Visible = section.Visible and togVal
             self.CheckIcon = checkImg
             section:_register(checkImg)
-            if IconsModule and IconsModule.Get then
-                IconsModule.Get("check", function(png)
-                    if self.CheckIcon and png then self.CheckIcon.Data = png end
-                end)
-            end
+            IconsModule.Get("check", function(png)
+                if self.CheckIcon and png then self.CheckIcon.Data = png end
+            end)
         else
             local knob = pool:Get("Square")
             knob.Size = Vector2.new(14, 14)
@@ -7825,10 +7771,8 @@ end
 function Toggle:_applyAnimVisual(progress)
     self.AnimProgress = progress
     local isCheck = self.Type == "Checkbox"
-    local offCol = ThemeModule.Get("Toggle.TrackOff", Color3.fromRGB(54, 54, 62))
-    local onCol = isCheck
-        and ThemeModule.Get("Accent.Blue", Color3.fromRGB(0, 145, 255))
-        or ThemeModule.Get("Accent.Green", Color3.fromRGB(51, 199, 89))
+    local offCol = ThemeModule.Get("Toggle.TrackOff")
+    local onCol = isCheck and ThemeModule.Get("Accent.Blue") or ThemeModule.Get("Accent.Green")
 
     if self.Track then
         self.Track.Color = lerp_color(offCol, onCol, progress)
@@ -7935,14 +7879,14 @@ function Toggle:Lock(title)
     self.Locked = true
     if title ~= nil then self.LockedTitle = tostring(title) end
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(120, 120, 130))
+        self.Label.Color = ThemeModule.Get("Text.Muted")
     end
 end
 
 function Toggle:Unlock()
     self.Locked = false
     if self.Label then
-        self.Label.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.Label.Color = ThemeModule.Get("Text.Title")
     end
 end
 
@@ -8067,7 +8011,7 @@ local function wrap_lines(text, maxW, fontSize, maxLines)
     return out
 end
 
-local NAMED_COLORS = {
+local named_colors = {
     Red = Color3.fromRGB(239, 79, 55),
     Blue = Color3.fromRGB(48, 93, 255),
     Green = Color3.fromRGB(34, 197, 94),
@@ -8091,10 +8035,10 @@ function Paragraph.new(section, config)
 
     local pos, size = section:AllocateControlSlot(false, rowH)
 
-    local cardColor = ThemeModule.Get("ElementBackground", Color3.fromRGB(42, 42, 44))
-    local borderColor = ThemeModule.Get("Window.Border", Color3.fromRGB(46, 46, 54))
-    if type(cfg.Color) == "string" and NAMED_COLORS[cfg.Color] then
-        borderColor = NAMED_COLORS[cfg.Color]
+    local cardColor = ThemeModule.Get("ElementBackground")
+    local borderColor = ThemeModule.Get("Window.Border")
+    if type(cfg.Color) == "string" and named_colors[cfg.Color] then
+        borderColor = named_colors[cfg.Color]
     elseif type(cfg.Color) == "table" or typeof(cfg.Color) == "Color3" then
         cardColor = cfg.Color
     end
@@ -8153,17 +8097,15 @@ function Paragraph.new(section, config)
             self.ImgDrawing = img
             section:_register(img)
 
-            if IconsModule and IconsModule.Get then
-                local got = IconsModule.Get(cfg.Image, function(png)
-                    self._imgData = png
-                    img.Data = png
-                    if self.Visible then img.Visible = true end
-                end)
-                if got then
-                    self._imgData = got
-                    img.Data = got
-                    img.Visible = section.Visible
-                end
+            local got = IconsModule.Get(cfg.Image, function(png)
+                self._imgData = png
+                img.Data = png
+                if self.Visible then img.Visible = true end
+            end)
+            if got then
+                self._imgData = got
+                img.Data = got
+                img.Visible = section.Visible
             end
         end
 
@@ -8172,7 +8114,7 @@ function Paragraph.new(section, config)
         titleTxt.Font = fontUI
         titleTxt.Outline = false
         titleTxt.Size = cfg.TextSize or 14
-        titleTxt.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        titleTxt.Color = ThemeModule.Get("Text.Title")
         titleTxt.Position = Vector2.new(pos.X + 14 + textLeft, pos.Y + 11)
         titleTxt.ZIndex = 5
         titleTxt.Visible = section.Visible
@@ -8185,7 +8127,7 @@ function Paragraph.new(section, config)
             ln.Font = fontUI
             ln.Outline = false
             ln.Size = 12
-            ln.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(165, 165, 175))
+            ln.Color = ThemeModule.Get("Text.Secondary")
             ln.Position = Vector2.new(pos.X + 14 + textLeft, pos.Y + 32 + (i - 1) * 16)
             ln.ZIndex = 5
             ln.Visible = section.Visible and (lines[i] ~= nil)
@@ -8198,7 +8140,7 @@ function Paragraph.new(section, config)
             local bBg = pool:Get("Square")
             bBg.Filled = true
             bBg.Corner = 7
-            bBg.Color = ThemeModule.Get("Button.Background", Color3.fromRGB(48, 48, 56))
+            bBg.Color = ThemeModule.Get("Control.Background")
             bBg.ZIndex = 5
             bBg.Visible = section.Visible
             section:_register(bBg)
@@ -8208,7 +8150,7 @@ function Paragraph.new(section, config)
             bTxt.Font = fontUI
             bTxt.Outline = false
             bTxt.Size = 12
-            bTxt.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+            bTxt.Color = ThemeModule.Get("Text.Title")
             bTxt.ZIndex = 6
             bTxt.Visible = section.Visible
             section:_register(bTxt)
@@ -8254,7 +8196,7 @@ function Paragraph:SetPosition(pos, size)
         self.ImgDrawing.Size = Vector2.new(self.ImageSize, self.ImageSize)
     end
     if self.TitleText then
-        self.TitleText.Text = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(self.Title, availW, 14) or self.Title
+        self.TitleText.Text = MetricsModule.Fit(self.Title, availW, 14)
         self.TitleText.Position = Vector2.new(pos.X + 14 + textLeft, pos.Y + 11)
     end
     for i = 1, 6 do
@@ -8277,13 +8219,7 @@ function Paragraph:SetPosition(pos, size)
             bSlot.Bg.Size = Vector2.new(bw, 26)
             bSlot.Text.Center = false
             local str = tostring(bSlot.Text.Text or "")
-            local ax, ay
-            if MetricsModule and MetricsModule.AlignCenter then
-                ax, ay = MetricsModule.AlignCenter(bx, bTop, bw, 26, str, 12)
-            else
-                ax = bx + math.floor((bw - #str * 6.5) * 0.5)
-                ay = bTop + math.floor((26 - 12) * 0.5)
-            end
+            local ax, ay = MetricsModule.AlignCenter(bx, bTop, bw, 26, str, 12)
             bSlot.Text.Position = Vector2.new(ax, ay)
             bSlot.Rect = { X = bx, Y = bTop, W = bw, H = 26 }
         end
@@ -8429,7 +8365,7 @@ function Code.new(section, config)
         local bg = pool:Get("Square")
         bg.Position = pos
         bg.Size = size
-        bg.Color = ThemeModule.Get("Window.Background", Color3.fromRGB(14, 14, 18))
+        bg.Color = ThemeModule.Get("Window.Background")
         bg.Filled = true
         bg.Corner = 10
         bg.ZIndex = 4
@@ -8440,7 +8376,7 @@ function Code.new(section, config)
         local border = pool:Get("Square")
         border.Position = pos
         border.Size = size
-        border.Color = ThemeModule.Get("Card.Border", Color3.fromRGB(44, 44, 52))
+        border.Color = ThemeModule.Get("Card.Border")
         border.Filled = false
         border.Thickness = 1
         border.Corner = 10
@@ -8452,7 +8388,7 @@ function Code.new(section, config)
         local hdrBg = pool:Get("Square")
         hdrBg.Position = pos
         hdrBg.Size = Vector2.new(size.X, headerH)
-        hdrBg.Color = ThemeModule.Get("Control.Background", Color3.fromRGB(32, 32, 38))
+        hdrBg.Color = ThemeModule.Get("Control.Background")
         hdrBg.Filled = true
         hdrBg.Corner = 8
         hdrBg.ZIndex = 5
@@ -8465,7 +8401,7 @@ function Code.new(section, config)
         titleTxt.Font = fontUI
         titleTxt.Outline = false
         titleTxt.Size = 12
-        titleTxt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(175, 175, 185))
+        titleTxt.Color = ThemeModule.Get("Text.Secondary")
         titleTxt.Position = Vector2.new(pos.X + 12, pos.Y + 8)
         titleTxt.ZIndex = 6
         titleTxt.Visible = section.Visible
@@ -8476,7 +8412,7 @@ function Code.new(section, config)
             local cBg = pool:Get("Square")
             cBg.Filled = true
             cBg.Corner = 5
-            cBg.Color = ThemeModule.Get("ElementBackground", Color3.fromRGB(46, 46, 54))
+            cBg.Color = ThemeModule.Get("ElementBackground")
             cBg.ZIndex = 6
             cBg.Visible = section.Visible
             self.CopyBg = cBg
@@ -8487,7 +8423,7 @@ function Code.new(section, config)
             cTxt.Font = fontUI
             cTxt.Outline = false
             cTxt.Size = 11
-            cTxt.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+            cTxt.Color = ThemeModule.Get("Text.Title")
             cTxt.ZIndex = 7
             cTxt.Visible = section.Visible
             self.CopyText = cTxt
@@ -8500,7 +8436,7 @@ function Code.new(section, config)
             ln.Font = fontUI
             ln.Outline = false
             ln.Size = 12
-            ln.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(220, 225, 235))
+            ln.Color = ThemeModule.Get("Text.Title")
             ln.Position = Vector2.new(pos.X + 12, pos.Y + headerH + 8 + (i - 1) * 16)
             ln.ZIndex = 5
             ln.Visible = section.Visible and (lines[i] ~= nil)
@@ -8531,7 +8467,7 @@ function Code:SetPosition(pos, size)
         self.HeaderBg.Size = Vector2.new(self.Size.X, 30)
     end
     if self.TitleText then
-        self.TitleText.Text = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(self.Title, self.Size.X - 90, 12) or self.Title
+        self.TitleText.Text = MetricsModule.Fit(self.Title, self.Size.X - 90, 12)
         self.TitleText.Position = Vector2.new(pos.X + 12, pos.Y + 8)
     end
     if self.CopyBg and self.CopyText then
@@ -8579,13 +8515,7 @@ function Code:_setCopyLabel(labelStr)
     self.CopyText.Center = false
     local r = self.CopyRect
     if r and r.W > 0 then
-        local ax, ay
-        if MetricsModule and MetricsModule.AlignCenter then
-            ax, ay = MetricsModule.AlignCenter(r.X, r.Y, r.W, r.H, labelStr, 11)
-        else
-            ax = r.X + math.floor((r.W - #labelStr * 6) * 0.5)
-            ay = r.Y + math.floor((r.H - 11) * 0.5)
-        end
+        local ax, ay = MetricsModule.AlignCenter(r.X, r.Y, r.W, r.H, labelStr, 11)
         self.CopyText.Position = Vector2.new(ax, ay)
     end
 end
@@ -8695,7 +8625,7 @@ function ImageBlock.new(section, config)
         local bg = pool:Get("Square")
         bg.Position = pos
         bg.Size = size
-        bg.Color = ThemeModule.Get("ElementBackground", Color3.fromRGB(20, 20, 25))
+        bg.Color = ThemeModule.Get("ElementBackground")
         bg.Filled = true
         bg.Corner = self.Radius
         bg.ZIndex = 4
@@ -8706,7 +8636,7 @@ function ImageBlock.new(section, config)
         local border = pool:Get("Square")
         border.Position = pos
         border.Size = size
-        border.Color = ThemeModule.Get("Window.Border", Color3.fromRGB(44, 44, 52))
+        border.Color = ThemeModule.Get("Window.Border")
         border.Filled = false
         border.Thickness = 1
         border.Corner = self.Radius
@@ -8743,7 +8673,7 @@ function ImageBlock:SetImage(src)
     end
 
     if self.Source:sub(1, 8) == "https://" or self.Source:sub(1, 7) == "http://" then
-        if IconsModule and IconsModule.Cache and IconsModule.Cache[self.Source] then
+        if IconsModule.Cache[self.Source] then
             apply_data(IconsModule.Cache[self.Source])
             return
         end
@@ -8753,14 +8683,12 @@ function ImageBlock:SetImage(src)
                     return game and game.HttpGet and game:HttpGet(self.Source) or nil
                 end)
                 if ok and data and (data:sub(1, 4) == "\x89PNG" or data:sub(2, 4) == "PNG") then
-                    if IconsModule and IconsModule.Cache then
-                        IconsModule.Cache[self.Source] = data
-                    end
+                    IconsModule.Cache[self.Source] = data
                     apply_data(data)
                 end
             end)
         end
-    elseif IconsModule and IconsModule.Get then
+    else
         local got = IconsModule.Get(self.Source, apply_data)
         if got then apply_data(got) end
     end
@@ -8897,7 +8825,7 @@ function ProgressBar.new(section, id, config)
         local bg = pool:Get("Square")
         bg.Position = pos
         bg.Size = size
-        bg.Color = ThemeModule.Get("ElementBackground", Color3.fromRGB(42, 42, 44))
+        bg.Color = ThemeModule.Get("ElementBackground")
         bg.Filled = true
         bg.Corner = 8
         bg.ZIndex = 4
@@ -8910,7 +8838,7 @@ function ProgressBar.new(section, id, config)
         titleTxt.Font = fontUI
         titleTxt.Outline = false
         titleTxt.Size = 13
-        titleTxt.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        titleTxt.Color = ThemeModule.Get("Text.Title")
         titleTxt.Position = Vector2.new(pos.X + 14, pos.Y + 8)
         titleTxt.ZIndex = 5
         titleTxt.Visible = section.Visible
@@ -8923,7 +8851,7 @@ function ProgressBar.new(section, id, config)
             valTxt.Font = fontUI
             valTxt.Outline = false
             valTxt.Size = 12
-            valTxt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(165, 165, 175))
+            valTxt.Color = ThemeModule.Get("Text.Secondary")
             valTxt.ZIndex = 5
             valTxt.Visible = section.Visible
             self.ValueText = valTxt
@@ -8933,7 +8861,7 @@ function ProgressBar.new(section, id, config)
         local track = pool:Get("Square")
         track.Filled = true
         track.Corner = 3
-        track.Color = ThemeModule.Get("Slider.Track", Color3.fromRGB(48, 48, 56))
+        track.Color = ThemeModule.Get("Slider.TrackBg")
         track.ZIndex = 5
         track.Visible = section.Visible
         self.Track = track
@@ -8942,7 +8870,7 @@ function ProgressBar.new(section, id, config)
         local fill = pool:Get("Square")
         fill.Filled = true
         fill.Corner = 3
-        fill.Color = cfg.Color or ThemeModule.Get("Accent.Blue", Color3.fromRGB(0, 145, 255))
+        fill.Color = cfg.Color or ThemeModule.Get("Accent.Blue")
         fill.ZIndex = 6
         fill.Visible = section.Visible
         self.FillBar = fill
@@ -8986,7 +8914,7 @@ function ProgressBar:_syncVisual()
         if self.ValueText then
             local str = format_value(self.Value, self.Min, self.Max, self.DisplayMode, self.Format)
             self.ValueText.Text = str
-            local vw = math.floor(#str * 6.8)
+            local vw = MetricsModule.Measure(str, 12)
             self.ValueText.Position = Vector2.new(self.Position.X + self.Size.X - vw - 14, self.Position.Y + 9)
             self.ValueText.Visible = self.Visible
         end
@@ -9022,7 +8950,7 @@ function ProgressBar:SetPosition(pos, size)
         self.Visual.Size = self.Size
     end
     if self.TitleText then
-        self.TitleText.Text = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(self.Title, self.Size.X - 80, 13) or self.Title
+        self.TitleText.Text = MetricsModule.Fit(self.Title, self.Size.X - 80, 13)
         self.TitleText.Position = Vector2.new(pos.X + 14, pos.Y + 8)
     end
     self:_syncVisual()
@@ -9212,7 +9140,7 @@ function Colorpicker.new(section, id, config)
         local bg = pool:Get("Square")
         bg.Position = pos
         bg.Size = size
-        bg.Color = ThemeModule.Get("ElementBackground", Color3.fromRGB(42, 42, 44))
+        bg.Color = ThemeModule.Get("ElementBackground")
         bg.Filled = true
         bg.Corner = 8
         bg.ZIndex = 4
@@ -9225,7 +9153,7 @@ function Colorpicker.new(section, id, config)
         titleTxt.Font = fontUI
         titleTxt.Outline = false
         titleTxt.Size = 13
-        titleTxt.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        titleTxt.Color = ThemeModule.Get("Text.Title")
         titleTxt.ZIndex = 5
         titleTxt.Visible = section.Visible
         self.TitleText = titleTxt
@@ -9237,7 +9165,7 @@ function Colorpicker.new(section, id, config)
             dTxt.Font = fontUI
             dTxt.Outline = false
             dTxt.Size = 11
-            dTxt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
+            dTxt.Color = ThemeModule.Get("Text.Secondary")
             dTxt.ZIndex = 5
             dTxt.Visible = section.Visible
             self.DescText = dTxt
@@ -9254,21 +9182,19 @@ function Colorpicker.new(section, id, config)
             self.SwatchGrid = swGrid
             section:_register(swGrid)
 
-            if IconsModule and IconsModule.GetTexture then
-                local got = IconsModule.GetTexture("transparency-grid", function(png)
-                    self._textures.Grid = png
-                    if self.SwatchGrid and png then
-                        self.SwatchGrid.Data = png
-                        if self.Visible and self.HasAlpha then
-                            self.SwatchGrid.Visible = true
-                        end
+            local got = IconsModule.GetTexture("transparency-grid", function(png)
+                self._textures.Grid = png
+                if self.SwatchGrid and png then
+                    self.SwatchGrid.Data = png
+                    if self.Visible and self.HasAlpha then
+                        self.SwatchGrid.Visible = true
                     end
-                end)
-                if got then
-                    self._textures.Grid = got
-                    swGrid.Data = got
-                    swGrid.Visible = section.Visible
                 end
+            end)
+            if got then
+                self._textures.Grid = got
+                swGrid.Data = got
+                swGrid.Visible = section.Visible
             end
         end
 
@@ -9285,7 +9211,7 @@ function Colorpicker.new(section, id, config)
 
         local swBorder = pool:Get("Square")
         swBorder.Size = Vector2.new(32, 18)
-        swBorder.Color = ThemeModule.Get("Window.Border", Color3.fromRGB(64, 64, 76))
+        swBorder.Color = ThemeModule.Get("Window.Border")
         swBorder.Filled = false
         swBorder.Thickness = 1
         swBorder.Corner = 6
@@ -9299,9 +9225,9 @@ function Colorpicker.new(section, id, config)
     return self
 end
 
-local ALPHA_TILE_COLS = 24
-local ALPHA_TILE_ROWS = 2
-local ALPHA_SEGMENTS = 24
+local alpha_cols = 24
+local alpha_rows = 2
+local alpha_segments = 24
 
 function Colorpicker:_ensurePopup()
     if self.PopupDrawings then return self.PopupDrawings end
@@ -9375,8 +9301,8 @@ function Colorpicker:_ensurePopup()
     pd.HueCursor.ZIndex = 28
     pd.HueCursor.Visible = false
 
-    for r = 1, ALPHA_TILE_ROWS do
-        for c = 1, ALPHA_TILE_COLS do
+    for r = 1, alpha_rows do
+        for c = 1, alpha_cols do
             local tile = pool:Get("Square")
             tile.Filled = true
             tile.Color = ((r + c) % 2 == 0) and Color3.fromRGB(220, 220, 225) or Color3.fromRGB(130, 130, 140)
@@ -9387,7 +9313,7 @@ function Colorpicker:_ensurePopup()
         end
     end
 
-    for i = 1, ALPHA_SEGMENTS do
+    for i = 1, alpha_segments do
         local seg = pool:Get("Square")
         seg.Filled = true
         seg.ZIndex = 26
@@ -9427,55 +9353,53 @@ function Colorpicker:_ensurePopup()
         end
     end
 
-    if IconsModule and IconsModule.GetTexture then
-        local satData = IconsModule.GetTexture("saturation-map", function(png)
-            self._textures.Sat = png
-            if self.PopupDrawings and self.PopupDrawings.SVMap and png then
-                self.PopupDrawings.SVMap.Data = png
-                pd._lastSatData = png
-                if self.IsOpen then self.PopupDrawings.SVMap.Visible = true end
-            end
-        end)
-        if satData then
-            self._textures.Sat = satData
-            pd.SVMap.Data = satData
-            pd._lastSatData = satData
+    local satData = IconsModule.GetTexture("saturation-map", function(png)
+        self._textures.Sat = png
+        if self.PopupDrawings and self.PopupDrawings.SVMap and png then
+            self.PopupDrawings.SVMap.Data = png
+            pd._lastSatData = png
+            if self.IsOpen then self.PopupDrawings.SVMap.Visible = true end
         end
+    end)
+    if satData then
+        self._textures.Sat = satData
+        pd.SVMap.Data = satData
+        pd._lastSatData = satData
+    end
 
-        local hueData = IconsModule.GetTexture("hue-bar", function(png)
-            self._textures.Hue = png
-            if self.PopupDrawings and self.PopupDrawings.HueImg and png then
-                self.PopupDrawings.HueImg.Data = png
-                pd._lastHueData = png
-                if self.IsOpen then
-                    self.PopupDrawings.HueImg.Visible = true
-                    self.PopupDrawings.HueBg.Visible = false
+    local hueData = IconsModule.GetTexture("hue-bar", function(png)
+        self._textures.Hue = png
+        if self.PopupDrawings and self.PopupDrawings.HueImg and png then
+            self.PopupDrawings.HueImg.Data = png
+            pd._lastHueData = png
+            if self.IsOpen then
+                self.PopupDrawings.HueImg.Visible = true
+                self.PopupDrawings.HueBg.Visible = false
+            end
+        end
+    end)
+    if hueData then
+        self._textures.Hue = hueData
+        pd.HueImg.Data = hueData
+        pd._lastHueData = hueData
+    end
+
+    local gridData = IconsModule.GetTexture("transparency-grid", function(png)
+        self._textures.Grid = png
+        if self.PopupDrawings and png then
+            if self.PopupDrawings.PreviewGrid then
+                self.PopupDrawings.PreviewGrid.Data = png
+                pd._lastGridData = png
+                if self.IsOpen and self.HasAlpha then
+                    self.PopupDrawings.PreviewGrid.Visible = true
                 end
             end
-        end)
-        if hueData then
-            self._textures.Hue = hueData
-            pd.HueImg.Data = hueData
-            pd._lastHueData = hueData
         end
-
-        local gridData = IconsModule.GetTexture("transparency-grid", function(png)
-            self._textures.Grid = png
-            if self.PopupDrawings and png then
-                if self.PopupDrawings.PreviewGrid then
-                    self.PopupDrawings.PreviewGrid.Data = png
-                    pd._lastGridData = png
-                    if self.IsOpen and self.HasAlpha then
-                        self.PopupDrawings.PreviewGrid.Visible = true
-                    end
-                end
-            end
-        end)
-        if gridData then
-            self._textures.Grid = gridData
-            pd.PreviewGrid.Data = gridData
-            pd._lastGridData = gridData
-        end
+    end)
+    if gridData then
+        self._textures.Grid = gridData
+        pd.PreviewGrid.Data = gridData
+        pd._lastGridData = gridData
     end
 
     self.PopupDrawings = pd
@@ -9504,12 +9428,12 @@ function Colorpicker:_syncPopup()
 
     pd.Bg.Position = Vector2.new(x, y)
     pd.Bg.Size = Vector2.new(popW, popH)
-    pd.Bg.Color = ThemeModule.Get("Card.Background", Color3.fromRGB(22, 22, 28))
+    pd.Bg.Color = ThemeModule.Get("Card.Background")
     pd.Bg.Visible = true
 
     pd.Border.Position = Vector2.new(x, y)
     pd.Border.Size = Vector2.new(popW, popH)
-    pd.Border.Color = ThemeModule.Get("Window.Border", Color3.fromRGB(52, 52, 62))
+    pd.Border.Color = ThemeModule.Get("Window.Border")
     pd.Border.Visible = true
 
     local sv = self.PopupRect.SV
@@ -9554,16 +9478,16 @@ function Colorpicker:_syncPopup()
 
     if self.PopupRect.Alpha then
         local ab = self.PopupRect.Alpha
-        local tileW = math.floor(ab.W / ALPHA_TILE_COLS)
-        local tileH = math.floor(ab.H / ALPHA_TILE_ROWS)
+        local tileW = math.floor(ab.W / alpha_cols)
+        local tileH = math.floor(ab.H / alpha_rows)
         local idx = 1
-        for r = 1, ALPHA_TILE_ROWS do
-            for c = 1, ALPHA_TILE_COLS do
+        for r = 1, alpha_rows do
+            for c = 1, alpha_cols do
                 local tile = pd.AlphaTiles[idx]
                 local tx = ab.X + (c - 1) * tileW
                 local ty = ab.Y + (r - 1) * tileH
-                local tw = (c == ALPHA_TILE_COLS) and (ab.X + ab.W - tx) or tileW
-                local th = (r == ALPHA_TILE_ROWS) and (ab.Y + ab.H - ty) or tileH
+                local tw = (c == alpha_cols) and (ab.X + ab.W - tx) or tileW
+                local th = (r == alpha_rows) and (ab.Y + ab.H - ty) or tileH
                 tile.Position = Vector2.new(tx, ty)
                 tile.Size = Vector2.new(math.max(1, tw), math.max(1, th))
                 tile.Visible = true
@@ -9571,14 +9495,14 @@ function Colorpicker:_syncPopup()
             end
         end
 
-        for i = 1, ALPHA_SEGMENTS do
+        for i = 1, alpha_segments do
             local seg = pd.AlphaSegments[i]
-            local x0 = ab.X + math.floor((i - 1) * ab.W / ALPHA_SEGMENTS)
-            local x1 = ab.X + math.floor(i * ab.W / ALPHA_SEGMENTS)
+            local x0 = ab.X + math.floor((i - 1) * ab.W / alpha_segments)
+            local x1 = ab.X + math.floor(i * ab.W / alpha_segments)
             seg.Position = Vector2.new(x0, ab.Y)
             seg.Size = Vector2.new(math.max(1, x1 - x0), ab.H)
             seg.Color = self.Value
-            seg.Transparency = (i - 1) / (ALPHA_SEGMENTS - 1)
+            seg.Transparency = (i - 1) / (alpha_segments - 1)
             seg.Visible = true
         end
 
@@ -9605,7 +9529,7 @@ function Colorpicker:_syncPopup()
     pd.Preview.Visible = true
 
     pd.HexText.Text = rgb_to_hex(self.Value)
-    pd.HexText.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+    pd.HexText.Color = ThemeModule.Get("Text.Title")
     pd.HexText.Position = Vector2.new(x + 42, fy + 4)
     pd.HexText.Visible = true
 end
@@ -9752,12 +9676,12 @@ function Colorpicker:SetPosition(pos, size)
     end
     local maxTextW = math.max(60, self.Size.X - 64)
     if self.TitleText then
-        self.TitleText.Text = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(self.Title, maxTextW, 13) or self.Title
+        self.TitleText.Text = MetricsModule.Fit(self.Title, maxTextW, 13)
         local ty = (self.Desc and self.Desc ~= "") and (pos.Y + 9) or (pos.Y + math.floor((self.Size.Y - 13) * 0.5))
         self.TitleText.Position = Vector2.new(pos.X + 14, ty)
     end
     if self.DescText then
-        self.DescText.Text = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(self.Desc, maxTextW, 11) or self.Desc
+        self.DescText.Text = MetricsModule.Fit(self.Desc, maxTextW, 11)
         self.DescText.Position = Vector2.new(pos.X + 14, pos.Y + 27)
     end
     local sx = pos.X + self.Size.X - 46
@@ -9811,14 +9735,14 @@ function Colorpicker:Lock(title)
     if title ~= nil then self.LockedTitle = tostring(title) end
     if self.IsOpen then self:Close() end
     if self.TitleText then
-        self.TitleText.Color = ThemeModule.Get("Text.Muted", Color3.fromRGB(120, 120, 130))
+        self.TitleText.Color = ThemeModule.Get("Text.Muted")
     end
 end
 
 function Colorpicker:Unlock()
     self.Locked = false
     if self.TitleText then
-        self.TitleText.Color = ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.TitleText.Color = ThemeModule.Get("Text.Title")
     end
 end
 
@@ -9889,7 +9813,12 @@ local ColorpickerModule = Colorpicker or ColorpickerModule
 local ContentSection = {}
 ContentSection.__index = ContentSection
 
-local SKIP_CLIP_KEYS = {
+local str_square = "Square"
+local str_circle = "Circle"
+local str_image  = "Image"
+local str_text   = "Text"
+
+local skip_clip_keys = {
     Section = true, Parent = true, Window = true, Pool = true, Env = true,
     Values = true, VisibleItems = true, Config = true, Callback = true,
     PopupItems = true, PopupDividers = true, PopupSelectedBgs = true,
@@ -9900,20 +9829,16 @@ local SKIP_CLIP_KEYS = {
 }
 
 local function get_drawing_kind(obj)
-    local entry = MetaModule and MetaModule.Get and MetaModule.Get(obj)
+    local entry = MetaModule.Get(obj)
     if entry and entry.Kind then
         return entry.Kind
     end
-    local sz = obj.Size
-    if type(sz) == "number" then
-        return "Text"
-    end
-    return "Square"
+    return type(obj.Size) == "number" and str_text or str_square
 end
 
 local function restore_drawing(obj)
     if not obj then return end
-    local entry = MetaModule and MetaModule.Get and MetaModule.Get(obj)
+    local entry = MetaModule.Get(obj)
     if entry and entry.ClippedCorner ~= nil then
         obj.Corner = entry.ClippedCorner
         entry.ClippedCorner = nil
@@ -9925,13 +9850,13 @@ local function clip_drawing(obj, clipTop, clipBottom)
     local kind = get_drawing_kind(obj)
     local y = obj.Position.Y
     local sz = obj.Size
-    if kind == "Square" then
-        local h = (type(sz) == "table" or type(sz) == "userdata") and (sz.Y or 0) or 0
+    if kind == str_square then
+        local h = sz.Y or 0
         local vt = math.max(y, clipTop)
         local vb = math.min(y + h, clipBottom)
         local vh = math.max(0, vb - vt)
         if vh >= 4 then
-            local entry = MetaModule and MetaModule.Get and MetaModule.Get(obj)
+            local entry = MetaModule.Get(obj)
             local baseC = (entry and entry.ClippedCorner) or obj.Corner or 0
             if entry and entry.ClippedCorner == nil then
                 entry.ClippedCorner = baseC
@@ -9943,17 +9868,16 @@ local function clip_drawing(obj, clipTop, clipBottom)
         else
             obj.Visible = false
         end
-    elseif kind == "Circle" then
+    elseif kind == str_circle then
         local r = obj.Radius or 7
         obj.Visible = (y - r >= clipTop) and (y + r <= clipBottom)
-    elseif kind == "Image" then
-        local h = (type(sz) == "table" or type(sz) == "userdata") and (sz.Y or 16) or 16
+    elseif kind == str_image then
+        local h = sz.Y or 16
         obj.Visible = (y >= clipTop) and (y + h <= clipBottom)
     else
-        local h = (type(sz) == "number") and sz or ((type(sz) == "table" or type(sz) == "userdata") and (sz.Y or 14) or 14)
+        local h = type(sz) == "number" and sz or 14
         local topY = obj.Center and (y - h * 0.5) or y
-        local botY = topY + h
-        obj.Visible = (topY >= clipTop) and (botY <= clipBottom)
+        obj.Visible = (topY >= clipTop) and (topY + h <= clipBottom)
     end
 end
 
@@ -9962,7 +9886,7 @@ local function traverse_control(tbl, fn, visited)
     if visited[tbl] then return end
     visited[tbl] = true
     for k, v in pairs(tbl) do
-        if not SKIP_CLIP_KEYS[k] and (type(v) == "table" or type(v) == "userdata") then
+        if not skip_clip_keys[k] and (type(v) == "table" or type(v) == "userdata") then
             if v.Position ~= nil and v.Visible ~= nil then
                 if not visited[v] then
                     visited[v] = true
@@ -9986,10 +9910,6 @@ local function restore_control(tbl)
 end
 
 ContentSection.ClipControl = clip_control
-
-local function get_theme_color(token, default)
-    return ThemeModule.Get(token, default)
-end
 
 function ContentSection.new(config, parentTab, window)
     local cfg = type(config) == "table" and config or { Title = tostring(config or "Section") }
@@ -10070,9 +9990,7 @@ function ContentSection.new(config, parentTab, window)
         self._chevCb = function(png)
             if self.ChevronImg and png then self.ChevronImg.Data = png end
         end
-        if IconsModule and IconsModule.Get then
-            IconsModule.Get(startOpened and "chevron-down" or "chevron-up", self._chevCb)
-        end
+        IconsModule.Get(startOpened and "chevron-down" or "chevron-up", self._chevCb)
     end
     -- When collapsed initially, collapse content
     if expandable and not startOpened then
@@ -10137,8 +10055,8 @@ function ContentSection:_renderCard()
     local absPos = Vector2.new(basePos.X + self.Position.X, basePos.Y + self.Position.Y)
 
     -- Matcha Transparency is opacity (1 = opaque, 0 = invisible): 0.04 = subtle 4% white overlay, 0.16 = subtle border
-    local bgCol = get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
-    local borderCol = get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+    local bgCol = ThemeModule.Get("Text.Title")
+    local borderCol = ThemeModule.Get("Text.Title")
 
     local bg = self.Pool:Get("Square")
     bg.Position = absPos
@@ -10185,12 +10103,11 @@ function ContentSection:_renderHeader()
 
     if self.Title and self.Title ~= "" then
         local titleObj = self.Pool:Get("Text")
-        local fitTitle = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(self.Title, usableW, self.TextSize) or tostring(self.Title)
-        titleObj.Text = fitTitle
+        titleObj.Text = MetricsModule.Fit(self.Title, usableW, self.TextSize)
         titleObj.Size = self.TextSize
         titleObj.Font = fontUI
         titleObj.Outline = false
-        titleObj.Color = get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+        titleObj.Color = ThemeModule.Get("Text.Title")
         titleObj.Position = Vector2.new(innerX, currentY)
         titleObj.ZIndex = 4
         titleObj.Visible = self.Visible
@@ -10201,12 +10118,11 @@ function ContentSection:_renderHeader()
 
     if self.Description and self.Description ~= "" then
         local descObj = self.Pool:Get("Text")
-        local fitDesc = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(self.Description, usableW, 11) or tostring(self.Description)
-        descObj.Text = fitDesc
+        descObj.Text = MetricsModule.Fit(self.Description, usableW, 11)
         descObj.Size = 11
         descObj.Font = fontUI
         descObj.Outline = false
-        descObj.Color = get_theme_color("Text.Secondary", Color3.fromRGB(161, 161, 170))
+        descObj.Color = ThemeModule.Get("Text.Secondary")
         descObj.Position = Vector2.new(innerX, currentY)
         descObj.ZIndex = 4
         descObj.Visible = self.Visible
@@ -10305,10 +10221,7 @@ end
 function ContentSection:Open()
     if not self.Expandable or self.IsExpanded then return end
     self.IsExpanded = true
-    if self.ChevronImg and IconsModule and IconsModule.Get then
-        self._chevCb = self._chevCb or function(png)
-            if self.ChevronImg and png then self.ChevronImg.Data = png end
-        end
+    if self.ChevronImg then
         IconsModule.Get("chevron-down", self._chevCb)
     end
     if self.ParentTab then self.ParentTab._layoutDirty = true end
@@ -10317,10 +10230,7 @@ end
 function ContentSection:Close()
     if not self.Expandable or not self.IsExpanded then return end
     self.IsExpanded = false
-    if self.ChevronImg and IconsModule and IconsModule.Get then
-        self._chevCb = self._chevCb or function(png)
-            if self.ChevronImg and png then self.ChevronImg.Data = png end
-        end
+    if self.ChevronImg then
         IconsModule.Get("chevron-up", self._chevCb)
     end
     if self.ParentTab then self.ParentTab._layoutDirty = true end
@@ -10376,9 +10286,7 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
     local currentY = innerY
     if self.TitleText then
         self.TitleText.Position = Vector2.new(innerX, currentY)
-        if MetricsModule and MetricsModule.Fit then
-            self.TitleText.Text = MetricsModule.Fit(self.Title or "", usableW, self.TextSize)
-        end
+        self.TitleText.Text = MetricsModule.Fit(self.Title or "", usableW, self.TextSize)
         local tVis = self.Visible
         if clipTop and clipBottom then
             tVis = tVis and (currentY >= clipTop) and (currentY + self.TextSize <= clipBottom)
@@ -10388,9 +10296,7 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
     end
     if self.DescText then
         self.DescText.Position = Vector2.new(innerX, currentY)
-        if MetricsModule and MetricsModule.Fit then
-            self.DescText.Text = MetricsModule.Fit(self.Description or "", usableW, 11)
-        end
+        self.DescText.Text = MetricsModule.Fit(self.Description or "", usableW, 11)
         local dVis = self.Visible
         if clipTop and clipBottom then
             dVis = dVis and (currentY >= clipTop) and (currentY + 11 <= clipBottom)
@@ -10593,7 +10499,7 @@ local function sync_lock_overlay(ctrl)
         lo.Bg.Size = size
         local label = tostring(ctrl.LockedTitle or "Locked")
         lo.Text.Text = label
-        local tw = (MetricsModule and MetricsModule.GetTextWidth and MetricsModule.GetTextWidth(label, 13)) or (#label * 6.5)
+        local tw = MetricsModule.Measure(label, 13)
         local totalW = 16 + 6 + tw
         local sx = pos.X + math.floor((size.X - totalW) * 0.5)
         lo.Icon.Position = Vector2.new(sx, pos.Y + math.floor((size.Y - 16) * 0.5))
@@ -10641,16 +10547,14 @@ local function ensure_lock_overlay(sec, ctrl)
     local lo = { Bg = bg, Icon = ico, Text = txt, IconData = nil }
     ctrl._lockOverlay = lo
 
-    if IconsModule and IconsModule.Get then
-        local got = IconsModule.Get("lock", function(png)
-            lo.IconData = png
-            ico.Data = png
-            sync_lock_overlay(ctrl)
-        end)
-        if got then
-            lo.IconData = got
-            ico.Data = got
-        end
+    local got = IconsModule.Get("lock", function(png)
+        lo.IconData = png
+        ico.Data = png
+        sync_lock_overlay(ctrl)
+    end)
+    if got then
+        lo.IconData = got
+        ico.Data = got
     end
 end
 
@@ -11010,18 +10914,15 @@ local ThemeModule = Theme or ThemeModule
 local ContentSectionModule = ContentSection or ContentSectionModule
 local AnimationsModule = Animations or AnimationsModule
 
-local IconsModule = Icons
-if not IconsModule then
-    local ok, mod = pcall(function() return IconsModule end)
-    if ok then IconsModule = mod end
-end
+local IconsModule = Icons or IconsModule
 
 local Tab = {}
 Tab.__index = Tab
 
-local function get_theme_color(token, default)
-    return ThemeModule.Get(token, default)
-end
+local str_tab_active = "Tab.ActiveBg"
+local str_tab_hover  = "Tab.HoverBg"
+local str_txt_title  = "Text.Title"
+local str_txt_sec    = "Text.Secondary"
 
 local function get_tab_badge_color(title, icon, customColor)
     if customColor then return customColor end
@@ -11047,7 +10948,7 @@ end
 function Tab.new(config, window, parentSection)
     local cfg = type(config) == "table" and config or { Title = tostring(config or "Tab") }
     local win = window or (parentSection and parentSection.Sidebar and parentSection.Sidebar.Window)
-    local pool = (win and win.Pool) or (PoolModule and PoolModule.new(100, MetaModule))
+    local pool = (win and win.Pool) or PoolModule.new(100, MetaModule)
     local topH = win and win.HeaderHeight or 44
 
     local self = setmetatable({
@@ -11116,17 +11017,10 @@ function Tab:_initSidebarDrawings()
     local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
     local cap = pool:Get("Square")
-    if MetaModule then
-        MetaModule.SetValue(cap, "Filled", true)
-        MetaModule.SetValue(cap, "Corner", self.Rounding)
-        MetaModule.SetValue(cap, "ZIndex", 4)
-        MetaModule.SetVisible(cap, false)
-    else
-        cap.Filled = true
-        cap.Corner = self.Rounding
-        cap.ZIndex = 4
-        cap.Visible = false
-    end
+    MetaModule.SetValue(cap, "Filled", true)
+    MetaModule.SetValue(cap, "Corner", self.Rounding)
+    MetaModule.SetValue(cap, "ZIndex", 4)
+    MetaModule.SetVisible(cap, false)
     self.Capsule = cap
 
     if self.IconShape and self.IconColor then
@@ -11149,7 +11043,7 @@ function Tab:_initSidebarDrawings()
     self.TabIcon = icon
     self.IconVisual = icon
 
-    if IconsModule and IconsModule.Get and self.Icon then
+    if self.Icon then
         local forceWhite = (self.IconBadge ~= nil)
         IconsModule.Get(self.Icon, function(pngData)
             if self.TabIcon and pngData then
@@ -11162,7 +11056,7 @@ function Tab:_initSidebarDrawings()
     txt.Size = 13
     txt.Font = fontUI
     txt.Outline = false
-    txt.Color = get_theme_color("Text.Secondary", Color3.fromRGB(161, 161, 170))
+    txt.Color = ThemeModule.Get(str_txt_sec)
     txt.ZIndex = 5
     txt.Text = tostring(self.Title)
     self.TitleVisual = txt
@@ -11174,7 +11068,7 @@ function Tab:_initSidebarDrawings()
         local bBg = pool:Get("Square")
         bBg.Filled = true
         bBg.Corner = 3
-        bBg.Color = self.BadgeColor or get_theme_color("Accent.Blue", Color3.fromRGB(0, 145, 255))
+        bBg.Color = self.BadgeColor or ThemeModule.Get("Accent.Blue")
         bBg.ZIndex = 5
         self.BadgeBg = bBg
 
@@ -11184,8 +11078,7 @@ function Tab:_initSidebarDrawings()
         bTxt.Outline = false
         bTxt.Color = Color3.fromRGB(255, 255, 255)
         bTxt.ZIndex = 6
-        local fmtBadge = MetricsModule and MetricsModule.FormatBadge and MetricsModule.FormatBadge(self.Badge) or ("[" .. tostring(self.Badge) .. "]")
-        bTxt.Text = fmtBadge
+        bTxt.Text = MetricsModule.FormatBadge(self.Badge)
         self.BadgeText = bTxt
     end
 
@@ -11205,8 +11098,8 @@ function Tab:UpdateVisualState()
     local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
     if self.IsActive then
-        local activeBg = get_theme_color("Tab.ActiveBg", Color3.fromRGB(35, 35, 41))
-        local titleCol = get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+        local activeBg = ThemeModule.Get(str_tab_active)
+        local titleCol = ThemeModule.Get(str_txt_title)
         if self.Capsule then
             self.Capsule.Color = activeBg
             self.Capsule.Transparency = 1.0
@@ -11221,8 +11114,8 @@ function Tab:UpdateVisualState()
             self.TabIcon.Transparency = 1.0
         end
     elseif self.IsHovered or (self.HoverAnim or 0) > 0.02 then
-        local hoverBg = get_theme_color("Tab.HoverBg", Color3.fromRGB(26, 26, 31))
-        local titleCol = get_theme_color("Text.Title", Color3.fromRGB(240, 240, 245))
+        local hoverBg = ThemeModule.Get(str_tab_hover)
+        local titleCol = ThemeModule.Get(str_txt_title)
         if self.Capsule then
             self.Capsule.Color = hoverBg
             self.Capsule.Transparency = self.HoverAnim or 1.0
@@ -11237,7 +11130,7 @@ function Tab:UpdateVisualState()
             self.TabIcon.Transparency = 0.92
         end
     else
-        local subCol = get_theme_color("Text.Secondary", Color3.fromRGB(161, 161, 170))
+        local subCol = ThemeModule.Get(str_txt_sec)
         if self.Capsule then
             self.Capsule.Visible = false
         end
@@ -11268,13 +11161,8 @@ function Tab:UpdateSidebarPositions(winPos)
     local ty = winPos.Y + self.RelY
 
     if self.Capsule then
-        if MetaModule then
-            MetaModule.SetPosition(self.Capsule, tx, ty)
-            MetaModule.SetSize(self.Capsule, self.Width, self.Height)
-        else
-            self.Capsule.Position = Vector2.new(tx, ty)
-            self.Capsule.Size = Vector2.new(self.Width, self.Height)
-        end
+        MetaModule.SetPosition(self.Capsule, tx, ty)
+        MetaModule.SetSize(self.Capsule, self.Width, self.Height)
     end
 
     if self.IconBadge then
@@ -11282,41 +11170,27 @@ function Tab:UpdateSidebarPositions(winPos)
     end
 
     if self.TabIcon then
-        if MetaModule then
-            MetaModule.SetPosition(self.TabIcon, tx + 10, ty + 9)
-        else
-            self.TabIcon.Position = Vector2.new(tx + 10, ty + 9)
-        end
+        MetaModule.SetPosition(self.TabIcon, tx + 10, ty + 9)
     end
 
     local badgeW = 0
     if self.BadgeBg and self.BadgeText then
         local bStr = tostring(self.BadgeText.Text or "")
-        local bTxtW = (MetricsModule and MetricsModule.Measure and MetricsModule.Measure(bStr, 11)) or (#bStr * 6)
-        badgeW = math.floor(bTxtW + 10)
+        badgeW = math.floor(MetricsModule.Measure(bStr, 11) + 10)
         local bX = tx + self.Width - badgeW - 6
         local bY = ty + 8
         self.BadgeBg.Position = Vector2.new(bX, bY)
         self.BadgeBg.Size = Vector2.new(badgeW, 16)
-        if MetricsModule and MetricsModule.AlignCenter then
-            local ax, ay = MetricsModule.AlignCenter(bX, bY, badgeW, 16, bStr, 11)
-            self.BadgeText.Position = Vector2.new(ax, ay)
-        else
-            self.BadgeText.Position = Vector2.new(bX + 4, bY + 2)
-        end
+        local ax, ay = MetricsModule.AlignCenter(bX, bY, badgeW, 16, bStr, 11)
+        self.BadgeText.Position = Vector2.new(ax, ay)
     end
 
     if self.TitleVisual then
         local titleX = tx + 36
         local maxTitleW = math.max(30, self.Width - 44 - (badgeW > 0 and (badgeW + 8) or 0))
-        local fitted = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(tostring(self.Title), maxTitleW, 13) or tostring(self.Title)
-        if MetaModule then
-            MetaModule.SetText(self.TitleVisual, fitted)
-            MetaModule.SetPosition(self.TitleVisual, titleX, ty + 9)
-        else
-            self.TitleVisual.Text = fitted
-            self.TitleVisual.Position = Vector2.new(titleX, ty + 9)
-        end
+        local fitted = MetricsModule.Fit(tostring(self.Title), maxTitleW, 13)
+        MetaModule.SetText(self.TitleVisual, fitted)
+        MetaModule.SetPosition(self.TitleVisual, titleX, ty + 9)
     end
 
     if self.SidebarVisible then
@@ -11560,15 +11434,15 @@ end
 
 function Tab:UpdateTheme(t)
     self:UpdateVisualState()
-    local cardBg = t.Card or get_theme_color("Card.Background", Color3.fromRGB(24, 24, 29))
-    local borderCol = t.Border or get_theme_color("Card.Border", Color3.fromRGB(38, 38, 45))
-    local elemBg = t.ElementBackground or get_theme_color("ElementBackground", Color3.fromRGB(42, 42, 44))
-    local ctrlBg = t["Control.Background"] or get_theme_color("Control.Background", Color3.fromRGB(48, 48, 54))
-    local txtTitle = t.Text or get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
-    local txtSub = t["Text.Secondary"] or t.SubText or get_theme_color("Text.Secondary", Color3.fromRGB(161, 161, 170))
-    local txtMuted = t["Text.Muted"] or get_theme_color("Text.Muted", Color3.fromRGB(120, 120, 130))
-    local accentBlue = t["Accent.Blue"] or t.Accent or get_theme_color("Accent.Blue", Color3.fromRGB(0, 145, 255))
-    local sldTrack = t["Slider.TrackBg"] or ctrlBg
+    local cardBg = ThemeModule.Resolve(t, "Card.Background")
+    local borderCol = ThemeModule.Resolve(t, "Card.Border")
+    local elemBg = ThemeModule.Resolve(t, "ElementBackground")
+    local ctrlBg = ThemeModule.Resolve(t, "Control.Background")
+    local txtTitle = ThemeModule.Resolve(t, str_txt_title)
+    local txtSub = ThemeModule.Resolve(t, str_txt_sec)
+    local txtMuted = ThemeModule.Resolve(t, "Text.Muted")
+    local accentBlue = ThemeModule.Resolve(t, "Accent.Blue")
+    local sldTrack = ThemeModule.Resolve(t, "Slider.TrackBg")
 
     for _, sec in ipairs(self.Sections) do
         -- Boxed collapsible sections use Text.Title at near-full transparency (WindUI SectionBox style)
@@ -11580,7 +11454,7 @@ function Tab:UpdateTheme(t)
         for _, ctrl in ipairs(sec.Controls or {}) do
             if ctrl.RowBg then ctrl.RowBg.Color = elemBg end
             if ctrl.Visual and not ctrl.CustomColor then
-                ctrl.Visual.Color = ctrl.Code and (t.Background or get_theme_color("Window.Background", Color3.fromRGB(14, 14, 18))) or elemBg
+                ctrl.Visual.Color = ctrl.Code and ThemeModule.Resolve(t, "Window.Background") or elemBg
             end
             if ctrl.HeaderBg then ctrl.HeaderBg.Color = ctrlBg end
             if ctrl.CopyBg then ctrl.CopyBg.Color = elemBg end
@@ -11589,7 +11463,7 @@ function Tab:UpdateTheme(t)
             if ctrl.SwatchBorder then ctrl.SwatchBorder.Color = borderCol end
             if ctrl.PopupBg then ctrl.PopupBg.Color = cardBg end
             if ctrl.PopupBorder then ctrl.PopupBorder.Color = borderCol end
-            if ctrl.PopupHoverBg then ctrl.PopupHoverBg.Color = get_theme_color("Tab.ActiveBg", ctrlBg) end
+            if ctrl.PopupHoverBg then ctrl.PopupHoverBg.Color = ThemeModule.Resolve(t, str_tab_active) end
             if ctrl.SearchBg then ctrl.SearchBg.Color = elemBg end
             if ctrl.SearchText then
                 ctrl.SearchText.Color = (ctrl.SearchQuery and ctrl.SearchQuery ~= "") and txtTitle or txtSub
@@ -11905,7 +11779,7 @@ function ProfileCard:_initDrawings()
     self:_reg(pDiv)
 
     self:_rebuildRows()
-    self:UpdateTheme(ThemeModule.GetCurrent and ThemeModule.GetCurrent() or {})
+    self:UpdateTheme(ThemeModule.GetCurrent())
 end
 
 function ProfileCard:_buildRowSpecs()
@@ -12000,7 +11874,7 @@ function ProfileCard:SetProfile(opts)
     if opts.Callback ~= nil then self.Callback = opts.Callback end
     if self.Enabled then
         self:_rebuildRows()
-        self:UpdateTheme(ThemeModule.GetCurrent and ThemeModule.GetCurrent() or {})
+        self:UpdateTheme(ThemeModule.GetCurrent())
         self:UpdateLayout()
     else
         self:SetVisible(false)
@@ -12153,15 +12027,12 @@ end
 
 function ProfileCard:UpdateTheme(t)
     if not self.Enabled or not self.CardBg then return end
-    t = t or {}
-    local bgCol = self.Open
-        and (t["Tab.ActiveBg"] or ThemeModule.Get("Tab.ActiveBg", Color3.fromRGB(33, 33, 34)))
-        or (t["Tab.HoverBg"] or ThemeModule.Get("Tab.HoverBg", Color3.fromRGB(23, 23, 24)))
-    local borderCol = t["Card.Border"] or t.Border or ThemeModule.Get("Card.Border", Color3.fromRGB(38, 38, 42))
-    local ctrlCol = t["Control.Background"] or ThemeModule.Get("Control.Background", Color3.fromRGB(48, 48, 52))
-    local titleCol = t["Text.Title"] or ThemeModule.Get("Text.Title", Color3.fromRGB(255, 255, 255))
-    local mutedCol = t["Text.Muted"] or ThemeModule.Get("Text.Muted", Color3.fromRGB(161, 161, 161))
-    local accentCol = t["Accent.Blue"] or ThemeModule.Get("Accent.Blue", Color3.fromRGB(0, 145, 255))
+    local bgCol = ThemeModule.Resolve(t, self.Open and "Tab.ActiveBg" or "Tab.HoverBg")
+    local borderCol = ThemeModule.Resolve(t, "Card.Border")
+    local ctrlCol = ThemeModule.Resolve(t, "Control.Background")
+    local titleCol = ThemeModule.Resolve(t, "Text.Title")
+    local mutedCol = ThemeModule.Resolve(t, "Text.Muted")
+    local accentCol = ThemeModule.Resolve(t, "Accent.Blue")
 
     self.CardBg.Color = bgCol
     self.AvatarBg.Color = ctrlCol
@@ -12169,11 +12040,11 @@ function ProfileCard:UpdateTheme(t)
     self.NameText.Color = titleCol
     self.HandleText.Color = mutedCol
 
-    self.PopBg.Color = t["Card.Background"] or t.Dialog or ThemeModule.Get("Card.Background", Color3.fromRGB(24, 24, 27))
+    self.PopBg.Color = ThemeModule.Resolve(t, "Card.Background")
     self.PopBorder.Color = borderCol
     self.PopName.Color = titleCol
     self.PopHandle.Color = mutedCol
-    self.PopDivider.Color = t["Sidebar.Divider"] or borderCol
+    self.PopDivider.Color = ThemeModule.Resolve(t, "Sidebar.Divider")
 
     local tagCfg = self:_getTagConfig()
     self.PopTagBg.Color = (tagCfg and tagCfg.Color) or accentCol
@@ -12226,7 +12097,7 @@ function ProfileCard:Update(mx, my, m1Clicked, dt)
     local overCard = mx >= cx and mx <= cx + cw and my >= cy and my <= cy + ch
     if overCard ~= self.Hovered then
         self.Hovered = overCard
-        self:UpdateTheme(ThemeModule.GetCurrent and ThemeModule.GetCurrent() or {})
+        self:UpdateTheme(ThemeModule.GetCurrent())
         AnimationsModule.Tween("profile_hover_" .. tostring(self), self.HoverAnim, overCard and 1 or 0, 22, function(v)
             self.HoverAnim = v
             self:UpdateLayout()
@@ -12236,7 +12107,7 @@ function ProfileCard:Update(mx, my, m1Clicked, dt)
     if m1Clicked then
         if overCard then
             self:_animatePopover(not self.Open)
-            self:UpdateTheme(ThemeModule.GetCurrent and ThemeModule.GetCurrent() or {})
+            self:UpdateTheme(ThemeModule.GetCurrent())
             if self.Callback then
                 task.spawn(self.Callback)
             end
@@ -12248,7 +12119,7 @@ function ProfileCard:Update(mx, my, m1Clicked, dt)
                 return true
             end
             self:_animatePopover(false)
-            self:UpdateTheme(ThemeModule.GetCurrent and ThemeModule.GetCurrent() or {})
+            self:UpdateTheme(ThemeModule.GetCurrent())
         end
     end
     return false
@@ -12307,10 +12178,6 @@ local IconsModule = Icons or IconsModule
 local Sidebar = {}
 Sidebar.__index = Sidebar
 
-local function get_theme_color(token, default)
-    return ThemeModule.Get(token, default)
-end
-
 -- ============================================================================
 -- Section Class (NavigationSection)
 -- ============================================================================
@@ -12341,6 +12208,10 @@ function Section.new(sidebar, config)
     return self
 end
 
+local str_muted  = "Text.Muted"
+local str_title  = "Text.Title"
+local str_border = "Window.Border"
+
 function Section:_initDrawings()
     local pool = self.Sidebar.Pool
     if not pool then return end
@@ -12358,7 +12229,7 @@ function Section:_initDrawings()
     txt.Size = 11
     txt.Font = fontUI
     txt.Outline = false
-    txt.Color = get_theme_color("Text.Muted", Color3.fromRGB(120, 120, 130))
+    txt.Color = ThemeModule.Get(str_muted)
     txt.ZIndex = 4
     txt.Visible = true
     self.TitleText = txt
@@ -12371,7 +12242,7 @@ function Section:_initDrawings()
 end
 
 function Section:_syncCaretIcon()
-    if not self.Caret or not IconsModule or not IconsModule.Get then return end
+    if not self.Caret then return end
     if not self._caretCb then
         self._caretCb = function(png)
             if self.Caret and png then
@@ -12379,8 +12250,7 @@ function Section:_syncCaretIcon()
             end
         end
     end
-    local iconName = self.Opened and "chevron-up" or "chevron-down"
-    IconsModule.Get(iconName, self._caretCb)
+    IconsModule.Get(self.Opened and "chevron-up" or "chevron-down", self._caretCb)
 end
 
 function Section:HasActiveChild()
@@ -12399,8 +12269,8 @@ function Section:UpdatePositions(winPos)
     local hy = winPos.Y + self.RelY
     local sbW = (self.Sidebar and self.Sidebar.Width or 190) - 20
 
-    local mutedCol = get_theme_color("Text.Muted", Color3.fromRGB(120, 120, 130))
-    local titleCol = get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+    local mutedCol = ThemeModule.Get(str_muted)
+    local titleCol = ThemeModule.Get(str_title)
     local isHighlighted = (not self.Opened) and self:HasActiveChild()
 
     if self.Caret then
@@ -12408,11 +12278,8 @@ function Section:UpdatePositions(winPos)
         self.Caret.Transparency = isHighlighted and 0.90 or 0.34
     end
 
-    local rawTitle = tostring(self.Title)
-    local fitted = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(rawTitle, sbW - 24, 11) or rawTitle
-
     if self.TitleText then
-        self.TitleText.Text = fitted
+        self.TitleText.Text = MetricsModule.Fit(tostring(self.Title), sbW - 24, 11)
         self.TitleText.Position = Vector2.new(hx + 6, hy + math.floor((self.Height - 11) * 0.5))
         self.TitleText.Color = isHighlighted and titleCol or mutedCol
     end
@@ -12511,7 +12378,7 @@ function Sidebar:_initSearchBar()
     local box = pool:Get("Square")
     box.Position = Vector2.new(sbX, sbY)
     box.Size = Vector2.new(sbW, 28)
-    box.Color = get_theme_color("Dialog", Color3.fromRGB(26, 26, 26))
+    box.Color = ThemeModule.Get("Dialog")
     box.Filled = true
     box.Corner = 7
     box.ZIndex = 4
@@ -12521,7 +12388,7 @@ function Sidebar:_initSearchBar()
     local border = pool:Get("Square")
     border.Position = Vector2.new(sbX, sbY)
     border.Size = Vector2.new(sbW, 28)
-    border.Color = get_theme_color("Window.Border", Color3.fromRGB(36, 36, 40))
+    border.Color = ThemeModule.Get(str_border)
     border.Filled = false
     border.Thickness = 1
     border.Corner = 7
@@ -12536,11 +12403,9 @@ function Sidebar:_initSearchBar()
     ico.ZIndex = 5
     ico.Visible = true
     self.SearchIcon = ico
-    if IconsModule and IconsModule.Get then
-        IconsModule.Get("search", function(png)
-            if self.SearchIcon and png then self.SearchIcon.Data = png end
-        end)
-    end
+    IconsModule.Get("search", function(png)
+        if self.SearchIcon and png then self.SearchIcon.Data = png end
+    end)
 
     local txt = pool:Get("Text")
     txt.Position = Vector2.new(sbX + 27, sbY + 7)
@@ -12548,7 +12413,7 @@ function Sidebar:_initSearchBar()
     txt.Font = fontUI
     txt.Outline = false
     txt.Size = 12
-    txt.Color = get_theme_color("Text.Muted", Color3.fromRGB(122, 122, 134))
+    txt.Color = ThemeModule.Get(str_muted)
     txt.ZIndex = 5
     txt.Visible = true
     self.SearchText = txt
@@ -12571,7 +12436,7 @@ function Sidebar:_initDivider()
     local divX = winPos.X + self.Width
     local divY = winPos.Y + 46
     local divH = math.max(0, winSize.Y - 58)
-    local divCol = get_theme_color("Sidebar.Divider", Color3.fromRGB(28, 28, 34))
+    local divCol = ThemeModule.Get("Sidebar.Divider")
 
     div.Position = Vector2.new(divX, divY)
     div.Size = Vector2.new(1, divH)
@@ -12591,19 +12456,19 @@ function Sidebar:RefreshSearchDisplay()
     if #self.SearchQuery > 0 then
         local caret = (self.SearchFocused and math.floor(os.clock() * 2) % 2 == 0) and "|" or ""
         self.SearchText.Text = self.SearchQuery .. caret
-        self.SearchText.Color = get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.SearchText.Color = ThemeModule.Get(str_title)
     elseif self.SearchFocused then
         self.SearchText.Text = (math.floor(os.clock() * 2) % 2 == 0) and "|" or ""
-        self.SearchText.Color = get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.SearchText.Color = ThemeModule.Get(str_title)
     else
         self.SearchText.Text = "Search"
-        self.SearchText.Color = get_theme_color("Text.Muted", Color3.fromRGB(122, 122, 134))
+        self.SearchText.Color = ThemeModule.Get(str_muted)
     end
 
     if self.SearchBorder then
         self.SearchBorder.Color = self.SearchFocused
-            and get_theme_color("Accent.Blue", Color3.fromRGB(0, 145, 255))
-            or get_theme_color("Window.Border", Color3.fromRGB(40, 40, 48))
+            and ThemeModule.Get("Accent.Blue")
+            or ThemeModule.Get(str_border)
     end
 end
 
@@ -12830,11 +12695,11 @@ function Sidebar:SetVisible(visible)
 end
 
 function Sidebar:UpdateTheme(t)
-    local divCol = t["Sidebar.Divider"] or t.Divider or get_theme_color("Sidebar.Divider", Color3.fromRGB(30, 30, 32))
-    local boxCol = t.Dialog or get_theme_color("Dialog", Color3.fromRGB(26, 26, 26))
-    local borderCol = t.Border or get_theme_color("Window.Border", Color3.fromRGB(36, 36, 40))
-    local mutedCol = t["Text.Muted"] or get_theme_color("Text.Muted", Color3.fromRGB(161, 161, 161))
-    local titleCol = t["Text.Title"] or get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+    local divCol = ThemeModule.Resolve(t, "Sidebar.Divider")
+    local boxCol = ThemeModule.Resolve(t, "Dialog")
+    local borderCol = ThemeModule.Resolve(t, str_border)
+    local mutedCol = ThemeModule.Resolve(t, str_muted)
+    local titleCol = ThemeModule.Resolve(t, str_title)
     if self.Divider then
         self.Divider.Color = divCol
     end
@@ -12842,9 +12707,7 @@ function Sidebar:UpdateTheme(t)
         self.SearchBox.Color = boxCol
     end
     if self.SearchBorder then
-        self.SearchBorder.Color = self.SearchFocused
-            and get_theme_color("Accent.Blue", Color3.fromRGB(0, 145, 255))
-            or borderCol
+        self.SearchBorder.Color = self.SearchFocused and ThemeModule.Resolve(t, "Accent.Blue") or borderCol
     end
     for _, sec in ipairs(self.Sections or {}) do
         if sec.TitleText then
@@ -12931,18 +12794,18 @@ local OverlayModule = Overlay or OverlayModule
 local Window = {}
 Window.__index = Window
 
-local UI_STATE_KEY = "breeze_ui_state"
-local UI_STATE_RUNNING = "running"
-local UI_STATE_UNLOAD = "unload"
-local UI_STATE_EMPTY = ""
-
-local function get_theme_color(token, default)
-    if ThemeModule and ThemeModule.Get then
-        local val = ThemeModule.Get(token)
-        if val ~= nil then return val end
-    end
-    return default
-end
+local str_ui_state   = "breeze_ui_state"
+local str_unload     = "unload"
+local str_empty      = ""
+local str_win_bg     = "Window.Background"
+local str_win_border = "Window.Border"
+local str_panel_bg   = "PanelBackground"
+local str_txt_title  = "Text.Title"
+local str_ctrl_bg    = "Control.Background"
+local str_txt_muted  = "Text.Muted"
+local str_mac_close  = "Mac.Close"
+local str_mac_min    = "Mac.Minimize"
+local str_mac_max    = "Mac.Maximize"
 
 local function get_mouse()
     if not game or not game.GetService then return nil end
@@ -12988,12 +12851,9 @@ function Window.new(config)
     end
 
     local themeName = type(config.Theme) == "string" and config.Theme or "Dark"
-    local themeTokens = type(config.Theme) == "table" and config.Theme
-        or (ThemeModule and ThemeModule.GetTheme and ThemeModule.GetTheme(themeName))
-        or (ThemeModule and ThemeModule.DefaultPalette)
-        or {}
+    local themeTokens = type(config.Theme) == "table" and config.Theme or ThemeModule.GetTheme(themeName)
 
-    local poolInstance = PoolModule and PoolModule.new(350, MetaModule)
+    local poolInstance = PoolModule.new(350, MetaModule)
     local env = config.Env or (type(_G.Library) == "table" and _G.Library) or nil
     local topbarH = (type(config.Topbar) == "table" and config.Topbar.Height) or 44
 
@@ -13088,7 +12948,7 @@ function Window.new(config)
         Pool = poolInstance,
         Sidebar = nil,
         DragModule = nil,
-        Input = InputHandlerModule and InputHandlerModule.new() or nil,
+        Input = InputHandlerModule.new(),
 
         -- Hardware Input
         Mouse = nil,
@@ -13135,12 +12995,9 @@ function Window.new(config)
     }, Window)
 
     self:_createChrome()
-    self.DragModule = DragModule and DragModule.new(self) or nil
-
-    if SidebarModule then
-        self.Sidebar = SidebarModule.new(self, { Width = self.SidebarWidth })
-        self.VerticalDivider = self.Sidebar.Divider
-    end
+    self.DragModule = DragModule.new(self)
+    self.Sidebar = SidebarModule.new(self, { Width = self.SidebarWidth })
+    self.VerticalDivider = self.Sidebar.Divider
 
     pcall(function()
         local runService = game:GetService("RunService")
@@ -13188,10 +13045,10 @@ function Window:_createChrome()
     local corner = self.CornerRadius
     local fontUI = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
 
-    local bgCol = self.ThemeTokens.Background or get_theme_color("Window.Background", Color3.fromRGB(16, 16, 18))
-    local borderCol = self.ThemeTokens.Border or get_theme_color("Window.Border", Color3.fromRGB(36, 36, 42))
-    local panelCol = self.ThemeTokens.PanelBackground or get_theme_color("PanelBackground", Color3.fromRGB(22, 22, 26))
-    local textCol = self.ThemeTokens.Text or get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+    local bgCol = ThemeModule.Resolve(self.ThemeTokens, str_win_bg)
+    local borderCol = ThemeModule.Resolve(self.ThemeTokens, str_win_border)
+    local panelCol = ThemeModule.Resolve(self.ThemeTokens, str_panel_bg)
+    local textCol = ThemeModule.Resolve(self.ThemeTokens, str_txt_title)
 
     -- 1. Main Window Frame Background & Border
     local bg = pool:Get("Square")
@@ -13234,7 +13091,7 @@ function Window:_createChrome()
     local sTrack = pool:Get("Square")
     sTrack.Position = Vector2.new(px + sx - 22, py + self.HeaderHeight + 10)
     sTrack.Size = Vector2.new(8, 40)
-    sTrack.Color = get_theme_color("Control.Background", Color3.fromRGB(48, 48, 52))
+    sTrack.Color = ThemeModule.Get(str_ctrl_bg)
     sTrack.Filled = true
     sTrack.Corner = 6
     sTrack.Transparency = 0.45
@@ -13246,7 +13103,7 @@ function Window:_createChrome()
     local sThumb = pool:Get("Square")
     sThumb.Position = Vector2.new(px + sx - 22, py + self.HeaderHeight + 10)
     sThumb.Size = Vector2.new(8, 40)
-    sThumb.Color = get_theme_color("Text.Muted", Color3.fromRGB(161, 161, 161))
+    sThumb.Color = ThemeModule.Get(str_txt_muted)
     sThumb.Filled = true
     sThumb.Corner = 6
     sThumb.Transparency = 0.28
@@ -13258,9 +13115,9 @@ function Window:_createChrome()
     self.HeaderBg = bg
 
     -- 4. macOS Traffic Lights
-    local closeCol = get_theme_color("Mac.Close", Color3.fromRGB(255, 95, 86))
-    local minCol = get_theme_color("Mac.Minimize", Color3.fromRGB(255, 189, 46))
-    local maxCol = get_theme_color("Mac.Maximize", Color3.fromRGB(39, 201, 63))
+    local closeCol = ThemeModule.Get(str_mac_close)
+    local minCol = ThemeModule.Get(str_mac_min)
+    local maxCol = ThemeModule.Get(str_mac_max)
 
     local macClose = pool:Get("Square")
     macClose.Position = Vector2.new(px + 16, py + 16)
@@ -13313,7 +13170,7 @@ function Window:_createChrome()
     self.Logo = logo
     self:_register(logo)
 
-    if showLogo and IconsModule and IconsModule.Get then
+    if showLogo then
         IconsModule.Get(self.Icon, function(pngData)
             if self.HeaderIcon and pngData then
                 self.HeaderIcon.Data = pngData
@@ -13328,7 +13185,7 @@ function Window:_createChrome()
     local fullTitle = (self.Subtitle and self.Subtitle ~= "" and self.Subtitle ~= "BreezeUI")
         and (self.Title .. "  |  " .. self.Subtitle)
         or tostring(self.Title)
-    local fitTitle = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(fullTitle, maxTitleW, 13) or fullTitle
+    local fitTitle = MetricsModule.Fit(fullTitle, maxTitleW, 13)
     titleText.Position = Vector2.new(px + titleOffset, py + 15)
     titleText.Text = fitTitle
     titleText.Color = textCol
@@ -13340,8 +13197,7 @@ function Window:_createChrome()
     self.TitleText = titleText
     self.HeaderText = titleText
     self.TitleOffset = titleOffset
-    local titleW = (MetricsModule and MetricsModule.Measure and MetricsModule.Measure(fitTitle, 13)) or math.floor(#fitTitle * 6.2)
-    self.TitleEndOffset = titleOffset + titleW
+    self.TitleEndOffset = titleOffset + MetricsModule.Measure(fitTitle, 13)
     self:_register(titleText)
 
     local subText = pool:Get("Text")
@@ -13361,13 +13217,11 @@ function Window:_createChrome()
     self.BottomDragPill = pill
     self:_register(pill)
 
-    if IconsModule and IconsModule.Get then
-        IconsModule.Get("drag-bar", function(pngData)
-            if self.BottomDragPill and pngData then
-                self.BottomDragPill.Data = pngData
-            end
-        end)
-    end
+    IconsModule.Get("drag-bar", function(pngData)
+        if self.BottomDragPill and pngData then
+            self.BottomDragPill.Data = pngData
+        end
+    end)
 
     -- 8. Bottom-Right Outside Corner Resize Arc (Concentric 6px outside window corner)
     local resizeIco = pool:Get("Image")
@@ -13379,13 +13233,11 @@ function Window:_createChrome()
     self.ResizeIcon = resizeIco
     self:_register(resizeIco)
 
-    if IconsModule and IconsModule.Get then
-        IconsModule.Get("resize-corner", function(pngData)
-            if self.ResizeIcon and pngData then
-                self.ResizeIcon.Data = pngData
-            end
-        end)
-    end
+    IconsModule.Get("resize-corner", function(pngData)
+        if self.ResizeIcon and pngData then
+            self.ResizeIcon.Data = pngData
+        end
+    end)
 end
 
 function Window:_register(obj)
@@ -13610,7 +13462,7 @@ function Window:SetSize(newSize, ignoreMaxClamp)
 
     -- Keep window safely clamped inside screen bounds after resize (no magnetic snap on resize/restore)
     if not self.IsMaximized and not ignoreMaxClamp then
-        local topInset = ClampingModule and ClampingModule.DefaultTopInset or 36
+        local topInset = ClampingModule.DefaultTopInset
         local maxX = math.max(0, vp.X - self.Size.X)
         local maxY = math.max(topInset, vp.Y - self.Size.Y)
         local safeX = math.clamp(self.Position.X, 0, maxX)
@@ -13703,9 +13555,7 @@ function Window:ToggleMaximize()
         self.PreMaximizeResizable = self.CanResize
         self.IsMaximized = true
         self.CanResize = false
-        if self.DragModule and self.DragModule.Set then
-            self.DragModule:Set(false)
-        end
+        self.DragModule:Set(false)
         if self.Minimized then
             self.Minimized = false
         end
@@ -13716,9 +13566,7 @@ function Window:ToggleMaximize()
     else
         self.IsMaximized = false
         self.CanResize = self.PreMaximizeResizable ~= false
-        if self.DragModule and self.DragModule.Set then
-            self.DragModule:Set(true)
-        end
+        self.DragModule:Set(true)
         if self.Minimized then
             self.Minimized = false
         end
@@ -13808,10 +13656,9 @@ function Window:_refreshTitleText()
     local fullTitle = (self.Subtitle and self.Subtitle ~= "" and self.Subtitle ~= "BreezeUI")
         and (self.Title .. "  |  " .. self.Subtitle)
         or tostring(self.Title)
-    local fitTitle = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(fullTitle, maxTitleW, 13) or fullTitle
+    local fitTitle = MetricsModule.Fit(fullTitle, maxTitleW, 13)
     self.TitleText.Text = fitTitle
-    local titleW = (MetricsModule and MetricsModule.Measure and MetricsModule.Measure(fitTitle, 13)) or math.floor(#fitTitle * 6.2)
-    self.TitleEndOffset = (self.TitleOffset or 74) + titleW
+    self.TitleEndOffset = (self.TitleOffset or 74) + MetricsModule.Measure(fitTitle, 13)
     self:_syncTagPositions()
 end
 
@@ -13926,7 +13773,7 @@ function Window:SetBackgroundImage(urlOrName)
         self.BgImage = img
         self:_register(img)
     end
-    if self.BgImage and IconsModule and IconsModule.Get then
+    if self.BgImage then
         IconsModule.Get(urlOrName, function(png)
             if not self.Destroyed and self.BgImage and png then
                 self.BgImage.Data = png
@@ -13963,7 +13810,6 @@ function Window:SetCurrentConfig(name)
 end
 
 function Window:Popup(cfg)
-    assert(DialogModule and DialogModule.Show, "Dialog subsystem not loaded!")
     return DialogModule.Show(cfg, self, "Popup")
 end
 
@@ -14044,12 +13890,8 @@ end
 -- Public theme setter: accepts a theme name string or palette table.
 -- Calls ThemeModule.SetCurrent so all subscribers see the change, then propagates visuals.
 function Window:SetTheme(nameOrPalette)
-    if ThemeModule and ThemeModule.SetCurrent then
-        ThemeModule.SetCurrent(nameOrPalette)
-    end
-    local resolved = (type(nameOrPalette) == "table" and nameOrPalette)
-        or (ThemeModule and ThemeModule.GetTheme and ThemeModule.GetTheme(nameOrPalette))
-        or {}
+    ThemeModule.SetCurrent(nameOrPalette)
+    local resolved = type(nameOrPalette) == "table" and nameOrPalette or ThemeModule.GetTheme(nameOrPalette)
     self:UpdateTheme(resolved)
 end
 
@@ -14082,52 +13924,46 @@ function Window:SetCornerRadius(r)
 end
 
 function Window:UpdateTheme(newTheme)
-    local t = type(newTheme) == "table" and newTheme
-        or (ThemeModule and ThemeModule.GetTheme and ThemeModule.GetTheme(newTheme))
-        or (ThemeModule and ThemeModule.DefaultPalette)
-        or {}
+    local t = type(newTheme) == "table" and newTheme or ThemeModule.GetTheme(newTheme)
 
     self.Theme = type(newTheme) == "table" and (newTheme.Name or "Custom") or tostring(newTheme)
     self.ThemeTokens = t
 
-    if IconsModule and IconsModule.SetDarkMode then
-        IconsModule.SetDarkMode(self.Theme == "Light")
-    end
+    IconsModule.SetDarkMode(self.Theme == "Light")
 
-    local bgCol = t.Background or get_theme_color("Window.Background", Color3.fromRGB(16, 16, 18))
-    local borderCol = t.Border or get_theme_color("Window.Border", Color3.fromRGB(36, 36, 42))
-    local panelCol = t.PanelBackground or get_theme_color("PanelBackground", Color3.fromRGB(22, 22, 26))
-    local textCol = t.Text or get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+    local bgCol = ThemeModule.Resolve(t, str_win_bg)
+    local borderCol = ThemeModule.Resolve(t, str_win_border)
+    local panelCol = ThemeModule.Resolve(t, str_panel_bg)
+    local textCol = ThemeModule.Resolve(t, str_txt_title)
 
     if self.FrameBg then self.FrameBg.Color = bgCol end
     if self.Border then self.Border.Color = borderCol end
     if self.MainPanelBg then self.MainPanelBg.Color = panelCol end
     if self.TitleText then self.TitleText.Color = textCol end
     if self.SubtitleText then
-        self.SubtitleText.Color = t["Text.Secondary"] or t.SubText or get_theme_color("Text.Secondary", Color3.fromRGB(161, 161, 170))
+        self.SubtitleText.Color = ThemeModule.Resolve(t, "Text.Secondary")
     end
     if self.VerticalDivider then
-        self.VerticalDivider.Color = t["Sidebar.Divider"] or t.Divider or borderCol
+        self.VerticalDivider.Color = ThemeModule.Resolve(t, "Sidebar.Divider")
     end
     if self.TopbarDivider then
-        self.TopbarDivider.Color = t["Sidebar.Divider"] or t.Divider or borderCol
+        self.TopbarDivider.Color = ThemeModule.Resolve(t, "Sidebar.Divider")
     end
     if self.ScrollTrack then
-        self.ScrollTrack.Color = t["Control.Background"] or get_theme_color("Control.Background", Color3.fromRGB(48, 48, 52))
+        self.ScrollTrack.Color = ThemeModule.Resolve(t, str_ctrl_bg)
     end
     if self.ScrollThumb then
-        self.ScrollThumb.Color = t["Text.Muted"] or t.Border or get_theme_color("Text.Muted", Color3.fromRGB(161, 161, 161))
+        self.ScrollThumb.Color = ThemeModule.Resolve(t, str_txt_muted)
     end
     if self.BottomDragPill then
-        self.BottomDragPill.Color = t["Control.Hover"] or t.Border or get_theme_color("Control.Hover", Color3.fromRGB(80, 82, 92))
+        self.BottomDragPill.Color = ThemeModule.Resolve(t, "Control.Hover")
     end
 
     for _, tag in ipairs(self.Tags or {}) do
         if not tag.CustomColor then
             local isLight = (self.Theme == "Light")
             if tag.Bg then
-                tag.Bg.Color = isLight and Color3.fromRGB(52, 52, 58)
-                    or (t["Control.Background"] or get_theme_color("Control.Background", Color3.fromRGB(48, 48, 52)))
+                tag.Bg.Color = isLight and Color3.fromRGB(52, 52, 58) or ThemeModule.Resolve(t, str_ctrl_bg)
             end
             if tag.Border then
                 tag.Border.Color = isLight and Color3.fromRGB(72, 72, 80) or borderCol
@@ -14163,7 +13999,7 @@ function Window:SetUIScale(scale)
 end
 
 function Window:SetToggleKey(key)
-    if type(key) == "string" and MetricsModule and MetricsModule.KeyCode then
+    if type(key) == "string" then
         self.ToggleKey = MetricsModule.KeyCode(key)
     else
         self.ToggleKey = key
@@ -14177,7 +14013,6 @@ function Window:SetPanelBackground(enabled)
 end
 
 function Window:Dialog(cfg)
-    assert(DialogModule and DialogModule.Show, "Dialog subsystem not loaded!")
     return DialogModule.Show(cfg, self, "Dialog")
 end
 
@@ -14193,8 +14028,7 @@ function Window:Tag(tagConfig)
 
     local tagTitle = tostring(cfg.Title or "Tag")
     local hasIcon = cfg.Icon ~= nil and cfg.Icon ~= ""
-    local tagTxtW = (MetricsModule and MetricsModule.Measure and MetricsModule.Measure(tagTitle, 12)) or math.floor(#tagTitle * 6.2)
-    local tagW = tagTxtW + (hasIcon and 30 or 16)
+    local tagW = MetricsModule.Measure(tagTitle, 12) + (hasIcon and 30 or 16)
     local tagH = 22
     local relX = math.min((self.TitleEndOffset or 220) + 12, sx - tagW - 14)
     local relY = 11
@@ -14202,7 +14036,7 @@ function Window:Tag(tagConfig)
     local tagY = py + relY
 
     local isLight = (self.Theme == "Light")
-    local tagBgCol = cfg.Color or (isLight and Color3.fromRGB(52, 52, 58) or get_theme_color("Control.Background", Color3.fromRGB(48, 48, 52)))
+    local tagBgCol = cfg.Color or (isLight and Color3.fromRGB(52, 52, 58) or ThemeModule.Get(str_ctrl_bg))
     local bg = pool:Get("Square")
     bg.Position = Vector2.new(tagX, tagY)
     bg.Size = Vector2.new(tagW, tagH)
@@ -14218,7 +14052,7 @@ function Window:Tag(tagConfig)
         border = pool:Get("Square")
         border.Position = Vector2.new(tagX, tagY)
         border.Size = Vector2.new(tagW, tagH)
-        border.Color = isLight and Color3.fromRGB(72, 72, 80) or get_theme_color("Window.Border", Color3.fromRGB(48, 48, 56))
+        border.Color = isLight and Color3.fromRGB(72, 72, 80) or ThemeModule.Get(str_win_border)
         border.Filled = false
         border.Thickness = 1
         border.Corner = 11
@@ -14233,7 +14067,7 @@ function Window:Tag(tagConfig)
     txt.Font = fontUI
     txt.Outline = false
     txt.Size = 12
-    txt.Color = isLight and Color3.fromRGB(245, 245, 250) or get_theme_color("Text.Title", Color3.fromRGB(240, 240, 245))
+    txt.Color = isLight and Color3.fromRGB(245, 245, 250) or ThemeModule.Get(str_txt_title)
     txt.ZIndex = 6
     txt.Visible = self.Visible
     self:_register(txt)
@@ -14247,11 +14081,9 @@ function Window:Tag(tagConfig)
         ico.Transparency = 0.9
         ico.Visible = self.Visible
         self:_register(ico)
-        if IconsModule and IconsModule.Get then
-            IconsModule.Get(cfg.Icon, function(pngData)
-                if ico and pngData then ico.Data = pngData end
-            end)
-        end
+        IconsModule.Get(cfg.Icon, function(pngData)
+            if ico and pngData then ico.Data = pngData end
+        end)
     end
 
     table.insert(self.Tags, {
@@ -14344,8 +14176,8 @@ end
 
 function Window:Update(rawDt)
     if self.Destroyed or not self.Running then return end
-    local curState = UI.GetValue(UI_STATE_KEY)
-    if curState == UI_STATE_UNLOAD or (self._uiStateToken and curState ~= self._uiStateToken) then
+    local curState = UI.GetValue(str_ui_state)
+    if curState == str_unload or (self._uiStateToken and curState ~= self._uiStateToken) then
         self:Destroy()
         return
     end
@@ -14361,9 +14193,7 @@ function Window:Update(rawDt)
         self._idleDt = 0
     end
 
-    if AnimationsModule and AnimationsModule.Step then
-        AnimationsModule.Step(dt)
-    end
+    AnimationsModule.Step(dt)
 
     local m1Pressed = rbxFocused and (type(ismouse1pressed) == "function") and (ismouse1pressed() == true)
     local m2Pressed = rbxFocused and (type(ismouse2pressed) == "function") and (ismouse2pressed() == true)
@@ -14373,22 +14203,16 @@ function Window:Update(rawDt)
     self.PrevM2 = m2Pressed
 
     local mouse = self:_getMouse()
-    if NotifyModule and NotifyModule.Update then
-        if NotifyModule.Update(dt, self, mouse, m1Clicked) then
-            m1Clicked = false
-        end
+    if NotifyModule.Update(dt, self, mouse, m1Clicked) then
+        m1Clicked = false
     end
 
-    if DialogModule and DialogModule.Update then
-        if DialogModule.Update(dt, self, mouse, m1Clicked) then
-            return
-        end
+    if DialogModule.Update(dt, self, mouse, m1Clicked) then
+        return
     end
 
-    if OverlayModule and OverlayModule.Update then
-        if OverlayModule.Update(dt, self, mouse, m1Pressed, m1Clicked) then
-            m1Clicked = false
-        end
+    if OverlayModule.Update(dt, self, mouse, m1Pressed, m1Clicked) then
+        m1Clicked = false
     end
 
     self:_updateInputBlock(rbxFocused)
@@ -14497,7 +14321,7 @@ function Window:Update(rawDt)
     if closeHover then
         if self.MacClose then self.MacClose.Color = Color3.fromRGB(230, 75, 68) end
         if m1Clicked then
-            if not self.IgnoreAlerts and DialogModule and DialogModule.Show then
+            if not self.IgnoreAlerts then
                 self:Dialog({
                     Title = "Close Window",
                     Content = "Do you want to close this window? You will not be able to open it again.",
@@ -14522,7 +14346,7 @@ function Window:Update(rawDt)
             return
         end
     else
-        if self.MacClose then self.MacClose.Color = get_theme_color("Mac.Close", Color3.fromRGB(255, 95, 86)) end
+        if self.MacClose then self.MacClose.Color = ThemeModule.Get(str_mac_close) end
     end
 
     local minHover = (not dis.Minimize) and mx >= px + 32 and mx <= px + 47 and my >= py + 14 and my <= py + 29
@@ -14533,7 +14357,7 @@ function Window:Update(rawDt)
             return
         end
     else
-        if self.MacMin then self.MacMin.Color = get_theme_color("Mac.Minimize", Color3.fromRGB(255, 189, 46)) end
+        if self.MacMin then self.MacMin.Color = ThemeModule.Get(str_mac_min) end
     end
 
     local maxHover = (not dis.Maximize) and mx >= px + 50 and mx <= px + 65 and my >= py + 14 and my <= py + 29
@@ -14544,7 +14368,7 @@ function Window:Update(rawDt)
             return
         end
     else
-        if self.MacMax then self.MacMax.Color = get_theme_color("Mac.Maximize", Color3.fromRGB(39, 201, 63)) end
+        if self.MacMax then self.MacMax.Color = ThemeModule.Get(str_mac_max) end
     end
 
     -- 2. Bottom-Right Corner Resize Icon & Hit-Test (strictly disabled in Fullscreen & Minimized)
@@ -14913,9 +14737,7 @@ function Window:Update(rawDt)
         end
     end
 
-    if OverlayModule and OverlayModule.RenderTooltip then
-        OverlayModule.RenderTooltip((not m1Pressed) and hoverTip or nil, mx, my, self)
-    end
+    OverlayModule.RenderTooltip((not m1Pressed) and hoverTip or nil, mx, my, self)
 
     if m1Clicked and self.FocusedInput and not clickedFocusedInput then
         self.FocusedInput:Blur(false)
@@ -14936,12 +14758,10 @@ function Window:Destroy()
     self.OpenColorpicker = nil
     self.CapturingKeybind = nil
     self.Keybinds = {}
-    if IconsModule and IconsModule.ClearSubscribers then
-        IconsModule.ClearSubscribers()
-    end
-    local curState = UI.GetValue(UI_STATE_KEY)
-    if curState == UI_STATE_UNLOAD or (self._uiStateToken and curState == self._uiStateToken) then
-        UI.SetValue(UI_STATE_KEY, UI_STATE_EMPTY)
+    IconsModule.ClearSubscribers()
+    local curState = UI.GetValue(str_ui_state)
+    if curState == str_unload or (self._uiStateToken and curState == self._uiStateToken) then
+        UI.SetValue(str_ui_state, str_empty)
     end
 
     for _, cb in ipairs(self._onDestroyCallbacks or {}) do
@@ -15013,10 +14833,10 @@ function Window:Destroy()
     end
 
     if (not self.Env or not self.Env._windows or #self.Env._windows == 0) then
-        if AnimationsModule and AnimationsModule.Reset then AnimationsModule.Reset() end
-        if NotifyModule and NotifyModule.Destroy then NotifyModule.Destroy() end
-        if DialogModule and DialogModule.Destroy then DialogModule.Destroy() end
-        if OverlayModule and OverlayModule.Destroy then OverlayModule.Destroy() end
+        AnimationsModule.Reset()
+        NotifyModule.Destroy()
+        DialogModule.Destroy()
+        OverlayModule.Destroy()
         if self.Env and self.Env._cleanupRuntime then self.Env:_cleanupRuntime() end
     end
     if self._lastInputBlocked then
@@ -15305,12 +15125,8 @@ end
 
 -- Theme & Scaling API
 function BreezeUI:SetTheme(themeName)
-    if ThemeModule and ThemeModule.SetCurrent then
-        ThemeModule.SetCurrent(themeName)
-    end
-    local theme = type(themeName) == "table" and themeName
-        or (ThemeModule.GetTheme and ThemeModule.GetTheme(themeName))
-        or themeName
+    ThemeModule.SetCurrent(themeName)
+    local theme = type(themeName) == "table" and themeName or ThemeModule.GetTheme(themeName)
     self.CurrentTheme = theme
     for _, win in ipairs(self._windows) do
         if not win.Destroyed and win.UpdateTheme then
@@ -15339,9 +15155,7 @@ end
 
 -- Notify side helper (delegates to NotifyModule)
 function BreezeUI:SetNotifySide(side)
-    if NotifyModule and NotifyModule.SetSide then
-        NotifyModule.SetSide(side)
-    end
+    NotifyModule.SetSide(side)
     if self._activeWindow then
         self._activeWindow.NotifySide = side
     end
@@ -15354,6 +15168,10 @@ function BreezeUI:SetupSettingsTab(win)
 end
 
 -- Window Construction
+local str_ui_state = "breeze_ui_state"
+local str_running  = "running:"
+local str_unload   = "unload"
+
 function BreezeUI:CreateWindow(config)
     -- Auto-close previous active window first so _cleanupRuntime does not clobber the new session state
     if self._activeWindow and not self._activeWindow.Destroyed then
@@ -15367,14 +15185,13 @@ function BreezeUI:CreateWindow(config)
     self.UnloadCallbacks = self.UnloadCallbacks or {}
 
     -- Cross-VM Matcha UI handshake: overwriting token immediately supersedes any prior running VM (and recovers cleanly from Lua VM resets)
-    local uiStateToken = "running:" .. tostring(os.clock()) .. ":" .. tostring(math.random(1000, 9999))
-    UI.SetValue("breeze_ui_state", uiStateToken)
+    local uiStateToken = str_running .. tostring(os.clock()) .. ":" .. tostring(math.random(1000, 9999))
+    UI.SetValue(str_ui_state, uiStateToken)
 
     assert(type(config) == "table", "CreateWindow requires configuration table!")
     if config.Folder and config.Folder ~= "" then
         SettingsModule.SetFolder(config.Folder)
     end
-    config = config or {}
 
     config.Env = self
     local win = WindowModule.new(config)
@@ -15388,8 +15205,8 @@ function BreezeUI:IsLoaded()
     if self.Unloaded or self.Destroyed then return false end
     local win = self._activeWindow
     if not win or win.Destroyed then return false end
-    local cur = UI and UI.GetValue and UI.GetValue("breeze_ui_state")
-    if cur == "unload" or (win._uiStateToken and cur ~= nil and cur ~= "" and cur ~= win._uiStateToken) then
+    local cur = UI and UI.GetValue and UI.GetValue(str_ui_state)
+    if cur == str_unload or (win._uiStateToken and cur ~= nil and cur ~= "" and cur ~= win._uiStateToken) then
         return false
     end
     return true
@@ -15407,7 +15224,8 @@ end
 
 function BreezeUI:Connect(signal, fn)
     assert(signal and signal.Connect and type(fn) == "function", "Connect requires signal and callback!")
-    local conn = signal:Connect(function(...)
+    local conn
+    conn = signal:Connect(function(...)
         if not self:IsLoaded() then return end
         fn(...)
     end)
@@ -15448,21 +15266,11 @@ function BreezeUI:Destroy()
     for k in pairs(rawOptions) do rawOptions[k] = nil end
     for k in pairs(rawToggles) do rawToggles[k] = nil end
 
-    if AnimationsModule.Reset then
-        AnimationsModule.Reset()
-    end
-    if NotifyModule and NotifyModule.Destroy then
-        NotifyModule.Destroy()
-    end
-    if DialogModule and DialogModule.Destroy then
-        DialogModule.Destroy()
-    end
-    if OverlayModule and OverlayModule.Destroy then
-        OverlayModule.Destroy()
-    end
-    if IconsModule.ClearCache then
-        IconsModule.ClearCache()
-    end
+    AnimationsModule.Reset()
+    NotifyModule.Destroy()
+    DialogModule.Destroy()
+    OverlayModule.Destroy()
+    IconsModule.ClearCache()
 end
 
 function BreezeUI:Unload()

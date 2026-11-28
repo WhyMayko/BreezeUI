@@ -13,10 +13,6 @@ local IconsModule = Icons or require("../Subsystems/Icons")
 local Sidebar = {}
 Sidebar.__index = Sidebar
 
-local function get_theme_color(token, default)
-    return ThemeModule.Get(token, default)
-end
-
 -- ============================================================================
 -- Section Class (NavigationSection)
 -- ============================================================================
@@ -47,6 +43,10 @@ function Section.new(sidebar, config)
     return self
 end
 
+local str_muted  = "Text.Muted"
+local str_title  = "Text.Title"
+local str_border = "Window.Border"
+
 function Section:_initDrawings()
     local pool = self.Sidebar.Pool
     if not pool then return end
@@ -64,7 +64,7 @@ function Section:_initDrawings()
     txt.Size = 11
     txt.Font = fontUI
     txt.Outline = false
-    txt.Color = get_theme_color("Text.Muted", Color3.fromRGB(120, 120, 130))
+    txt.Color = ThemeModule.Get(str_muted)
     txt.ZIndex = 4
     txt.Visible = true
     self.TitleText = txt
@@ -77,7 +77,7 @@ function Section:_initDrawings()
 end
 
 function Section:_syncCaretIcon()
-    if not self.Caret or not IconsModule or not IconsModule.Get then return end
+    if not self.Caret then return end
     if not self._caretCb then
         self._caretCb = function(png)
             if self.Caret and png then
@@ -85,8 +85,7 @@ function Section:_syncCaretIcon()
             end
         end
     end
-    local iconName = self.Opened and "chevron-up" or "chevron-down"
-    IconsModule.Get(iconName, self._caretCb)
+    IconsModule.Get(self.Opened and "chevron-up" or "chevron-down", self._caretCb)
 end
 
 function Section:HasActiveChild()
@@ -105,8 +104,8 @@ function Section:UpdatePositions(winPos)
     local hy = winPos.Y + self.RelY
     local sbW = (self.Sidebar and self.Sidebar.Width or 190) - 20
 
-    local mutedCol = get_theme_color("Text.Muted", Color3.fromRGB(120, 120, 130))
-    local titleCol = get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+    local mutedCol = ThemeModule.Get(str_muted)
+    local titleCol = ThemeModule.Get(str_title)
     local isHighlighted = (not self.Opened) and self:HasActiveChild()
 
     if self.Caret then
@@ -114,11 +113,8 @@ function Section:UpdatePositions(winPos)
         self.Caret.Transparency = isHighlighted and 0.90 or 0.34
     end
 
-    local rawTitle = tostring(self.Title)
-    local fitted = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(rawTitle, sbW - 24, 11) or rawTitle
-
     if self.TitleText then
-        self.TitleText.Text = fitted
+        self.TitleText.Text = MetricsModule.Fit(tostring(self.Title), sbW - 24, 11)
         self.TitleText.Position = Vector2.new(hx + 6, hy + math.floor((self.Height - 11) * 0.5))
         self.TitleText.Color = isHighlighted and titleCol or mutedCol
     end
@@ -217,7 +213,7 @@ function Sidebar:_initSearchBar()
     local box = pool:Get("Square")
     box.Position = Vector2.new(sbX, sbY)
     box.Size = Vector2.new(sbW, 28)
-    box.Color = get_theme_color("Dialog", Color3.fromRGB(26, 26, 26))
+    box.Color = ThemeModule.Get("Dialog")
     box.Filled = true
     box.Corner = 7
     box.ZIndex = 4
@@ -227,7 +223,7 @@ function Sidebar:_initSearchBar()
     local border = pool:Get("Square")
     border.Position = Vector2.new(sbX, sbY)
     border.Size = Vector2.new(sbW, 28)
-    border.Color = get_theme_color("Window.Border", Color3.fromRGB(36, 36, 40))
+    border.Color = ThemeModule.Get(str_border)
     border.Filled = false
     border.Thickness = 1
     border.Corner = 7
@@ -242,11 +238,9 @@ function Sidebar:_initSearchBar()
     ico.ZIndex = 5
     ico.Visible = true
     self.SearchIcon = ico
-    if IconsModule and IconsModule.Get then
-        IconsModule.Get("search", function(png)
-            if self.SearchIcon and png then self.SearchIcon.Data = png end
-        end)
-    end
+    IconsModule.Get("search", function(png)
+        if self.SearchIcon and png then self.SearchIcon.Data = png end
+    end)
 
     local txt = pool:Get("Text")
     txt.Position = Vector2.new(sbX + 27, sbY + 7)
@@ -254,7 +248,7 @@ function Sidebar:_initSearchBar()
     txt.Font = fontUI
     txt.Outline = false
     txt.Size = 12
-    txt.Color = get_theme_color("Text.Muted", Color3.fromRGB(122, 122, 134))
+    txt.Color = ThemeModule.Get(str_muted)
     txt.ZIndex = 5
     txt.Visible = true
     self.SearchText = txt
@@ -277,7 +271,7 @@ function Sidebar:_initDivider()
     local divX = winPos.X + self.Width
     local divY = winPos.Y + 46
     local divH = math.max(0, winSize.Y - 58)
-    local divCol = get_theme_color("Sidebar.Divider", Color3.fromRGB(28, 28, 34))
+    local divCol = ThemeModule.Get("Sidebar.Divider")
 
     div.Position = Vector2.new(divX, divY)
     div.Size = Vector2.new(1, divH)
@@ -297,19 +291,19 @@ function Sidebar:RefreshSearchDisplay()
     if #self.SearchQuery > 0 then
         local caret = (self.SearchFocused and math.floor(os.clock() * 2) % 2 == 0) and "|" or ""
         self.SearchText.Text = self.SearchQuery .. caret
-        self.SearchText.Color = get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.SearchText.Color = ThemeModule.Get(str_title)
     elseif self.SearchFocused then
         self.SearchText.Text = (math.floor(os.clock() * 2) % 2 == 0) and "|" or ""
-        self.SearchText.Color = get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+        self.SearchText.Color = ThemeModule.Get(str_title)
     else
         self.SearchText.Text = "Search"
-        self.SearchText.Color = get_theme_color("Text.Muted", Color3.fromRGB(122, 122, 134))
+        self.SearchText.Color = ThemeModule.Get(str_muted)
     end
 
     if self.SearchBorder then
         self.SearchBorder.Color = self.SearchFocused
-            and get_theme_color("Accent.Blue", Color3.fromRGB(0, 145, 255))
-            or get_theme_color("Window.Border", Color3.fromRGB(40, 40, 48))
+            and ThemeModule.Get("Accent.Blue")
+            or ThemeModule.Get(str_border)
     end
 end
 
@@ -536,11 +530,11 @@ function Sidebar:SetVisible(visible)
 end
 
 function Sidebar:UpdateTheme(t)
-    local divCol = t["Sidebar.Divider"] or t.Divider or get_theme_color("Sidebar.Divider", Color3.fromRGB(30, 30, 32))
-    local boxCol = t.Dialog or get_theme_color("Dialog", Color3.fromRGB(26, 26, 26))
-    local borderCol = t.Border or get_theme_color("Window.Border", Color3.fromRGB(36, 36, 40))
-    local mutedCol = t["Text.Muted"] or get_theme_color("Text.Muted", Color3.fromRGB(161, 161, 161))
-    local titleCol = t["Text.Title"] or get_theme_color("Text.Title", Color3.fromRGB(255, 255, 255))
+    local divCol = ThemeModule.Resolve(t, "Sidebar.Divider")
+    local boxCol = ThemeModule.Resolve(t, "Dialog")
+    local borderCol = ThemeModule.Resolve(t, str_border)
+    local mutedCol = ThemeModule.Resolve(t, str_muted)
+    local titleCol = ThemeModule.Resolve(t, str_title)
     if self.Divider then
         self.Divider.Color = divCol
     end
@@ -548,9 +542,7 @@ function Sidebar:UpdateTheme(t)
         self.SearchBox.Color = boxCol
     end
     if self.SearchBorder then
-        self.SearchBorder.Color = self.SearchFocused
-            and get_theme_color("Accent.Blue", Color3.fromRGB(0, 145, 255))
-            or borderCol
+        self.SearchBorder.Color = self.SearchFocused and ThemeModule.Resolve(t, "Accent.Blue") or borderCol
     end
     for _, sec in ipairs(self.Sections or {}) do
         if sec.TitleText then
