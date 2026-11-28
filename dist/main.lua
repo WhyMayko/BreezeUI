@@ -1673,6 +1673,50 @@ theme.DefaultPalette = default_tokens
 theme.CurrentPalette = default_tokens
 theme.CurrentName = "Dark"
 
+local rainbow_hue = 0
+
+function theme.HSV(h, s, v)
+    local hue = (tonumber(h) or 0) % 1
+    local sat = math.clamp(tonumber(s) or 1, 0, 1)
+    local val = math.clamp(tonumber(v) or 1, 0, 1)
+    local scaled = hue * 6
+    local i = math.floor(scaled)
+    local f = scaled - i
+    local p = val * (1 - sat)
+    local q = val * (1 - f * sat)
+    local t = val * (1 - (1 - f) * sat)
+    local r, g, b
+    if i == 0 then r, g, b = val, t, p
+    elseif i == 1 then r, g, b = q, val, p
+    elseif i == 2 then r, g, b = p, val, t
+    elseif i == 3 then r, g, b = p, q, val
+    elseif i == 4 then r, g, b = t, p, val
+    else r, g, b = val, p, q end
+    return Color3.fromRGB(math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5))
+end
+
+function theme.StepRainbow(dt, speed)
+    rainbow_hue = (rainbow_hue + (tonumber(dt) or 0.016) * (tonumber(speed) or 0.18)) % 1
+    local primary = theme.HSV(rainbow_hue, 0.85, 1)
+    local secondary = theme.HSV((rainbow_hue + 0.12) % 1, 0.85, 0.96)
+    local tabBg = theme.HSV(rainbow_hue, 0.55, 0.36)
+    local border = theme.HSV(rainbow_hue, 0.45, 0.38)
+    local muted = theme.HSV((rainbow_hue + 0.25) % 1, 0.65, 0.88)
+
+    rainbow_tokens["Accent.Blue"] = primary
+    rainbow_tokens["Slider"] = primary
+    rainbow_tokens["Checkbox"] = primary
+    rainbow_tokens["Primary"] = primary
+    rainbow_tokens["Button"] = primary
+    rainbow_tokens["Accent"] = primary
+    rainbow_tokens["Accent.Green"] = secondary
+    rainbow_tokens["Toggle"] = secondary
+    rainbow_tokens["Tab.ActiveBg"] = tabBg
+    rainbow_tokens["Window.Border"] = border
+    rainbow_tokens["Text.Muted"] = muted
+    return rainbow_tokens
+end
+
 -- Color Helpers
 function theme.RGB(r, g, b)
     return Color3.fromRGB(
@@ -7768,11 +7812,11 @@ function Toggle.new(section, id, config)
     return self
 end
 
-function Toggle:_applyAnimVisual(progress)
+function Toggle:_applyAnimVisual(progress, palette)
     self.AnimProgress = progress
     local isCheck = self.Type == "Checkbox"
-    local offCol = ThemeModule.Get("Toggle.TrackOff")
-    local onCol = isCheck and ThemeModule.Get("Accent.Blue") or ThemeModule.Get("Accent.Green")
+    local offCol = ThemeModule.Resolve(palette, "Toggle.TrackOff")
+    local onCol = ThemeModule.Resolve(palette, isCheck and "Accent.Blue" or "Accent.Green")
 
     if self.Track then
         self.Track.Color = lerp_color(offCol, onCol, progress)
@@ -8812,6 +8856,7 @@ function ProgressBar.new(section, id, config)
         Format = cfg.Format,
         ShowValue = cfg.ShowValue ~= false,
         Indeterminate = cfg.Indeterminate == true,
+        CustomColor = cfg.Color,
         _animPhase = 0,
         Position = pos,
         Size = size,
@@ -9053,25 +9098,7 @@ local function rgb_to_hsv(col)
     return h, s, maxV
 end
 
-local function hsv_to_rgb(h, s, v)
-    h = clamp(h or 0, 0, 1) * 6
-    s = clamp(s or 0, 0, 1)
-    v = clamp(v or 0, 0, 1)
-    local i = math.floor(h)
-    local f = h - i
-    local p = v * (1 - s)
-    local q = v * (1 - f * s)
-    local t = v * (1 - (1 - f) * s)
-    local r, g, b
-    local m = i % 6
-    if m == 0 then r, g, b = v, t, p
-    elseif m == 1 then r, g, b = q, v, p
-    elseif m == 2 then r, g, b = p, v, t
-    elseif m == 3 then r, g, b = p, q, v
-    elseif m == 4 then r, g, b = t, p, v
-    else r, g, b = v, p, q end
-    return Color3.fromRGB(math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5))
-end
+local hsv_to_rgb = ThemeModule.HSV
 
 local function rgb_to_hex(col)
     if not col then return "#FFFFFF" end
@@ -11443,6 +11470,9 @@ function Tab:UpdateTheme(t)
     local txtMuted = ThemeModule.Resolve(t, "Text.Muted")
     local accentBlue = ThemeModule.Resolve(t, "Accent.Blue")
     local sldTrack = ThemeModule.Resolve(t, "Slider.TrackBg")
+    if self.BadgeBg and not self.BadgeColor then
+        self.BadgeBg.Color = accentBlue
+    end
 
     for _, sec in ipairs(self.Sections) do
         -- Boxed collapsible sections use Text.Title at near-full transparency (WindUI SectionBox style)
@@ -11510,12 +11540,12 @@ function Tab:UpdateTheme(t)
             if ctrl.Opened and ctrl._layoutPopup then ctrl:_layoutPopup() end
             if ctrl.Track then
                 if ctrl._applyAnimVisual then
-                    ctrl:_applyAnimVisual(ctrl.AnimProgress or (ctrl.Value and 1 or 0))
+                    ctrl:_applyAnimVisual(ctrl.AnimProgress or (ctrl.Value and 1 or 0), t)
                 else
                     ctrl.Track.Color = sldTrack
                 end
             end
-            if ctrl.FillBar and not ctrl._applyAnimVisual then
+            if ctrl.FillBar and not ctrl._applyAnimVisual and not ctrl.CustomColor then
                 ctrl.FillBar.Color = accentBlue
             end
         end
@@ -12694,7 +12724,7 @@ function Sidebar:SetVisible(visible)
     if self.ProfileCard then self.ProfileCard:SetVisible(visible) end
 end
 
-function Sidebar:UpdateTheme(t)
+function Sidebar:UpdateTheme(t, skipLayout)
     local divCol = ThemeModule.Resolve(t, "Sidebar.Divider")
     local boxCol = ThemeModule.Resolve(t, "Dialog")
     local borderCol = ThemeModule.Resolve(t, str_border)
@@ -12716,7 +12746,9 @@ function Sidebar:UpdateTheme(t)
         end
     end
     self:RefreshSearchDisplay()
-    self:RecalculateLayout()
+    if not skipLayout then
+        self:RecalculateLayout()
+    end
     if self.ProfileCard then self.ProfileCard:UpdateTheme(t) end
 end
 
@@ -12806,6 +12838,7 @@ local str_txt_muted  = "Text.Muted"
 local str_mac_close  = "Mac.Close"
 local str_mac_min    = "Mac.Minimize"
 local str_mac_max    = "Mac.Maximize"
+local str_rainbow    = "Rainbow"
 
 local function get_mouse()
     if not game or not game.GetService then return nil end
@@ -12852,6 +12885,7 @@ function Window.new(config)
 
     local themeName = type(config.Theme) == "string" and config.Theme or "Dark"
     local themeTokens = type(config.Theme) == "table" and config.Theme or ThemeModule.GetTheme(themeName)
+    ThemeModule.SetCurrent(themeTokens)
 
     local poolInstance = PoolModule.new(350, MetaModule)
     local env = config.Env or (type(_G.Library) == "table" and _G.Library) or nil
@@ -13890,6 +13924,7 @@ end
 -- Public theme setter: accepts a theme name string or palette table.
 -- Calls ThemeModule.SetCurrent so all subscribers see the change, then propagates visuals.
 function Window:SetTheme(nameOrPalette)
+    self._rainbowAcc = 0
     ThemeModule.SetCurrent(nameOrPalette)
     local resolved = type(nameOrPalette) == "table" and nameOrPalette or ThemeModule.GetTheme(nameOrPalette)
     self:UpdateTheme(resolved)
@@ -13923,7 +13958,7 @@ function Window:SetCornerRadius(r)
     end
 end
 
-function Window:UpdateTheme(newTheme)
+function Window:UpdateTheme(newTheme, skipLayout)
     local t = type(newTheme) == "table" and newTheme or ThemeModule.GetTheme(newTheme)
 
     self.Theme = type(newTheme) == "table" and (newTheme.Name or "Custom") or tostring(newTheme)
@@ -13975,7 +14010,7 @@ function Window:UpdateTheme(newTheme)
     end
 
     if self.Sidebar then
-        self.Sidebar:UpdateTheme(t)
+        self.Sidebar:UpdateTheme(t, skipLayout)
     end
 
     for _, tab in ipairs(self.Tabs) do
@@ -14194,6 +14229,15 @@ function Window:Update(rawDt)
     end
 
     AnimationsModule.Step(dt)
+
+    if self.Theme == str_rainbow and not self.Minimized then
+        self._rainbowAcc = (self._rainbowAcc or 0) + dt
+        if self._rainbowAcc >= 0.03 then
+            local stepDt = self._rainbowAcc
+            self._rainbowAcc = 0
+            self:UpdateTheme(ThemeModule.StepRainbow(stepDt), true)
+        end
+    end
 
     local m1Pressed = rbxFocused and (type(ismouse1pressed) == "function") and (ismouse1pressed() == true)
     local m2Pressed = rbxFocused and (type(ismouse2pressed) == "function") and (ismouse2pressed() == true)

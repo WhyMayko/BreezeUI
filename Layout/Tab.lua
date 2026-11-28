@@ -538,6 +538,9 @@ function Tab:UpdateTheme(t)
     local txtMuted = ThemeModule.Resolve(t, "Text.Muted")
     local accentBlue = ThemeModule.Resolve(t, "Accent.Blue")
     local sldTrack = ThemeModule.Resolve(t, "Slider.TrackBg")
+    if self.BadgeBg and not self.BadgeColor then
+        self.BadgeBg.Color = accentBlue
+    end
 
     for _, sec in ipairs(self.Sections) do
         -- Boxed collapsible sections use Text.Title at near-full transparency (WindUI SectionBox style)
@@ -605,12 +608,12 @@ function Tab:UpdateTheme(t)
             if ctrl.Opened and ctrl._layoutPopup then ctrl:_layoutPopup() end
             if ctrl.Track then
                 if ctrl._applyAnimVisual then
-                    ctrl:_applyAnimVisual(ctrl.AnimProgress or (ctrl.Value and 1 or 0))
+                    ctrl:_applyAnimVisual(ctrl.AnimProgress or (ctrl.Value and 1 or 0), t)
                 else
                     ctrl.Track.Color = sldTrack
                 end
             end
-            if ctrl.FillBar and not ctrl._applyAnimVisual then
+            if ctrl.FillBar and not ctrl._applyAnimVisual and not ctrl.CustomColor then
                 ctrl.FillBar.Color = accentBlue
             end
         end

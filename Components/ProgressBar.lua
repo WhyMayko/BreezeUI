@@ -54,6 +54,7 @@ function ProgressBar.new(section, id, config)
         Format = cfg.Format,
         ShowValue = cfg.ShowValue ~= false,
         Indeterminate = cfg.Indeterminate == true,
+        CustomColor = cfg.Color,
         _animPhase = 0,
         Position = pos,
         Size = size,

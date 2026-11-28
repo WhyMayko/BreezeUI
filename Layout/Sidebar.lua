@@ -529,7 +529,7 @@ function Sidebar:SetVisible(visible)
     if self.ProfileCard then self.ProfileCard:SetVisible(visible) end
 end
 
-function Sidebar:UpdateTheme(t)
+function Sidebar:UpdateTheme(t, skipLayout)
     local divCol = ThemeModule.Resolve(t, "Sidebar.Divider")
     local boxCol = ThemeModule.Resolve(t, "Dialog")
     local borderCol = ThemeModule.Resolve(t, str_border)
@@ -551,7 +551,9 @@ function Sidebar:UpdateTheme(t)
         end
     end
     self:RefreshSearchDisplay()
-    self:RecalculateLayout()
+    if not skipLayout then
+        self:RecalculateLayout()
+    end
     if self.ProfileCard then self.ProfileCard:UpdateTheme(t) end
 end
 

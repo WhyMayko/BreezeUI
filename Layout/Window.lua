@@ -32,6 +32,7 @@ local str_txt_muted  = "Text.Muted"
 local str_mac_close  = "Mac.Close"
 local str_mac_min    = "Mac.Minimize"
 local str_mac_max    = "Mac.Maximize"
+local str_rainbow    = "Rainbow"
 
 local function get_mouse()
     if not game or not game.GetService then return nil end
@@ -78,6 +79,7 @@ function Window.new(config)
 
     local themeName = type(config.Theme) == "string" and config.Theme or "Dark"
     local themeTokens = type(config.Theme) == "table" and config.Theme or ThemeModule.GetTheme(themeName)
+    ThemeModule.SetCurrent(themeTokens)
 
     local poolInstance = PoolModule.new(350, MetaModule)
     local env = config.Env or (type(_G.Library) == "table" and _G.Library) or nil
@@ -1116,6 +1118,7 @@ end
 -- Public theme setter: accepts a theme name string or palette table.
 -- Calls ThemeModule.SetCurrent so all subscribers see the change, then propagates visuals.
 function Window:SetTheme(nameOrPalette)
+    self._rainbowAcc = 0
     ThemeModule.SetCurrent(nameOrPalette)
     local resolved = type(nameOrPalette) == "table" and nameOrPalette or ThemeModule.GetTheme(nameOrPalette)
     self:UpdateTheme(resolved)
@@ -1149,7 +1152,7 @@ function Window:SetCornerRadius(r)
     end
 end
 
-function Window:UpdateTheme(newTheme)
+function Window:UpdateTheme(newTheme, skipLayout)
     local t = type(newTheme) == "table" and newTheme or ThemeModule.GetTheme(newTheme)
 
     self.Theme = type(newTheme) == "table" and (newTheme.Name or "Custom") or tostring(newTheme)
@@ -1201,7 +1204,7 @@ function Window:UpdateTheme(newTheme)
     end
 
     if self.Sidebar then
-        self.Sidebar:UpdateTheme(t)
+        self.Sidebar:UpdateTheme(t, skipLayout)
     end
 
     for _, tab in ipairs(self.Tabs) do
@@ -1420,6 +1423,15 @@ function Window:Update(rawDt)
     end
 
     AnimationsModule.Step(dt)
+
+    if self.Theme == str_rainbow and not self.Minimized then
+        self._rainbowAcc = (self._rainbowAcc or 0) + dt
+        if self._rainbowAcc >= 0.03 then
+            local stepDt = self._rainbowAcc
+            self._rainbowAcc = 0
+            self:UpdateTheme(ThemeModule.StepRainbow(stepDt), true)
+        end
+    end
 
     local m1Pressed = rbxFocused and (type(ismouse1pressed) == "function") and (ismouse1pressed() == true)
     local m2Pressed = rbxFocused and (type(ismouse2pressed) == "function") and (ismouse2pressed() == true)

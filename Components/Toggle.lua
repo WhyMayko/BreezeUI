@@ -138,11 +138,11 @@ function Toggle.new(section, id, config)
     return self
 end
 
-function Toggle:_applyAnimVisual(progress)
+function Toggle:_applyAnimVisual(progress, palette)
     self.AnimProgress = progress
     local isCheck = self.Type == "Checkbox"
-    local offCol = ThemeModule.Get("Toggle.TrackOff")
-    local onCol = isCheck and ThemeModule.Get("Accent.Blue") or ThemeModule.Get("Accent.Green")
+    local offCol = ThemeModule.Resolve(palette, "Toggle.TrackOff")
+    local onCol = ThemeModule.Resolve(palette, isCheck and "Accent.Blue" or "Accent.Green")
 
     if self.Track then
         self.Track.Color = lerp_color(offCol, onCol, progress)

@@ -587,6 +587,50 @@ theme.DefaultPalette = default_tokens
 theme.CurrentPalette = default_tokens
 theme.CurrentName = "Dark"
 
+local rainbow_hue = 0
+
+function theme.HSV(h, s, v)
+    local hue = (tonumber(h) or 0) % 1
+    local sat = math.clamp(tonumber(s) or 1, 0, 1)
+    local val = math.clamp(tonumber(v) or 1, 0, 1)
+    local scaled = hue * 6
+    local i = math.floor(scaled)
+    local f = scaled - i
+    local p = val * (1 - sat)
+    local q = val * (1 - f * sat)
+    local t = val * (1 - (1 - f) * sat)
+    local r, g, b
+    if i == 0 then r, g, b = val, t, p
+    elseif i == 1 then r, g, b = q, val, p
+    elseif i == 2 then r, g, b = p, val, t
+    elseif i == 3 then r, g, b = p, q, val
+    elseif i == 4 then r, g, b = t, p, val
+    else r, g, b = val, p, q end
+    return Color3.fromRGB(math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5))
+end
+
+function theme.StepRainbow(dt, speed)
+    rainbow_hue = (rainbow_hue + (tonumber(dt) or 0.016) * (tonumber(speed) or 0.18)) % 1
+    local primary = theme.HSV(rainbow_hue, 0.85, 1)
+    local secondary = theme.HSV((rainbow_hue + 0.12) % 1, 0.85, 0.96)
+    local tabBg = theme.HSV(rainbow_hue, 0.55, 0.36)
+    local border = theme.HSV(rainbow_hue, 0.45, 0.38)
+    local muted = theme.HSV((rainbow_hue + 0.25) % 1, 0.65, 0.88)
+
+    rainbow_tokens["Accent.Blue"] = primary
+    rainbow_tokens["Slider"] = primary
+    rainbow_tokens["Checkbox"] = primary
+    rainbow_tokens["Primary"] = primary
+    rainbow_tokens["Button"] = primary
+    rainbow_tokens["Accent"] = primary
+    rainbow_tokens["Accent.Green"] = secondary
+    rainbow_tokens["Toggle"] = secondary
+    rainbow_tokens["Tab.ActiveBg"] = tabBg
+    rainbow_tokens["Window.Border"] = border
+    rainbow_tokens["Text.Muted"] = muted
+    return rainbow_tokens
+end
+
 -- Color Helpers
 function theme.RGB(r, g, b)
     return Color3.fromRGB(

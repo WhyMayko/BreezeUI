@@ -41,25 +41,7 @@ local function rgb_to_hsv(col)
     return h, s, maxV
 end
 
-local function hsv_to_rgb(h, s, v)
-    h = clamp(h or 0, 0, 1) * 6
-    s = clamp(s or 0, 0, 1)
-    v = clamp(v or 0, 0, 1)
-    local i = math.floor(h)
-    local f = h - i
-    local p = v * (1 - s)
-    local q = v * (1 - f * s)
-    local t = v * (1 - (1 - f) * s)
-    local r, g, b
-    local m = i % 6
-    if m == 0 then r, g, b = v, t, p
-    elseif m == 1 then r, g, b = q, v, p
-    elseif m == 2 then r, g, b = p, v, t
-    elseif m == 3 then r, g, b = p, q, v
-    elseif m == 4 then r, g, b = t, p, v
-    else r, g, b = v, p, q end
-    return Color3.fromRGB(math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5))
-end
+local hsv_to_rgb = ThemeModule.HSV
 
 local function rgb_to_hex(col)
     if not col then return "#FFFFFF" end
