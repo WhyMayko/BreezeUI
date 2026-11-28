@@ -95,6 +95,12 @@ function pool:Get(kind)
     end
     local meta = self.Meta
     if meta then
+        if meta.Get then
+            local entry = meta.Get(obj)
+            if entry then
+                entry.Kind = kind
+            end
+        end
         meta.SetVisible(obj, true)
     end
 

@@ -202,6 +202,12 @@ function pool:Get(kind)
     end
     local meta = self.Meta
     if meta then
+        if meta.Get then
+            local entry = meta.Get(obj)
+            if entry then
+                entry.Kind = kind
+            end
+        end
         meta.SetVisible(obj, true)
     end
 
@@ -5394,13 +5400,13 @@ function Keybind.new(parent, id, config)
             txt.Text = badgeStr
             txt.Font = fontUI
             txt.Outline = false
-            txt.Center = true
+            txt.Center = false
             txt.Size = 11
             txt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
-            txt.Position = Vector2.new(bx + math.floor(badgeW * 0.5), by + math.floor(badgeH * 0.5))
             txt.ZIndex = 6
             txt.Visible = self.Visible
             self.BadgeText = txt
+            self:_centerBadgeText(bx, by, badgeW, badgeH)
             sec:_register(txt)
         elseif parent and parent.Position and parent.Size then
             local trackW = parent.Track and parent.Track.Size and parent.Track.Size.X or 42
@@ -5423,13 +5429,13 @@ function Keybind.new(parent, id, config)
             txt.Text = badgeStr
             txt.Font = fontUI
             txt.Outline = false
-            txt.Center = true
+            txt.Center = false
             txt.Size = 11
             txt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
-            txt.Position = Vector2.new(bx + math.floor(badgeW * 0.5), by + math.floor(badgeH * 0.5))
             txt.ZIndex = 6
             txt.Visible = self.Visible
             self.BadgeText = txt
+            self:_centerBadgeText(bx, by, badgeW, badgeH)
 
             if sec and sec._register then
                 sec:_register(bg)
@@ -5448,8 +5454,16 @@ end
 
 function Keybind:_centerBadgeText(bx, by, bw, bh)
     if not self.BadgeText then return end
-    self.BadgeText.Center = true
-    self.BadgeText.Position = Vector2.new(bx + math.floor(bw * 0.5), by + math.floor(bh * 0.5))
+    self.BadgeText.Center = false
+    local str = tostring(self.BadgeText.Text or "")
+    local ax, ay
+    if MetricsModule and MetricsModule.AlignCenter then
+        ax, ay = MetricsModule.AlignCenter(bx, by, bw, bh, str, 11)
+    else
+        ax = bx + math.floor((bw - #str * 5.8) * 0.5)
+        ay = by + math.floor((bh - 11) * 0.5)
+    end
+    self.BadgeText.Position = Vector2.new(ax, ay)
 end
 
 function Keybind:SetPosition(pos, size)
@@ -5887,8 +5901,15 @@ local function layout_button(self)
             local tagY = pos.Y + math.floor((size.Y - tagH) * 0.5)
             tb.Bg.Position = Vector2.new(tagEndX, tagY)
             tb.Bg.Size = Vector2.new(tagW, tagH)
-            tb.Label.Center = true
-            tb.Label.Position = Vector2.new(tagEndX + math.floor(tagW * 0.5), tagY + math.floor(tagH * 0.5))
+            tb.Label.Center = false
+            local ax, ay
+            if MetricsModule and MetricsModule.AlignCenter then
+                ax, ay = MetricsModule.AlignCenter(tagEndX, tagY, tagW, tagH, str, 11)
+            else
+                ax = tagEndX + math.floor((tagW - tagTxtW) * 0.5)
+                ay = tagY + math.floor((tagH - 11) * 0.5)
+            end
+            tb.Label.Position = Vector2.new(ax, ay)
             tagEndX = tagEndX - 6
         end
     end
@@ -5905,8 +5926,12 @@ local function layout_button(self)
                 self.IconImg.Position = Vector2.new(startX + txtW + 6, icoY)
             end
         elseif self.Label then
-            self.Label.Center = true
-            self.Label.Position = Vector2.new(pos.X + math.floor(size.X * 0.5), hasDesc and (lblY + 6) or (pos.Y + math.floor(size.Y * 0.5)))
+            self.Label.Center = false
+            local ax = pos.X + math.floor((size.X - txtW) * 0.5)
+            if MetricsModule and MetricsModule.AlignCenter then
+                ax = MetricsModule.AlignCenter(pos.X, pos.Y, size.X, size.Y, self.Text, 13)
+            end
+            self.Label.Position = Vector2.new(ax, lblY)
         end
         if self.DescLabel then
             self.DescLabel.Position = Vector2.new(pos.X + 14, pos.Y + 27)
@@ -6036,7 +6061,7 @@ function Button.new(section, config)
                 tagTxt.Font = fontUI
                 tagTxt.Outline = false
                 tagTxt.Size = 11
-                tagTxt.Center = true
+                tagTxt.Center = false
                 tagTxt.Color = Color3.fromRGB(255, 255, 255)
                 tagTxt.ZIndex = 7
                 tagTxt.Visible = section.Visible
@@ -8181,6 +8206,7 @@ function Paragraph:SetPosition(pos, size)
     end
     if self.ImgDrawing then
         self.ImgDrawing.Position = Vector2.new(pos.X + 12, pos.Y + 12)
+        self.ImgDrawing.Size = Vector2.new(self.ImageSize, self.ImageSize)
     end
     if self.TitleText then
         self.TitleText.Text = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(self.Title, availW, 14) or self.Title
@@ -8204,8 +8230,16 @@ function Paragraph:SetPosition(pos, size)
             local bx = pos.X + 14 + (bi - 1) * (bw + 8)
             bSlot.Bg.Position = Vector2.new(bx, bTop)
             bSlot.Bg.Size = Vector2.new(bw, 26)
-            bSlot.Text.Center = true
-            bSlot.Text.Position = Vector2.new(bx + math.floor(bw * 0.5), bTop + 13)
+            bSlot.Text.Center = false
+            local str = tostring(bSlot.Text.Text or "")
+            local ax, ay
+            if MetricsModule and MetricsModule.AlignCenter then
+                ax, ay = MetricsModule.AlignCenter(bx, bTop, bw, 26, str, 12)
+            else
+                ax = bx + math.floor((bw - #str * 6.5) * 0.5)
+                ay = bTop + math.floor((26 - 12) * 0.5)
+            end
+            bSlot.Text.Position = Vector2.new(ax, ay)
             bSlot.Rect = { X = bx, Y = bTop, W = bw, H = 26 }
         end
     end
@@ -8461,9 +8495,8 @@ function Code:SetPosition(pos, size)
         local cy = pos.Y + 5
         self.CopyBg.Position = Vector2.new(cx, cy)
         self.CopyBg.Size = Vector2.new(cw, ch)
-        self.CopyText.Center = true
-        self.CopyText.Position = Vector2.new(cx + math.floor(cw * 0.5), cy + math.floor(ch * 0.5))
         self.CopyRect = { X = cx, Y = cy, W = cw, H = ch }
+        self:_setCopyLabel(self.CopyText.Text or "Copy")
     end
     for i = 1, 8 do
         local ln = self.LineDrawings[i]
@@ -8498,10 +8531,17 @@ Code.Set = Code.SetCode
 function Code:_setCopyLabel(labelStr)
     if not self.CopyText then return end
     self.CopyText.Text = labelStr
-    self.CopyText.Center = true
+    self.CopyText.Center = false
     local r = self.CopyRect
     if r and r.W > 0 then
-        self.CopyText.Position = Vector2.new(r.X + math.floor(r.W * 0.5), r.Y + math.floor(r.H * 0.5))
+        local ax, ay
+        if MetricsModule and MetricsModule.AlignCenter then
+            ax, ay = MetricsModule.AlignCenter(r.X, r.Y, r.W, r.H, labelStr, 11)
+        else
+            ax = r.X + math.floor((r.W - #labelStr * 6) * 0.5)
+            ay = r.Y + math.floor((r.H - 11) * 0.5)
+        end
+        self.CopyText.Position = Vector2.new(ax, ay)
     end
 end
 
@@ -8890,22 +8930,24 @@ function ProgressBar:_syncVisual()
         if self.ValueText then
             self.ValueText.Visible = false
         end
-        return
+    else
+        local ratio = (self.Max > self.Min) and clamp((self.DisplayValue - self.Min) / (self.Max - self.Min), 0, 1) or 0
+        if self.FillBar then
+            local fillW = math.floor(barW * ratio + 0.5)
+            self.FillBar.Position = Vector2.new(barX, barY)
+            self.FillBar.Size = Vector2.new(math.max(1, fillW), 6)
+            self.FillBar.Visible = self.Visible and fillW > 0
+        end
+        if self.ValueText then
+            local str = format_value(self.Value, self.Min, self.Max, self.DisplayMode, self.Format)
+            self.ValueText.Text = str
+            local vw = math.floor(#str * 6.8)
+            self.ValueText.Position = Vector2.new(self.Position.X + self.Size.X - vw - 14, self.Position.Y + 9)
+            self.ValueText.Visible = self.Visible
+        end
     end
-
-    local ratio = (self.Max > self.Min) and clamp((self.DisplayValue - self.Min) / (self.Max - self.Min), 0, 1) or 0
-    if self.FillBar then
-        local fillW = math.floor(barW * ratio + 0.5)
-        self.FillBar.Position = Vector2.new(barX, barY)
-        self.FillBar.Size = Vector2.new(math.max(1, fillW), 6)
-        self.FillBar.Visible = self.Visible and fillW > 0
-    end
-    if self.ValueText then
-        local str = format_value(self.Value, self.Min, self.Max, self.DisplayMode, self.Format)
-        self.ValueText.Text = str
-        local vw = math.floor(#str * 6.8)
-        self.ValueText.Position = Vector2.new(self.Position.X + self.Size.X - vw - 14, self.Position.Y + 9)
-        self.ValueText.Visible = self.Visible
+    if self.Visible and self._clipTop and self._clipBottom and self.Section and self.Section.ClipControl then
+        self.Section.ClipControl(self, self._clipTop, self._clipBottom)
     end
 end
 
@@ -9793,40 +9835,99 @@ local ColorpickerModule = Colorpicker or ColorpickerModule
 local ContentSection = {}
 ContentSection.__index = ContentSection
 
-local SKIP_CLIP_KEYS = { Section = true, Parent = true, Window = true, Pool = true, Env = true, Values = true, VisibleItems = true, Config = true, Callback = true }
+local SKIP_CLIP_KEYS = {
+    Section = true, Parent = true, Window = true, Pool = true, Env = true,
+    Values = true, VisibleItems = true, Config = true, Callback = true,
+    PopupItems = true, PopupDividers = true, PopupSelectedBgs = true,
+    PopupBg = true, PopupBorder = true, PopupHoverBg = true, PopupScrollThumb = true,
+    SearchBg = true, SearchText = true, PopContainer = true, PopupRect = true,
+    ModeMenu = true, Colorpicker = true,
+}
 
-local function clip_drawing(obj, clipTop, clipBottom)
-    if not obj or not obj.Visible or not obj.Position then return end
-    local y = obj.Position.Y
+local function get_drawing_kind(obj)
+    local entry = MetaModule and MetaModule.Get and MetaModule.Get(obj)
+    if entry and entry.Kind then
+        return entry.Kind
+    end
     local sz = obj.Size
-    local isVec = (type(sz) == "table" or type(sz) == "userdata")
-    local h = isVec and (sz.Y or 14) or (type(sz) == "number" and sz or 14)
-    if isVec and obj.Filled ~= nil and h >= 24 then
-        local vt = math.max(y, clipTop)
-        local vb = math.min(y + h, clipBottom)
-        local vh = math.max(0, vb - vt)
-        obj.Position = Vector2.new(obj.Position.X, vt)
-        obj.Size = Vector2.new(sz.X, vh)
-        obj.Visible = vh > 4
-    else
-        obj.Visible = (y >= clipTop + 6) and (y + h <= clipBottom - 6)
+    if type(sz) == "number" then
+        return "Text"
+    end
+    return "Square"
+end
+
+local function restore_drawing(obj)
+    if not obj then return end
+    local entry = MetaModule and MetaModule.Get and MetaModule.Get(obj)
+    if entry and entry.ClippedCorner ~= nil then
+        obj.Corner = entry.ClippedCorner
+        entry.ClippedCorner = nil
     end
 end
 
-local function clip_control(tbl, clipTop, clipBottom, visited)
+local function clip_drawing(obj, clipTop, clipBottom)
+    if not obj or not obj.Visible or not obj.Position then return end
+    local kind = get_drawing_kind(obj)
+    local y = obj.Position.Y
+    local sz = obj.Size
+    if kind == "Square" then
+        local h = (type(sz) == "table" or type(sz) == "userdata") and (sz.Y or 0) or 0
+        local vt = math.max(y, clipTop)
+        local vb = math.min(y + h, clipBottom)
+        local vh = math.max(0, vb - vt)
+        if vh >= 4 then
+            local entry = MetaModule and MetaModule.Get and MetaModule.Get(obj)
+            local baseC = (entry and entry.ClippedCorner) or obj.Corner or 0
+            if entry and entry.ClippedCorner == nil then
+                entry.ClippedCorner = baseC
+            end
+            obj.Position = Vector2.new(obj.Position.X, vt)
+            obj.Size = Vector2.new(sz.X, vh)
+            obj.Corner = math.min(baseC, math.floor(vh * 0.5))
+            obj.Visible = true
+        else
+            obj.Visible = false
+        end
+    elseif kind == "Circle" then
+        local r = obj.Radius or 7
+        obj.Visible = (y - r >= clipTop) and (y + r <= clipBottom)
+    elseif kind == "Image" then
+        local h = (type(sz) == "table" or type(sz) == "userdata") and (sz.Y or 16) or 16
+        obj.Visible = (y >= clipTop) and (y + h <= clipBottom)
+    else
+        local h = (type(sz) == "number") and sz or ((type(sz) == "table" or type(sz) == "userdata") and (sz.Y or 14) or 14)
+        local topY = obj.Center and (y - h * 0.5) or y
+        local botY = topY + h
+        obj.Visible = (topY >= clipTop) and (botY <= clipBottom)
+    end
+end
+
+local function traverse_control(tbl, fn, visited)
     visited = visited or {}
     if visited[tbl] then return end
     visited[tbl] = true
     for k, v in pairs(tbl) do
         if not SKIP_CLIP_KEYS[k] and (type(v) == "table" or type(v) == "userdata") then
             if v.Position ~= nil and v.Visible ~= nil then
-                clip_drawing(v, clipTop, clipBottom)
+                fn(v)
             elseif type(v) == "table" then
-                clip_control(v, clipTop, clipBottom, visited)
+                traverse_control(v, fn, visited)
             end
         end
     end
 end
+
+local function clip_control(tbl, clipTop, clipBottom)
+    traverse_control(tbl, function(obj)
+        clip_drawing(obj, clipTop, clipBottom)
+    end)
+end
+
+local function restore_control(tbl)
+    traverse_control(tbl, restore_drawing)
+end
+
+ContentSection.ClipControl = clip_control
 
 local function get_theme_color(token, default)
     return ThemeModule.Get(token, default)
@@ -10196,15 +10297,18 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
         visBot = math.min(visBot, clipBottom)
     end
     local visH = math.max(0, visBot - visTop)
-    local bgVis = self.Visible and self.Box and (visH > 4)
+    local bgVis = self.Visible and self.Box and (visH >= 4)
+    local secCorner = (clipTop and clipBottom) and math.min(10, math.floor(visH * 0.5)) or 10
     if self.Background then
         self.Background.Position = Vector2.new(absPos.X, visTop)
         self.Background.Size = Vector2.new(self.Size.X, visH)
+        self.Background.Corner = secCorner
         self.Background.Visible = bgVis
     end
     if self.Border then
         self.Border.Position = Vector2.new(absPos.X, visTop)
         self.Border.Size = Vector2.new(self.Size.X, visH)
+        self.Border.Corner = secCorner
         self.Border.Visible = bgVis
     end
 
@@ -10216,7 +10320,7 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
         end
         local tVis = self.Visible
         if clipTop and clipBottom then
-            tVis = tVis and (currentY >= clipTop + 6) and (currentY + self.TextSize <= clipBottom - 6)
+            tVis = tVis and (currentY >= clipTop) and (currentY + self.TextSize <= clipBottom)
         end
         self.TitleText.Visible = tVis
         currentY = currentY + math.max(18, self.TextSize + 6)
@@ -10228,7 +10332,7 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
         end
         local dVis = self.Visible
         if clipTop and clipBottom then
-            dVis = dVis and (currentY >= clipTop + 6) and (currentY + 12 <= clipBottom - 6)
+            dVis = dVis and (currentY >= clipTop) and (currentY + 11 <= clipBottom)
         end
         self.DescText.Visible = dVis
     end
@@ -10236,13 +10340,20 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
     if self.Expandable then
         local hdrH = math.max(20, self.HeaderHeight or 22)
         local hdrVis = self.Visible
+        local chevVis = self.Visible
         if clipTop and clipBottom then
-            hdrVis = hdrVis and (innerY >= clipTop + 6) and (innerY + 14 <= clipBottom - 6)
+            hdrVis = hdrVis and (math.min(innerY + hdrH, clipBottom) > math.max(innerY, clipTop))
+            chevVis = chevVis and (innerY + 3 >= clipTop) and (innerY + 15 <= clipBottom)
         end
-        self._headerRect = hdrVis and { X = innerX, Y = innerY, W = usableW, H = hdrH } or nil
+        self._headerRect = hdrVis and {
+            X = innerX,
+            Y = clipTop and math.max(innerY, clipTop) or innerY,
+            W = usableW,
+            H = clipBottom and math.max(0, math.min(innerY + hdrH, clipBottom) - (clipTop and math.max(innerY, clipTop) or innerY)) or hdrH,
+        } or nil
         if self.ChevronImg then
             self.ChevronImg.Position = Vector2.new(innerX + usableW - 14, innerY + 3)
-            self.ChevronImg.Visible = hdrVis
+            self.ChevronImg.Visible = chevVis
         end
     end
 
@@ -10286,13 +10397,20 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
                 dynY = dynY + ch + self.RowGap
             end
             local cPos = Vector2.new(cX, rowY)
+            ctrl._clipTop = nil
+            ctrl._clipBottom = nil
+            restore_control(ctrl)
             if ctrl.SetPosition then
                 ctrl:SetPosition(cPos, Vector2.new(cW, ch))
             end
             local visTop = clipTop and math.max(rowY, clipTop) or rowY
             local visBot = clipBottom and math.min(rowY + ch, clipBottom) or (rowY + ch)
-            local partIn = self.Visible and (visBot - visTop > 4)
+            local partIn = self.Visible and (visBot - visTop >= 4)
             local fullIn = self.Visible and ((not clipTop) or (rowY >= clipTop and rowY + ch <= clipBottom))
+            if partIn and not fullIn and clipTop and clipBottom then
+                ctrl._clipTop = clipTop
+                ctrl._clipBottom = clipBottom
+            end
             if ctrl.SetVisible then
                 ctrl:SetVisible(partIn)
             else
@@ -10408,6 +10526,7 @@ local function sync_lock_overlay(ctrl)
     local show = (ctrl.Locked == true) and (ctrl.Visible == true)
     local pos = ctrl.Position
     local size = ctrl.Size
+    restore_drawing(lo.Bg)
     if pos and size then
         lo.Bg.Position = pos
         lo.Bg.Size = size
@@ -10422,6 +10541,9 @@ local function sync_lock_overlay(ctrl)
     lo.Bg.Visible = show
     lo.Icon.Visible = show and (lo.IconData ~= nil)
     lo.Text.Visible = show
+    if show and ctrl._clipTop and ctrl._clipBottom then
+        clip_control(lo, ctrl._clipTop, ctrl._clipBottom)
+    end
 end
 
 local function ensure_lock_overlay(sec, ctrl)
@@ -14612,6 +14734,9 @@ function Window:Update(rawDt)
                     if self.Destroyed or not self.Running then return end
                     if ctrl.Visible and ctrl.Indeterminate and ctrl.Update then
                         ctrl:Update(dt or 0.016)
+                        if ctrl._clipTop and ctrl._clipBottom and card.ClipControl then
+                            card.ClipControl(ctrl, ctrl._clipTop, ctrl._clipBottom)
+                        end
                     end
                     if ctrl.Visible and ctrl.Position and ctrl.Size then
                         local cx = ctrl.Position.X

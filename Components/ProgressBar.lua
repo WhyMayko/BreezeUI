@@ -145,22 +145,24 @@ function ProgressBar:_syncVisual()
         if self.ValueText then
             self.ValueText.Visible = false
         end
-        return
+    else
+        local ratio = (self.Max > self.Min) and clamp((self.DisplayValue - self.Min) / (self.Max - self.Min), 0, 1) or 0
+        if self.FillBar then
+            local fillW = math.floor(barW * ratio + 0.5)
+            self.FillBar.Position = Vector2.new(barX, barY)
+            self.FillBar.Size = Vector2.new(math.max(1, fillW), 6)
+            self.FillBar.Visible = self.Visible and fillW > 0
+        end
+        if self.ValueText then
+            local str = format_value(self.Value, self.Min, self.Max, self.DisplayMode, self.Format)
+            self.ValueText.Text = str
+            local vw = math.floor(#str * 6.8)
+            self.ValueText.Position = Vector2.new(self.Position.X + self.Size.X - vw - 14, self.Position.Y + 9)
+            self.ValueText.Visible = self.Visible
+        end
     end
-
-    local ratio = (self.Max > self.Min) and clamp((self.DisplayValue - self.Min) / (self.Max - self.Min), 0, 1) or 0
-    if self.FillBar then
-        local fillW = math.floor(barW * ratio + 0.5)
-        self.FillBar.Position = Vector2.new(barX, barY)
-        self.FillBar.Size = Vector2.new(math.max(1, fillW), 6)
-        self.FillBar.Visible = self.Visible and fillW > 0
-    end
-    if self.ValueText then
-        local str = format_value(self.Value, self.Min, self.Max, self.DisplayMode, self.Format)
-        self.ValueText.Text = str
-        local vw = math.floor(#str * 6.8)
-        self.ValueText.Position = Vector2.new(self.Position.X + self.Size.X - vw - 14, self.Position.Y + 9)
-        self.ValueText.Visible = self.Visible
+    if self.Visible and self._clipTop and self._clipBottom and self.Section and self.Section.ClipControl then
+        self.Section.ClipControl(self, self._clipTop, self._clipBottom)
     end
 end
 

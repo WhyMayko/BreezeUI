@@ -23,40 +23,99 @@ local ColorpickerModule = Colorpicker or require("../Components/Colorpicker")
 local ContentSection = {}
 ContentSection.__index = ContentSection
 
-local SKIP_CLIP_KEYS = { Section = true, Parent = true, Window = true, Pool = true, Env = true, Values = true, VisibleItems = true, Config = true, Callback = true }
+local SKIP_CLIP_KEYS = {
+    Section = true, Parent = true, Window = true, Pool = true, Env = true,
+    Values = true, VisibleItems = true, Config = true, Callback = true,
+    PopupItems = true, PopupDividers = true, PopupSelectedBgs = true,
+    PopupBg = true, PopupBorder = true, PopupHoverBg = true, PopupScrollThumb = true,
+    SearchBg = true, SearchText = true, PopContainer = true, PopupRect = true,
+    ModeMenu = true, Colorpicker = true,
+}
 
-local function clip_drawing(obj, clipTop, clipBottom)
-    if not obj or not obj.Visible or not obj.Position then return end
-    local y = obj.Position.Y
+local function get_drawing_kind(obj)
+    local entry = MetaModule and MetaModule.Get and MetaModule.Get(obj)
+    if entry and entry.Kind then
+        return entry.Kind
+    end
     local sz = obj.Size
-    local isVec = (type(sz) == "table" or type(sz) == "userdata")
-    local h = isVec and (sz.Y or 14) or (type(sz) == "number" and sz or 14)
-    if isVec and obj.Filled ~= nil and h >= 24 then
-        local vt = math.max(y, clipTop)
-        local vb = math.min(y + h, clipBottom)
-        local vh = math.max(0, vb - vt)
-        obj.Position = Vector2.new(obj.Position.X, vt)
-        obj.Size = Vector2.new(sz.X, vh)
-        obj.Visible = vh > 4
-    else
-        obj.Visible = (y >= clipTop + 6) and (y + h <= clipBottom - 6)
+    if type(sz) == "number" then
+        return "Text"
+    end
+    return "Square"
+end
+
+local function restore_drawing(obj)
+    if not obj then return end
+    local entry = MetaModule and MetaModule.Get and MetaModule.Get(obj)
+    if entry and entry.ClippedCorner ~= nil then
+        obj.Corner = entry.ClippedCorner
+        entry.ClippedCorner = nil
     end
 end
 
-local function clip_control(tbl, clipTop, clipBottom, visited)
+local function clip_drawing(obj, clipTop, clipBottom)
+    if not obj or not obj.Visible or not obj.Position then return end
+    local kind = get_drawing_kind(obj)
+    local y = obj.Position.Y
+    local sz = obj.Size
+    if kind == "Square" then
+        local h = (type(sz) == "table" or type(sz) == "userdata") and (sz.Y or 0) or 0
+        local vt = math.max(y, clipTop)
+        local vb = math.min(y + h, clipBottom)
+        local vh = math.max(0, vb - vt)
+        if vh >= 4 then
+            local entry = MetaModule and MetaModule.Get and MetaModule.Get(obj)
+            local baseC = (entry and entry.ClippedCorner) or obj.Corner or 0
+            if entry and entry.ClippedCorner == nil then
+                entry.ClippedCorner = baseC
+            end
+            obj.Position = Vector2.new(obj.Position.X, vt)
+            obj.Size = Vector2.new(sz.X, vh)
+            obj.Corner = math.min(baseC, math.floor(vh * 0.5))
+            obj.Visible = true
+        else
+            obj.Visible = false
+        end
+    elseif kind == "Circle" then
+        local r = obj.Radius or 7
+        obj.Visible = (y - r >= clipTop) and (y + r <= clipBottom)
+    elseif kind == "Image" then
+        local h = (type(sz) == "table" or type(sz) == "userdata") and (sz.Y or 16) or 16
+        obj.Visible = (y >= clipTop) and (y + h <= clipBottom)
+    else
+        local h = (type(sz) == "number") and sz or ((type(sz) == "table" or type(sz) == "userdata") and (sz.Y or 14) or 14)
+        local topY = obj.Center and (y - h * 0.5) or y
+        local botY = topY + h
+        obj.Visible = (topY >= clipTop) and (botY <= clipBottom)
+    end
+end
+
+local function traverse_control(tbl, fn, visited)
     visited = visited or {}
     if visited[tbl] then return end
     visited[tbl] = true
     for k, v in pairs(tbl) do
         if not SKIP_CLIP_KEYS[k] and (type(v) == "table" or type(v) == "userdata") then
             if v.Position ~= nil and v.Visible ~= nil then
-                clip_drawing(v, clipTop, clipBottom)
+                fn(v)
             elseif type(v) == "table" then
-                clip_control(v, clipTop, clipBottom, visited)
+                traverse_control(v, fn, visited)
             end
         end
     end
 end
+
+local function clip_control(tbl, clipTop, clipBottom)
+    traverse_control(tbl, function(obj)
+        clip_drawing(obj, clipTop, clipBottom)
+    end)
+end
+
+local function restore_control(tbl)
+    traverse_control(tbl, restore_drawing)
+end
+
+ContentSection.ClipControl = clip_control
 
 local function get_theme_color(token, default)
     return ThemeModule.Get(token, default)
@@ -426,15 +485,18 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
         visBot = math.min(visBot, clipBottom)
     end
     local visH = math.max(0, visBot - visTop)
-    local bgVis = self.Visible and self.Box and (visH > 4)
+    local bgVis = self.Visible and self.Box and (visH >= 4)
+    local secCorner = (clipTop and clipBottom) and math.min(10, math.floor(visH * 0.5)) or 10
     if self.Background then
         self.Background.Position = Vector2.new(absPos.X, visTop)
         self.Background.Size = Vector2.new(self.Size.X, visH)
+        self.Background.Corner = secCorner
         self.Background.Visible = bgVis
     end
     if self.Border then
         self.Border.Position = Vector2.new(absPos.X, visTop)
         self.Border.Size = Vector2.new(self.Size.X, visH)
+        self.Border.Corner = secCorner
         self.Border.Visible = bgVis
     end
 
@@ -446,7 +508,7 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
         end
         local tVis = self.Visible
         if clipTop and clipBottom then
-            tVis = tVis and (currentY >= clipTop + 6) and (currentY + self.TextSize <= clipBottom - 6)
+            tVis = tVis and (currentY >= clipTop) and (currentY + self.TextSize <= clipBottom)
         end
         self.TitleText.Visible = tVis
         currentY = currentY + math.max(18, self.TextSize + 6)
@@ -458,7 +520,7 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
         end
         local dVis = self.Visible
         if clipTop and clipBottom then
-            dVis = dVis and (currentY >= clipTop + 6) and (currentY + 12 <= clipBottom - 6)
+            dVis = dVis and (currentY >= clipTop) and (currentY + 11 <= clipBottom)
         end
         self.DescText.Visible = dVis
     end
@@ -466,13 +528,20 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
     if self.Expandable then
         local hdrH = math.max(20, self.HeaderHeight or 22)
         local hdrVis = self.Visible
+        local chevVis = self.Visible
         if clipTop and clipBottom then
-            hdrVis = hdrVis and (innerY >= clipTop + 6) and (innerY + 14 <= clipBottom - 6)
+            hdrVis = hdrVis and (math.min(innerY + hdrH, clipBottom) > math.max(innerY, clipTop))
+            chevVis = chevVis and (innerY + 3 >= clipTop) and (innerY + 15 <= clipBottom)
         end
-        self._headerRect = hdrVis and { X = innerX, Y = innerY, W = usableW, H = hdrH } or nil
+        self._headerRect = hdrVis and {
+            X = innerX,
+            Y = clipTop and math.max(innerY, clipTop) or innerY,
+            W = usableW,
+            H = clipBottom and math.max(0, math.min(innerY + hdrH, clipBottom) - (clipTop and math.max(innerY, clipTop) or innerY)) or hdrH,
+        } or nil
         if self.ChevronImg then
             self.ChevronImg.Position = Vector2.new(innerX + usableW - 14, innerY + 3)
-            self.ChevronImg.Visible = hdrVis
+            self.ChevronImg.Visible = chevVis
         end
     end
 
@@ -516,13 +585,20 @@ function ContentSection:Reflow(basePos, newWidth, scrollY, clipTop, clipBottom)
                 dynY = dynY + ch + self.RowGap
             end
             local cPos = Vector2.new(cX, rowY)
+            ctrl._clipTop = nil
+            ctrl._clipBottom = nil
+            restore_control(ctrl)
             if ctrl.SetPosition then
                 ctrl:SetPosition(cPos, Vector2.new(cW, ch))
             end
             local visTop = clipTop and math.max(rowY, clipTop) or rowY
             local visBot = clipBottom and math.min(rowY + ch, clipBottom) or (rowY + ch)
-            local partIn = self.Visible and (visBot - visTop > 4)
+            local partIn = self.Visible and (visBot - visTop >= 4)
             local fullIn = self.Visible and ((not clipTop) or (rowY >= clipTop and rowY + ch <= clipBottom))
+            if partIn and not fullIn and clipTop and clipBottom then
+                ctrl._clipTop = clipTop
+                ctrl._clipBottom = clipBottom
+            end
             if ctrl.SetVisible then
                 ctrl:SetVisible(partIn)
             else
@@ -638,6 +714,7 @@ local function sync_lock_overlay(ctrl)
     local show = (ctrl.Locked == true) and (ctrl.Visible == true)
     local pos = ctrl.Position
     local size = ctrl.Size
+    restore_drawing(lo.Bg)
     if pos and size then
         lo.Bg.Position = pos
         lo.Bg.Size = size
@@ -652,6 +729,9 @@ local function sync_lock_overlay(ctrl)
     lo.Bg.Visible = show
     lo.Icon.Visible = show and (lo.IconData ~= nil)
     lo.Text.Visible = show
+    if show and ctrl._clipTop and ctrl._clipBottom then
+        clip_control(lo, ctrl._clipTop, ctrl._clipBottom)
+    end
 end
 
 local function ensure_lock_overlay(sec, ctrl)

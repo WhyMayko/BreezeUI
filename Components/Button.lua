@@ -41,8 +41,15 @@ local function layout_button(self)
             local tagY = pos.Y + math.floor((size.Y - tagH) * 0.5)
             tb.Bg.Position = Vector2.new(tagEndX, tagY)
             tb.Bg.Size = Vector2.new(tagW, tagH)
-            tb.Label.Center = true
-            tb.Label.Position = Vector2.new(tagEndX + math.floor(tagW * 0.5), tagY + math.floor(tagH * 0.5))
+            tb.Label.Center = false
+            local ax, ay
+            if MetricsModule and MetricsModule.AlignCenter then
+                ax, ay = MetricsModule.AlignCenter(tagEndX, tagY, tagW, tagH, str, 11)
+            else
+                ax = tagEndX + math.floor((tagW - tagTxtW) * 0.5)
+                ay = tagY + math.floor((tagH - 11) * 0.5)
+            end
+            tb.Label.Position = Vector2.new(ax, ay)
             tagEndX = tagEndX - 6
         end
     end
@@ -59,8 +66,12 @@ local function layout_button(self)
                 self.IconImg.Position = Vector2.new(startX + txtW + 6, icoY)
             end
         elseif self.Label then
-            self.Label.Center = true
-            self.Label.Position = Vector2.new(pos.X + math.floor(size.X * 0.5), hasDesc and (lblY + 6) or (pos.Y + math.floor(size.Y * 0.5)))
+            self.Label.Center = false
+            local ax = pos.X + math.floor((size.X - txtW) * 0.5)
+            if MetricsModule and MetricsModule.AlignCenter then
+                ax = MetricsModule.AlignCenter(pos.X, pos.Y, size.X, size.Y, self.Text, 13)
+            end
+            self.Label.Position = Vector2.new(ax, lblY)
         end
         if self.DescLabel then
             self.DescLabel.Position = Vector2.new(pos.X + 14, pos.Y + 27)
@@ -190,7 +201,7 @@ function Button.new(section, config)
                 tagTxt.Font = fontUI
                 tagTxt.Outline = false
                 tagTxt.Size = 11
-                tagTxt.Center = true
+                tagTxt.Center = false
                 tagTxt.Color = Color3.fromRGB(255, 255, 255)
                 tagTxt.ZIndex = 7
                 tagTxt.Visible = section.Visible

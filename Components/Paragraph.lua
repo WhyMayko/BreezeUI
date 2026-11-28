@@ -223,6 +223,7 @@ function Paragraph:SetPosition(pos, size)
     end
     if self.ImgDrawing then
         self.ImgDrawing.Position = Vector2.new(pos.X + 12, pos.Y + 12)
+        self.ImgDrawing.Size = Vector2.new(self.ImageSize, self.ImageSize)
     end
     if self.TitleText then
         self.TitleText.Text = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(self.Title, availW, 14) or self.Title
@@ -246,8 +247,16 @@ function Paragraph:SetPosition(pos, size)
             local bx = pos.X + 14 + (bi - 1) * (bw + 8)
             bSlot.Bg.Position = Vector2.new(bx, bTop)
             bSlot.Bg.Size = Vector2.new(bw, 26)
-            bSlot.Text.Center = true
-            bSlot.Text.Position = Vector2.new(bx + math.floor(bw * 0.5), bTop + 13)
+            bSlot.Text.Center = false
+            local str = tostring(bSlot.Text.Text or "")
+            local ax, ay
+            if MetricsModule and MetricsModule.AlignCenter then
+                ax, ay = MetricsModule.AlignCenter(bx, bTop, bw, 26, str, 12)
+            else
+                ax = bx + math.floor((bw - #str * 6.5) * 0.5)
+                ay = bTop + math.floor((26 - 12) * 0.5)
+            end
+            bSlot.Text.Position = Vector2.new(ax, ay)
             bSlot.Rect = { X = bx, Y = bTop, W = bw, H = 26 }
         end
     end

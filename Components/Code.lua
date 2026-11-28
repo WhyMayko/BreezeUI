@@ -167,9 +167,8 @@ function Code:SetPosition(pos, size)
         local cy = pos.Y + 5
         self.CopyBg.Position = Vector2.new(cx, cy)
         self.CopyBg.Size = Vector2.new(cw, ch)
-        self.CopyText.Center = true
-        self.CopyText.Position = Vector2.new(cx + math.floor(cw * 0.5), cy + math.floor(ch * 0.5))
         self.CopyRect = { X = cx, Y = cy, W = cw, H = ch }
+        self:_setCopyLabel(self.CopyText.Text or "Copy")
     end
     for i = 1, 8 do
         local ln = self.LineDrawings[i]
@@ -204,10 +203,17 @@ Code.Set = Code.SetCode
 function Code:_setCopyLabel(labelStr)
     if not self.CopyText then return end
     self.CopyText.Text = labelStr
-    self.CopyText.Center = true
+    self.CopyText.Center = false
     local r = self.CopyRect
     if r and r.W > 0 then
-        self.CopyText.Position = Vector2.new(r.X + math.floor(r.W * 0.5), r.Y + math.floor(r.H * 0.5))
+        local ax, ay
+        if MetricsModule and MetricsModule.AlignCenter then
+            ax, ay = MetricsModule.AlignCenter(r.X, r.Y, r.W, r.H, labelStr, 11)
+        else
+            ax = r.X + math.floor((r.W - #labelStr * 6) * 0.5)
+            ay = r.Y + math.floor((r.H - 11) * 0.5)
+        end
+        self.CopyText.Position = Vector2.new(ax, ay)
     end
 end
 

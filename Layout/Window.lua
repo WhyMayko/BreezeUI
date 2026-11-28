@@ -1898,6 +1898,9 @@ function Window:Update(rawDt)
                     if self.Destroyed or not self.Running then return end
                     if ctrl.Visible and ctrl.Indeterminate and ctrl.Update then
                         ctrl:Update(dt or 0.016)
+                        if ctrl._clipTop and ctrl._clipBottom and card.ClipControl then
+                            card.ClipControl(ctrl, ctrl._clipTop, ctrl._clipBottom)
+                        end
                     end
                     if ctrl.Visible and ctrl.Position and ctrl.Size then
                         local cx = ctrl.Position.X

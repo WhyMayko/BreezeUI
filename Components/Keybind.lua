@@ -168,13 +168,13 @@ function Keybind.new(parent, id, config)
             txt.Text = badgeStr
             txt.Font = fontUI
             txt.Outline = false
-            txt.Center = true
+            txt.Center = false
             txt.Size = 11
             txt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
-            txt.Position = Vector2.new(bx + math.floor(badgeW * 0.5), by + math.floor(badgeH * 0.5))
             txt.ZIndex = 6
             txt.Visible = self.Visible
             self.BadgeText = txt
+            self:_centerBadgeText(bx, by, badgeW, badgeH)
             sec:_register(txt)
         elseif parent and parent.Position and parent.Size then
             local trackW = parent.Track and parent.Track.Size and parent.Track.Size.X or 42
@@ -197,13 +197,13 @@ function Keybind.new(parent, id, config)
             txt.Text = badgeStr
             txt.Font = fontUI
             txt.Outline = false
-            txt.Center = true
+            txt.Center = false
             txt.Size = 11
             txt.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
-            txt.Position = Vector2.new(bx + math.floor(badgeW * 0.5), by + math.floor(badgeH * 0.5))
             txt.ZIndex = 6
             txt.Visible = self.Visible
             self.BadgeText = txt
+            self:_centerBadgeText(bx, by, badgeW, badgeH)
 
             if sec and sec._register then
                 sec:_register(bg)
@@ -222,8 +222,16 @@ end
 
 function Keybind:_centerBadgeText(bx, by, bw, bh)
     if not self.BadgeText then return end
-    self.BadgeText.Center = true
-    self.BadgeText.Position = Vector2.new(bx + math.floor(bw * 0.5), by + math.floor(bh * 0.5))
+    self.BadgeText.Center = false
+    local str = tostring(self.BadgeText.Text or "")
+    local ax, ay
+    if MetricsModule and MetricsModule.AlignCenter then
+        ax, ay = MetricsModule.AlignCenter(bx, by, bw, bh, str, 11)
+    else
+        ax = bx + math.floor((bw - #str * 5.8) * 0.5)
+        ay = by + math.floor((bh - 11) * 0.5)
+    end
+    self.BadgeText.Position = Vector2.new(ax, ay)
 end
 
 function Keybind:SetPosition(pos, size)
