@@ -88,6 +88,9 @@ function pool:Get(kind)
         obj.Font = (Drawing and Drawing.Fonts and Drawing.Fonts.System) or 1
         obj.Outline = false
         obj.Center = false
+    elseif kind == "Image" then
+        obj.Rounding = 0
+        obj.Color = Color3.fromRGB(255, 255, 255)
     end
 
     if not obj.Visible then

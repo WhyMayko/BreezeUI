@@ -257,7 +257,8 @@ local function update_open_button(window, vp, mx, my, m1Pressed, m1Clicked)
     end
     if iconName ~= ob._lastIconName then
         ob._lastIconName = iconName
-        ob._iconData = IconsModule.Get(iconName, function(png) ob._iconData = png end)
+        ob._iconIsCustom = IconsModule.IsCustom(iconName)
+        ob._iconData = IconsModule.Get(iconName, function(png) ob._iconData = png end, false, true)
     end
 
     local h = 40
@@ -337,7 +338,8 @@ local function update_open_button(window, vp, mx, my, m1Pressed, m1Clicked)
     local curX = px + dragW + padX
     if ob._iconData then
         slot.IconImg.Data = ob._iconData
-        slot.IconImg.Color = textCol
+        slot.IconImg.Color = ob._iconIsCustom and Color3.fromRGB(255, 255, 255) or textCol
+        slot.IconImg.Rounding = ob.IconRounding or 0
         slot.IconImg.Position = Vector2.new(curX, py + 11)
         slot.IconImg.Transparency = 1
         slot.IconImg.Visible = true

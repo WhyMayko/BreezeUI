@@ -93,18 +93,12 @@ local function resolve_source(rawName)
     if Icons.ValidatePNG(src) then
         return "raw", src, true
     end
-    if src:sub(1, 7) == "file://" then
-        return "file", src:sub(8), true
-    end
     local rbxId = src:match("^rbxassetid://(%d+)$") or src:match("roblox%.com/asset/%?id=(%d+)")
     if rbxId then
         return "rbx", rbxId, true
     end
     if src:sub(1, 7) == "http://" or src:sub(1, 8) == "https://" then
         return "url", src, true
-    end
-    if src:sub(-4):lower() == ".png" and isfile and isfile(src) then
-        return "file", src, true
     end
     return "lucide", Icons.NormalizeName(src), custom
 end
@@ -134,7 +128,7 @@ end
 
 function Icons.IsInFlight(rawName, forceLight)
     local kind, val = resolve_source(rawName)
-    if kind == "none" or kind == "raw" or kind == "file" then return false end
+    if kind == "none" or kind == "raw" then return false end
     local cacheKey = kind == "url" and val
         or kind == "rbx" and ("rbx:" .. val)
         or (((not forceLight and Icons.DarkMode) and "dark:" or "light:") .. val)
@@ -221,22 +215,6 @@ function Icons.Get(rawName, callback, forceLight, urgent)
     if kind == "raw" then
         if callback then callback(val) end
         return val
-    end
-    if kind == "file" then
-        if Icons.Cache["file:" .. val] then
-            local cached = Icons.Cache["file:" .. val]
-            if callback then callback(cached) end
-            return cached
-        end
-        if readfile and (not isfile or isfile(val)) then
-            local ok, bytes = pcall(readfile, val)
-            if ok and Icons.ValidatePNG(bytes) then
-                Icons.Cache["file:" .. val] = bytes
-                if callback then callback(bytes) end
-                return bytes
-            end
-        end
-        return Icons.DefaultIcon
     end
 
     local isUrl = (kind == "url")

@@ -165,6 +165,7 @@ end
 function Notify.Push(cfg, titleArg, durationArg)
     local title, content, icon, duration, canClose, buttons, side, anchor, accent, sticky
     local iconSize, iconRounding, iconColor, keepColor
+    local bgCol, borderCol, titleCol, contentCol, corner, width
 
     if type(cfg) == "table" then
         title = cfg.Title or cfg.title
@@ -174,6 +175,12 @@ function Notify.Push(cfg, titleArg, durationArg)
         iconRounding = tonumber(cfg.IconRounding or cfg.ImageRounding)
         iconColor = cfg.IconColor
         keepColor = cfg.KeepColor
+        bgCol = cfg.Background or cfg.BackgroundColor
+        borderCol = cfg.BorderColor
+        titleCol = cfg.TitleColor
+        contentCol = cfg.ContentColor or cfg.DescColor
+        corner = tonumber(cfg.Corner)
+        width = tonumber(cfg.Width)
         if cfg.Duration == false then
             sticky = true
             duration = nil
@@ -212,6 +219,12 @@ function Notify.Push(cfg, titleArg, durationArg)
         IconRounding = iconRounding and math.max(0, math.floor(iconRounding + 0.5)) or 0,
         IconColor = iconColor,
         KeepColor = keepColor,
+        BgColor = bgCol,
+        BorderColor = borderCol,
+        TitleColor = titleCol,
+        ContentColor = contentCol,
+        Corner = corner and math.clamp(math.floor(corner + 0.5), 0, 24) or 12,
+        Width = width and math.clamp(math.floor(width + 0.5), 220, 480) or 296,
         Duration = duration,
         Sticky = sticky == true,
         CreatedAt = now,
@@ -272,6 +285,20 @@ function Notify.Push(cfg, titleArg, durationArg)
     toast.SetMessage = toast.SetContent
     toast.setMessage = toast.SetContent
     toast.setContent = toast.SetContent
+
+    toast.SetIcon = function(a, b)
+        local src = (a == toast) and b or a
+        toast.Icon = src
+        toast._iconData = nil
+        toast._iconIsCustom = (type(src) == "string" and src ~= "" and IconsModule.IsCustom(src)) or false
+        toast._iconRetryAt = tick() + 0.6
+        if src and src ~= "" then
+            toast._iconData = IconsModule.Get(src, function(png)
+                toast._iconData = png
+            end, false, true)
+        end
+    end
+    toast.setIcon = toast.SetIcon
 
     toast.SetProgress = function(a, b)
         local val = (a == toast) and b or a
@@ -388,11 +415,12 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
 
         local toastSide = toast.Side or side
         local toastAnchor = toast.Anchor or anchor
+        local toastW = toast.Width or cardW
         local hasIcon = toast.Icon ~= nil and toast.Icon ~= ""
         local iconSize = toast.IconSize or 22
         local textLeftOffset = hasIcon and (iconSize + 10) or 0
         local rightPad = toast.CanClose and 22 or 0
-        local textW = cardW - padX * 2 - textLeftOffset - rightPad
+        local textW = toastW - padX * 2 - textLeftOffset - rightPad
 
         if hasIcon and not toast._iconData and not IconsModule.IsInFlight(toast.Icon) and now >= (toast._iconRetryAt or 0) then
             toast._iconRetryAt = now + 1.0
@@ -410,8 +438,8 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         local minIconH = hasIcon and (iconSize + padY * 2 + 8) or 58
         local cardH = math.max(minIconH, padY * 2 + 18 + contentH + btnRowH + 8)
 
-        local finalX = toastSide == "Left" and marginX or (vp.X - cardW - marginX)
-        local offX = toastSide == "Left" and (-cardW - 24) or (vp.X + 24)
+        local finalX = toastSide == "Left" and marginX or (vp.X - toastW - marginX)
+        local offX = toastSide == "Left" and (-toastW - 24) or (vp.X + 24)
         local x = math.floor(offX + (finalX - offX) * toast.SlideT + 0.5)
 
         local targetY = toastAnchor == "Top"
@@ -426,17 +454,23 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         stackOffset = stackOffset + cardH + gapY
 
         local alpha = math.clamp(toast.SlideT, 0, 1)
+        local tBgCol = toast.BgColor or cardBg
+        local tBorderCol = toast.BorderColor or toast.Accent or borderCol
+        local tTitleCol = toast.TitleColor or titleCol
+        local tDescCol = toast.ContentColor or descCol
 
         -- Card shell
         slot.Bg.Position = Vector2.new(x, y)
-        slot.Bg.Size = Vector2.new(cardW, cardH)
-        slot.Bg.Color = cardBg
+        slot.Bg.Size = Vector2.new(toastW, cardH)
+        slot.Bg.Corner = toast.Corner or 12
+        slot.Bg.Color = tBgCol
         slot.Bg.Transparency = 0.96 * alpha
         slot.Bg.Visible = true
 
         slot.Border.Position = Vector2.new(x, y)
-        slot.Border.Size = Vector2.new(cardW, cardH)
-        slot.Border.Color = borderCol
+        slot.Border.Size = Vector2.new(toastW, cardH)
+        slot.Border.Corner = toast.Corner or 12
+        slot.Border.Color = tBorderCol
         slot.Border.Transparency = 0.9 * alpha
         slot.Border.Visible = true
 
@@ -447,7 +481,7 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
                 slot._lastIconData = toast._iconData
             end
             local keepCol = (toast.KeepColor ~= false) and toast._iconIsCustom
-            slot.IconImg.Color = toast.IconColor or (keepCol and Color3.fromRGB(255, 255, 255) or titleCol)
+            slot.IconImg.Color = toast.IconColor or (keepCol and Color3.fromRGB(255, 255, 255) or tTitleCol)
             slot.IconImg.Size = Vector2.new(iconSize, iconSize)
             slot.IconImg.Rounding = toast.IconRounding or 0
             slot.IconImg.Position = Vector2.new(x + padX, y + padY)
@@ -460,7 +494,7 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         -- Close button
         local closeHover = false
         if toast.CanClose then
-            local cx = x + cardW - padX - 13
+            local cx = x + toastW - padX - 13
             local cy = y + padY + 1
             closeHover = mx >= cx - 5 and mx <= cx + 18 and my >= cy - 5 and my <= cy + 18
             if toast._closeData then
@@ -468,7 +502,7 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
                     slot.CloseImg.Data = toast._closeData
                     slot._lastCloseData = toast._closeData
                 end
-                slot.CloseImg.Color = titleCol
+                slot.CloseImg.Color = tTitleCol
                 slot.CloseImg.Position = Vector2.new(cx, cy)
                 slot.CloseImg.Transparency = (closeHover and 0.92 or 0.45) * alpha
                 slot.CloseImg.Visible = true
@@ -481,7 +515,7 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
 
         -- Title & wrapped lines
         slot.TitleText.Text = titleFitted
-        slot.TitleText.Color = titleCol
+        slot.TitleText.Color = tTitleCol
         slot.TitleText.Position = Vector2.new(x + padX + textLeftOffset, y + padY - 1)
         slot.TitleText.Transparency = alpha
         slot.TitleText.Visible = true
@@ -491,7 +525,7 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
             local str = lines[li]
             if str then
                 ln.Text = str
-                ln.Color = descCol
+                ln.Color = tDescCol
                 ln.Position = Vector2.new(x + padX + textLeftOffset, y + padY + 18 + (li - 1) * 16)
                 ln.Transparency = alpha
                 ln.Visible = true
@@ -505,7 +539,7 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         if hasButtons then
             local count = math.min(3, #toast.Buttons)
             local btnTop = y + cardH - 12 - btnRowH + 4
-            local availW = cardW - padX * 2
+            local availW = toastW - padX * 2
             local bw = math.floor((availW - (count - 1) * 6) / count)
             for bi = 1, 3 do
                 local bSlot = slot.Buttons[bi]
@@ -521,7 +555,7 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
 
                     local bTitle = tostring(bCfg.Title or bCfg.Text or "Action")
                     bSlot.Text.Text = bTitle
-                    bSlot.Text.Color = titleCol
+                    bSlot.Text.Color = tTitleCol
                     bSlot.Text.Center = false
                     local ax, ay = MetricsModule.AlignCenter(bx, btnTop, bw, 24, bTitle, 11)
                     bSlot.Text.Position = Vector2.new(ax, ay)
@@ -560,7 +594,7 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         end
 
         if ratio ~= nil then
-            local barW = cardW - padX * 2
+            local barW = toastW - padX * 2
             local barY = y + cardH - 7
             slot.ProgressTrack.Position = Vector2.new(x + padX, barY)
             slot.ProgressTrack.Size = Vector2.new(barW, 3)
@@ -589,7 +623,7 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
                 consumedClick = true
                 toast:Close()
             elseif not clickedButton then
-                local bodyHover = mx >= x and mx <= x + cardW and my >= y and my <= y + cardH
+                local bodyHover = mx >= x and mx <= x + toastW and my >= y and my <= y + cardH
                 if bodyHover and toast._onClick then
                     consumedClick = true
                     local ok, err = pcall(toast._onClick)

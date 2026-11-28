@@ -1066,6 +1066,7 @@ function Window:EditOpenButton(cfg)
     if cfg.OnlyIcon ~= nil then ob.OnlyIcon = cfg.OnlyIcon == true end
     if cfg.Position ~= nil then ob.Position = cfg.Position end
     if cfg.Color ~= nil then ob.Color = cfg.Color end
+    if cfg.IconRounding ~= nil then ob.IconRounding = tonumber(cfg.IconRounding) or 0 end
 end
 
 function Window:SetWatermark(text)
