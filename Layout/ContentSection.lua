@@ -27,6 +27,7 @@ local SKIP_CLIP_KEYS = {
     Section = true, Parent = true, Window = true, Pool = true, Env = true,
     Values = true, VisibleItems = true, Config = true, Callback = true,
     PopupItems = true, PopupDividers = true, PopupSelectedBgs = true,
+    PopupDrawings = true, AlphaTiles = true, AlphaSegments = true,
     PopupBg = true, PopupBorder = true, PopupHoverBg = true, PopupScrollThumb = true,
     SearchBg = true, SearchText = true, PopContainer = true, PopupRect = true,
     ModeMenu = true, Colorpicker = true,

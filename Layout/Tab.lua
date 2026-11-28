@@ -288,9 +288,27 @@ function Tab:UpdateSidebarPositions(winPos)
         end
     end
 
+    local badgeW = 0
+    if self.BadgeBg and self.BadgeText then
+        local bStr = tostring(self.BadgeText.Text or "")
+        local bTxtW = (MetricsModule and MetricsModule.Measure and MetricsModule.Measure(bStr, 11)) or (#bStr * 6)
+        badgeW = math.floor(bTxtW + 10)
+        local bX = tx + self.Width - badgeW - 6
+        local bY = ty + 8
+        self.BadgeBg.Position = Vector2.new(bX, bY)
+        self.BadgeBg.Size = Vector2.new(badgeW, 16)
+        if MetricsModule and MetricsModule.AlignCenter then
+            local ax, ay = MetricsModule.AlignCenter(bX, bY, badgeW, 16, bStr, 11)
+            self.BadgeText.Position = Vector2.new(ax, ay)
+        else
+            self.BadgeText.Position = Vector2.new(bX + 4, bY + 2)
+        end
+    end
+
     if self.TitleVisual then
         local titleX = tx + 36
-        local fitted = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(tostring(self.Title), self.Width - 44, 13) or tostring(self.Title)
+        local maxTitleW = math.max(30, self.Width - 44 - (badgeW > 0 and (badgeW + 8) or 0))
+        local fitted = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(tostring(self.Title), maxTitleW, 13) or tostring(self.Title)
         if MetaModule then
             MetaModule.SetText(self.TitleVisual, fitted)
             MetaModule.SetPosition(self.TitleVisual, titleX, ty + 9)
@@ -298,16 +316,6 @@ function Tab:UpdateSidebarPositions(winPos)
             self.TitleVisual.Text = fitted
             self.TitleVisual.Position = Vector2.new(titleX, ty + 9)
         end
-    end
-
-    if self.BadgeBg and self.BadgeText then
-        local bStr = self.BadgeText.Text
-        local bW = MetricsModule and MetricsModule.GetTextWidth and (MetricsModule.GetTextWidth(bStr, 11) + 8) or (#bStr * 6 + 8)
-        local bX = tx + self.Width - bW - 6
-        local bY = ty + 8
-        self.BadgeBg.Position = Vector2.new(bX, bY)
-        self.BadgeBg.Size = Vector2.new(bW, 16)
-        self.BadgeText.Position = Vector2.new(bX + 4, bY + 2)
     end
 
     if self.SidebarVisible then

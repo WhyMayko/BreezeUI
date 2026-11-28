@@ -268,9 +268,11 @@ function ProfileCard:_fetchAvatar()
 
     task.spawn(function()
         local thumbJson = game:HttpGet("https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. tostring(uid) .. "&size=150x150&format=Png&isCircular=false")
+        if self.Window and self.Window.Destroyed then return end
         local imgUrl = thumbJson and thumbJson:match('"imageUrl"%s*:%s*"(https://[^"]+)"')
         if imgUrl then
             local png = game:HttpGet(imgUrl)
+            if self.Window and self.Window.Destroyed then return end
             if png and #png > 8 and png:sub(1, 4) == "\x89PNG" then
                 self.AvatarPng = png
                 if self.AvatarImg then self.AvatarImg.Data = png end

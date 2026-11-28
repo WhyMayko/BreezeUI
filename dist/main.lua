@@ -5454,6 +5454,22 @@ function Keybind.new(parent, id, config)
     return self
 end
 
+function Keybind:_getBadgeRect()
+    local bw = self.BadgeBg and self.BadgeBg.Size and self.BadgeBg.Size.X or 40
+    local bh = 22
+    if self.Standalone then
+        local bx = self.Position.X + self.Size.X - bw - 14
+        local by = self.Position.Y + math.floor((self.Size.Y - bh) * 0.5)
+        return bx, by, bw, bh
+    elseif self.Parent and self.Parent.Position and self.Parent.Size then
+        local trackW = (self.Parent.Type == "Checkbox") and 24 or 42
+        local bx = self.Parent.Position.X + self.Parent.Size.X - trackW - bw - 22
+        local by = self.Parent.Position.Y + math.floor((self.Parent.Size.Y - bh) * 0.5)
+        return bx, by, bw, bh
+    end
+    return self.Position.X, self.Position.Y, bw, bh
+end
+
 function Keybind:_centerBadgeText(bx, by, bw, bh)
     if not self.BadgeText then return end
     self.BadgeText.Center = false
@@ -5626,15 +5642,20 @@ function Keybind:OpenModeMenu()
         self.ModeMenu = menu
     end
 
-    local bx = self.BadgeBg and self.BadgeBg.Position and self.BadgeBg.Position.X or self.Position.X
-    local by = self.BadgeBg and self.BadgeBg.Position and self.BadgeBg.Position.Y or self.Position.Y
-    local bw = self.BadgeBg and self.BadgeBg.Size and self.BadgeBg.Size.X or 40
-    local bh = 22
+    local bx, by, bw, bh = self:_getBadgeRect()
     local mw = 84
     local rowH = 22
     local mh = 8 + #MODE_LIST * rowH
     local mx = bx + bw - mw
     local my = by + bh + 4
+    local cam = workspace and workspace.CurrentCamera
+    if cam and cam.ViewportSize and cam.ViewportSize.X > 0 and cam.ViewportSize.Y > 0 then
+        local vp = cam.ViewportSize
+        mx = math.clamp(mx, 8, math.max(8, vp.X - mw - 8))
+        if my + mh > vp.Y - 8 and (by - mh - 4) >= 8 then
+            my = by - mh - 4
+        end
+    end
 
     local menu = self.ModeMenu
     menu.Rect = { X = mx, Y = my, W = mw, H = mh }
@@ -5721,8 +5742,10 @@ function Keybind:StartCapture()
     if self.BadgeText then
         self.BadgeText.Text = "[...]"
         self.BadgeText.Color = ThemeModule.Get("Accent.Blue", Color3.fromRGB(0, 145, 255))
-        if self.BadgeBg then
-            self:_centerBadgeText(self.BadgeBg.Position.X, self.BadgeBg.Position.Y, self.BadgeBg.Size.X, self.BadgeBg.Size.Y)
+        local bx, by, bw, bh = self:_getBadgeRect()
+        self:_centerBadgeText(bx, by, bw, bh)
+        if self.Visible and self._clipTop and self._clipBottom and self.Section and self.Section.ClipControl then
+            self.Section.ClipControl(self, self._clipTop, self._clipBottom)
         end
     end
     local win = self.Window or (self.Parent and self.Parent.Section and self.Parent.Section.Window)
@@ -5742,8 +5765,10 @@ function Keybind:CancelCapture()
     if self.BadgeText then
         self.BadgeText.Text = "[" .. self.KeyName .. "]"
         self.BadgeText.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
-        if self.BadgeBg then
-            self:_centerBadgeText(self.BadgeBg.Position.X, self.BadgeBg.Position.Y, self.BadgeBg.Size.X, self.BadgeBg.Size.Y)
+        local bx, by, bw, bh = self:_getBadgeRect()
+        self:_centerBadgeText(bx, by, bw, bh)
+        if self.Visible and self._clipTop and self._clipBottom and self.Section and self.Section.ClipControl then
+            self.Section.ClipControl(self, self._clipTop, self._clipBottom)
         end
     end
     local win = self.Window or (self.Parent and self.Parent.Section and self.Parent.Section.Window)
@@ -9868,6 +9893,7 @@ local SKIP_CLIP_KEYS = {
     Section = true, Parent = true, Window = true, Pool = true, Env = true,
     Values = true, VisibleItems = true, Config = true, Callback = true,
     PopupItems = true, PopupDividers = true, PopupSelectedBgs = true,
+    PopupDrawings = true, AlphaTiles = true, AlphaSegments = true,
     PopupBg = true, PopupBorder = true, PopupHoverBg = true, PopupScrollThumb = true,
     SearchBg = true, SearchText = true, PopContainer = true, PopupRect = true,
     ModeMenu = true, Colorpicker = true,
@@ -11263,9 +11289,27 @@ function Tab:UpdateSidebarPositions(winPos)
         end
     end
 
+    local badgeW = 0
+    if self.BadgeBg and self.BadgeText then
+        local bStr = tostring(self.BadgeText.Text or "")
+        local bTxtW = (MetricsModule and MetricsModule.Measure and MetricsModule.Measure(bStr, 11)) or (#bStr * 6)
+        badgeW = math.floor(bTxtW + 10)
+        local bX = tx + self.Width - badgeW - 6
+        local bY = ty + 8
+        self.BadgeBg.Position = Vector2.new(bX, bY)
+        self.BadgeBg.Size = Vector2.new(badgeW, 16)
+        if MetricsModule and MetricsModule.AlignCenter then
+            local ax, ay = MetricsModule.AlignCenter(bX, bY, badgeW, 16, bStr, 11)
+            self.BadgeText.Position = Vector2.new(ax, ay)
+        else
+            self.BadgeText.Position = Vector2.new(bX + 4, bY + 2)
+        end
+    end
+
     if self.TitleVisual then
         local titleX = tx + 36
-        local fitted = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(tostring(self.Title), self.Width - 44, 13) or tostring(self.Title)
+        local maxTitleW = math.max(30, self.Width - 44 - (badgeW > 0 and (badgeW + 8) or 0))
+        local fitted = MetricsModule and MetricsModule.Fit and MetricsModule.Fit(tostring(self.Title), maxTitleW, 13) or tostring(self.Title)
         if MetaModule then
             MetaModule.SetText(self.TitleVisual, fitted)
             MetaModule.SetPosition(self.TitleVisual, titleX, ty + 9)
@@ -11273,16 +11317,6 @@ function Tab:UpdateSidebarPositions(winPos)
             self.TitleVisual.Text = fitted
             self.TitleVisual.Position = Vector2.new(titleX, ty + 9)
         end
-    end
-
-    if self.BadgeBg and self.BadgeText then
-        local bStr = self.BadgeText.Text
-        local bW = MetricsModule and MetricsModule.GetTextWidth and (MetricsModule.GetTextWidth(bStr, 11) + 8) or (#bStr * 6 + 8)
-        local bX = tx + self.Width - bW - 6
-        local bY = ty + 8
-        self.BadgeBg.Position = Vector2.new(bX, bY)
-        self.BadgeBg.Size = Vector2.new(bW, 16)
-        self.BadgeText.Position = Vector2.new(bX + 4, bY + 2)
     end
 
     if self.SidebarVisible then
@@ -11938,9 +11972,11 @@ function ProfileCard:_fetchAvatar()
 
     task.spawn(function()
         local thumbJson = game:HttpGet("https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. tostring(uid) .. "&size=150x150&format=Png&isCircular=false")
+        if self.Window and self.Window.Destroyed then return end
         local imgUrl = thumbJson and thumbJson:match('"imageUrl"%s*:%s*"(https://[^"]+)"')
         if imgUrl then
             local png = game:HttpGet(imgUrl)
+            if self.Window and self.Window.Destroyed then return end
             if png and #png > 8 and png:sub(1, 4) == "\x89PNG" then
                 self.AvatarPng = png
                 if self.AvatarImg then self.AvatarImg.Data = png end
@@ -13892,7 +13928,7 @@ function Window:SetBackgroundImage(urlOrName)
     end
     if self.BgImage and IconsModule and IconsModule.Get then
         IconsModule.Get(urlOrName, function(png)
-            if self.BgImage and png then
+            if not self.Destroyed and self.BgImage and png then
                 self.BgImage.Data = png
                 self.BgImage.Visible = self.Visible and not self.Minimized
             end
@@ -13948,7 +13984,9 @@ function Window:_updateInputBlock(rbxFocused)
     if active then
         task.spawn(function()
             task.wait(0.1)
-            mouse1click()
+            if not self.Destroyed and type(mouse1click) == "function" then
+                mouse1click()
+            end
         end)
     end
     self._lastInputBlocked = shouldBlock
@@ -14155,7 +14193,8 @@ function Window:Tag(tagConfig)
 
     local tagTitle = tostring(cfg.Title or "Tag")
     local hasIcon = cfg.Icon ~= nil and cfg.Icon ~= ""
-    local tagW = math.floor(#tagTitle * 6.2) + (hasIcon and 30 or 16)
+    local tagTxtW = (MetricsModule and MetricsModule.Measure and MetricsModule.Measure(tagTitle, 12)) or math.floor(#tagTitle * 6.2)
+    local tagW = tagTxtW + (hasIcon and 30 or 16)
     local tagH = 22
     local relX = math.min((self.TitleEndOffset or 220) + 12, sx - tagW - 14)
     local relY = 11

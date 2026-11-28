@@ -220,6 +220,22 @@ function Keybind.new(parent, id, config)
     return self
 end
 
+function Keybind:_getBadgeRect()
+    local bw = self.BadgeBg and self.BadgeBg.Size and self.BadgeBg.Size.X or 40
+    local bh = 22
+    if self.Standalone then
+        local bx = self.Position.X + self.Size.X - bw - 14
+        local by = self.Position.Y + math.floor((self.Size.Y - bh) * 0.5)
+        return bx, by, bw, bh
+    elseif self.Parent and self.Parent.Position and self.Parent.Size then
+        local trackW = (self.Parent.Type == "Checkbox") and 24 or 42
+        local bx = self.Parent.Position.X + self.Parent.Size.X - trackW - bw - 22
+        local by = self.Parent.Position.Y + math.floor((self.Parent.Size.Y - bh) * 0.5)
+        return bx, by, bw, bh
+    end
+    return self.Position.X, self.Position.Y, bw, bh
+end
+
 function Keybind:_centerBadgeText(bx, by, bw, bh)
     if not self.BadgeText then return end
     self.BadgeText.Center = false
@@ -392,15 +408,20 @@ function Keybind:OpenModeMenu()
         self.ModeMenu = menu
     end
 
-    local bx = self.BadgeBg and self.BadgeBg.Position and self.BadgeBg.Position.X or self.Position.X
-    local by = self.BadgeBg and self.BadgeBg.Position and self.BadgeBg.Position.Y or self.Position.Y
-    local bw = self.BadgeBg and self.BadgeBg.Size and self.BadgeBg.Size.X or 40
-    local bh = 22
+    local bx, by, bw, bh = self:_getBadgeRect()
     local mw = 84
     local rowH = 22
     local mh = 8 + #MODE_LIST * rowH
     local mx = bx + bw - mw
     local my = by + bh + 4
+    local cam = workspace and workspace.CurrentCamera
+    if cam and cam.ViewportSize and cam.ViewportSize.X > 0 and cam.ViewportSize.Y > 0 then
+        local vp = cam.ViewportSize
+        mx = math.clamp(mx, 8, math.max(8, vp.X - mw - 8))
+        if my + mh > vp.Y - 8 and (by - mh - 4) >= 8 then
+            my = by - mh - 4
+        end
+    end
 
     local menu = self.ModeMenu
     menu.Rect = { X = mx, Y = my, W = mw, H = mh }
@@ -487,8 +508,10 @@ function Keybind:StartCapture()
     if self.BadgeText then
         self.BadgeText.Text = "[...]"
         self.BadgeText.Color = ThemeModule.Get("Accent.Blue", Color3.fromRGB(0, 145, 255))
-        if self.BadgeBg then
-            self:_centerBadgeText(self.BadgeBg.Position.X, self.BadgeBg.Position.Y, self.BadgeBg.Size.X, self.BadgeBg.Size.Y)
+        local bx, by, bw, bh = self:_getBadgeRect()
+        self:_centerBadgeText(bx, by, bw, bh)
+        if self.Visible and self._clipTop and self._clipBottom and self.Section and self.Section.ClipControl then
+            self.Section.ClipControl(self, self._clipTop, self._clipBottom)
         end
     end
     local win = self.Window or (self.Parent and self.Parent.Section and self.Parent.Section.Window)
@@ -508,8 +531,10 @@ function Keybind:CancelCapture()
     if self.BadgeText then
         self.BadgeText.Text = "[" .. self.KeyName .. "]"
         self.BadgeText.Color = ThemeModule.Get("Text.Secondary", Color3.fromRGB(161, 161, 170))
-        if self.BadgeBg then
-            self:_centerBadgeText(self.BadgeBg.Position.X, self.BadgeBg.Position.Y, self.BadgeBg.Size.X, self.BadgeBg.Size.Y)
+        local bx, by, bw, bh = self:_getBadgeRect()
+        self:_centerBadgeText(bx, by, bw, bh)
+        if self.Visible and self._clipTop and self._clipBottom and self.Section and self.Section.ClipControl then
+            self.Section.ClipControl(self, self._clipTop, self._clipBottom)
         end
     end
     local win = self.Window or (self.Parent and self.Parent.Section and self.Parent.Section.Window)

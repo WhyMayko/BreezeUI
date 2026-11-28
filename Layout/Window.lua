@@ -1017,7 +1017,7 @@ function Window:SetBackgroundImage(urlOrName)
     end
     if self.BgImage and IconsModule and IconsModule.Get then
         IconsModule.Get(urlOrName, function(png)
-            if self.BgImage and png then
+            if not self.Destroyed and self.BgImage and png then
                 self.BgImage.Data = png
                 self.BgImage.Visible = self.Visible and not self.Minimized
             end
@@ -1073,7 +1073,9 @@ function Window:_updateInputBlock(rbxFocused)
     if active then
         task.spawn(function()
             task.wait(0.1)
-            mouse1click()
+            if not self.Destroyed and type(mouse1click) == "function" then
+                mouse1click()
+            end
         end)
     end
     self._lastInputBlocked = shouldBlock
@@ -1280,7 +1282,8 @@ function Window:Tag(tagConfig)
 
     local tagTitle = tostring(cfg.Title or "Tag")
     local hasIcon = cfg.Icon ~= nil and cfg.Icon ~= ""
-    local tagW = math.floor(#tagTitle * 6.2) + (hasIcon and 30 or 16)
+    local tagTxtW = (MetricsModule and MetricsModule.Measure and MetricsModule.Measure(tagTitle, 12)) or math.floor(#tagTitle * 6.2)
+    local tagW = tagTxtW + (hasIcon and 30 or 16)
     local tagH = 22
     local relX = math.min((self.TitleEndOffset or 220) + 12, sx - tagW - 14)
     local relY = 11

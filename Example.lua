@@ -6,7 +6,7 @@ local repo = "https://raw.githubusercontent.com/WhyMayko/BreezeUI/main/"
 local Library, ThemeManager, SaveManager
 if _G.BreezeUI and _G.BreezeUI.Library then
     Library, ThemeManager, SaveManager = _G.BreezeUI.Library, _G.BreezeUI.ThemeManager, _G.BreezeUI.SaveManager
-else
+elseif game and game.HttpGet then
     loadstring(game:HttpGet(repo .. "Loader.lua"))()
     Library, ThemeManager, SaveManager = _G.BreezeUI()
 end
