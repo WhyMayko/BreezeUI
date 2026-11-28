@@ -24,12 +24,6 @@ local str_ctrl_bg = "Control.Background"
 local str_ctrl_hv = "Control.Hover"
 local str_card_bg = "Card.Background"
 
-local function clamp(v, lo, hi)
-    if v < lo then return lo end
-    if v > hi then return hi end
-    return v
-end
-
 local function ensure_slot()
     if not Dialog.Pool or Dialog.Pool.Destroyed then
         Dialog.Pool = PoolModule.new(nil, MetaModule)
@@ -200,7 +194,7 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
     local d = Dialog.Active
     if not d then return false end
 
-    local delta = clamp(dt or 0.016, 0.001, 0.1)
+    local delta = math.clamp(dt or 0.016, 0.001, 0.1)
     local smooth = 1 - math.exp(-18 * delta)
 
     if d.Closing then
@@ -253,9 +247,9 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
         hostCorner = 0
     end
 
-    local alpha = clamp(d.AnimT, 0, 1)
+    local alpha = math.clamp(d.AnimT, 0, 1)
     local pad = 18
-    local cardW = clamp(d.Width, 260, math.max(260, hostW - 32))
+    local cardW = math.clamp(d.Width, 260, math.max(260, hostW - 32))
     local hasIcon = d.Icon ~= nil and d.Icon ~= ""
     local titleLeft = hasIcon and 32 or 0
     local textW = cardW - pad * 2

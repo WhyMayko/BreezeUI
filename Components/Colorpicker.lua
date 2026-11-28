@@ -9,12 +9,6 @@ local ClampingModule = Clamping or require("../Engine/Clamping")
 local Colorpicker = {}
 Colorpicker.__index = Colorpicker
 
-local function clamp(v, lo, hi)
-    if v < lo then return lo end
-    if v > hi then return hi end
-    return v
-end
-
 local function rgb_to_hsv(col)
     if not col then return 0, 1, 1 end
     local r = tonumber(col.R or col.r) or 1
@@ -46,14 +40,14 @@ local hsv_to_rgb = ThemeModule.HSV
 
 local function rgb_to_hex(col)
     if not col then return "#FFFFFF" end
-    local r = math.floor(clamp(tonumber(col.R or col.r) or 1, 0, 1) * 255 + 0.5)
-    local g = math.floor(clamp(tonumber(col.G or col.g) or 1, 0, 1) * 255 + 0.5)
-    local b = math.floor(clamp(tonumber(col.B or col.b) or 1, 0, 1) * 255 + 0.5)
+    local r = math.floor(math.clamp(tonumber(col.R or col.r) or 1, 0, 1) * 255 + 0.5)
+    local g = math.floor(math.clamp(tonumber(col.G or col.g) or 1, 0, 1) * 255 + 0.5)
+    local b = math.floor(math.clamp(tonumber(col.B or col.b) or 1, 0, 1) * 255 + 0.5)
     return string.format("#%02X%02X%02X", r, g, b)
 end
 
 function Colorpicker:_syncSwatchVisual()
-    local opacity = self.HasAlpha and clamp(1 - (self.Transparency or 0), 0, 1) or 1
+    local opacity = self.HasAlpha and math.clamp(1 - (self.Transparency or 0), 0, 1) or 1
     if self.Swatch then
         self.Swatch.Color = self.Value
         self.Swatch.Transparency = opacity
@@ -82,7 +76,7 @@ function Colorpicker.new(section, id, config)
         Sat = s,
         Vib = v,
         HasAlpha = cfg.Transparency ~= nil,
-        Transparency = clamp(tonumber(cfg.Transparency) or 0, 0, 1),
+        Transparency = math.clamp(tonumber(cfg.Transparency) or 0, 0, 1),
         Position = pos,
         Size = size,
         Visible = section.Visible,
@@ -164,7 +158,7 @@ function Colorpicker.new(section, id, config)
         local sw = pool:Get("Square")
         sw.Size = Vector2.new(32, 18)
         sw.Color = self.Value
-        sw.Transparency = self.HasAlpha and clamp(1 - self.Transparency, 0, 1) or 1
+        sw.Transparency = self.HasAlpha and math.clamp(1 - self.Transparency, 0, 1) or 1
         sw.Filled = true
         sw.Corner = 6
         sw.ZIndex = 6
@@ -376,7 +370,7 @@ function Colorpicker:_syncPopup()
     local vp = ClampingModule.GetViewportSize()
     local popW = 216
     local popH = self.HasAlpha and 248 or 222
-    local x = clamp(self.Position.X + self.Size.X - popW, 8, math.max(8, vp.X - popW - 8))
+    local x = math.clamp(self.Position.X + self.Size.X - popW, 8, math.max(8, vp.X - popW - 8))
     local y = self.Position.Y + self.Size.Y + 6
     if y + popH > vp.Y - 8 then
         y = math.max(8, self.Position.Y - popH - 6)
@@ -416,8 +410,8 @@ function Colorpicker:_syncPopup()
     pd.SVMap.Visible = self._textures.Sat ~= nil
 
     pd.SVCursor.Position = Vector2.new(
-        clamp(sv.X + math.floor(self.Sat * sv.W - 6), sv.X - 2, sv.X + sv.W - 10),
-        clamp(sv.Y + math.floor((1 - self.Vib) * sv.H - 6), sv.Y - 2, sv.Y + sv.H - 10)
+        math.clamp(sv.X + math.floor(self.Sat * sv.W - 6), sv.X - 2, sv.X + sv.W - 10),
+        math.clamp(sv.Y + math.floor((1 - self.Vib) * sv.H - 6), sv.Y - 2, sv.Y + sv.H - 10)
     )
     pd.SVCursor.Visible = true
 
@@ -436,7 +430,7 @@ function Colorpicker:_syncPopup()
     end
     pd.HueImg.Visible = self._textures.Hue ~= nil
 
-    pd.HueCursor.Position = Vector2.new(hb.X - 1, clamp(hb.Y + math.floor(self.Hue * hb.H - 2), hb.Y, hb.Y + hb.H - 4))
+    pd.HueCursor.Position = Vector2.new(hb.X - 1, math.clamp(hb.Y + math.floor(self.Hue * hb.H - 2), hb.Y, hb.Y + hb.H - 4))
     pd.HueCursor.Visible = true
 
     if self.PopupRect.Alpha then
@@ -469,7 +463,7 @@ function Colorpicker:_syncPopup()
             seg.Visible = true
         end
 
-        pd.AlphaCursor.Position = Vector2.new(clamp(ab.X + math.floor((1 - self.Transparency) * ab.W - 2), ab.X, ab.X + ab.W - 4), ab.Y - 1)
+        pd.AlphaCursor.Position = Vector2.new(math.clamp(ab.X + math.floor((1 - self.Transparency) * ab.W - 2), ab.X, ab.X + ab.W - 4), ab.Y - 1)
         pd.AlphaCursor.Visible = true
     else
         for _, tile in ipairs(pd.AlphaTiles) do tile.Visible = false end
@@ -488,7 +482,7 @@ function Colorpicker:_syncPopup()
 
     pd.Preview.Position = Vector2.new(x + 12, fy)
     pd.Preview.Color = self.Value
-    pd.Preview.Transparency = self.HasAlpha and clamp(1 - self.Transparency, 0, 1) or 1
+    pd.Preview.Transparency = self.HasAlpha and math.clamp(1 - self.Transparency, 0, 1) or 1
     pd.Preview.Visible = true
 
     pd.HexText.Text = rgb_to_hex(self.Value)
@@ -517,12 +511,15 @@ function Colorpicker:SetValueRGB(col, alpha)
     self.Value = col
     self.Hue, self.Sat, self.Vib = rgb_to_hsv(col)
     if alpha ~= nil then
-        self.Transparency = clamp(tonumber(alpha) or 0, 0, 1)
+        self.Transparency = math.clamp(tonumber(alpha) or 0, 0, 1)
     end
     self:_syncSwatchVisual()
     self:_syncPopup()
     if self.Callback then
         pcall(self.Callback, self.Value, self.Transparency)
+    end
+    if self.Changed then
+        pcall(self.Changed, self.Value, self.Transparency)
     end
 end
 Colorpicker.Set = Colorpicker.SetValueRGB
@@ -585,14 +582,14 @@ function Colorpicker:UpdatePopupInput(mx, my, m1Pressed, m1Clicked)
     if self.DragMode then
         if m1Pressed then
             if self.DragMode == "SV" then
-                self.Sat = clamp((mx - sv.X) / sv.W, 0, 1)
-                self.Vib = 1 - clamp((my - sv.Y) / sv.H, 0, 1)
+                self.Sat = math.clamp((mx - sv.X) / sv.W, 0, 1)
+                self.Vib = 1 - math.clamp((my - sv.Y) / sv.H, 0, 1)
                 self:_applyHSV()
             elseif self.DragMode == "Hue" then
-                self.Hue = clamp((my - hb.Y) / hb.H, 0, 1)
+                self.Hue = math.clamp((my - hb.Y) / hb.H, 0, 1)
                 self:_applyHSV()
             elseif self.DragMode == "Alpha" and ab then
-                self.Transparency = 1 - clamp((mx - ab.X) / ab.W, 0, 1)
+                self.Transparency = 1 - math.clamp((mx - ab.X) / ab.W, 0, 1)
                 self:_applyHSV()
             end
             return true
@@ -613,16 +610,16 @@ function Colorpicker:UpdatePopupInput(mx, my, m1Pressed, m1Clicked)
     if m1Clicked then
         if mx >= sv.X and mx <= sv.X + sv.W and my >= sv.Y and my <= sv.Y + sv.H then
             self.DragMode = "SV"
-            self.Sat = clamp((mx - sv.X) / sv.W, 0, 1)
-            self.Vib = 1 - clamp((my - sv.Y) / sv.H, 0, 1)
+            self.Sat = math.clamp((mx - sv.X) / sv.W, 0, 1)
+            self.Vib = 1 - math.clamp((my - sv.Y) / sv.H, 0, 1)
             self:_applyHSV()
         elseif mx >= hb.X and mx <= hb.X + hb.W and my >= hb.Y and my <= hb.Y + hb.H then
             self.DragMode = "Hue"
-            self.Hue = clamp((my - hb.Y) / hb.H, 0, 1)
+            self.Hue = math.clamp((my - hb.Y) / hb.H, 0, 1)
             self:_applyHSV()
         elseif ab and mx >= ab.X and mx <= ab.X + ab.W and my >= ab.Y and my <= ab.Y + ab.H then
             self.DragMode = "Alpha"
-            self.Transparency = 1 - clamp((mx - ab.X) / ab.W, 0, 1)
+            self.Transparency = 1 - math.clamp((mx - ab.X) / ab.W, 0, 1)
             self:_applyHSV()
         end
         return true

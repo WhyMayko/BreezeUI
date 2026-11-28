@@ -85,7 +85,7 @@ function ImageBlock:SetImage(src)
     if self.Source == "" or not self.ImgDrawing then return end
 
     local function apply_data(data)
-        if not data or not self.ImgDrawing then return end
+        if not data or not self.ImgDrawing or (self.Section and self.Section.Destroyed) then return end
         self._imgData = data
         self.ImgDrawing.Data = data
         self.ImgDrawing.Visible = self.Visible

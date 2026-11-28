@@ -27,12 +27,6 @@ local str_blue    = "Accent.Blue"
 local str_ctrl_bg = "Control.Background"
 local str_ctrl_hv = "Control.Hover"
 
-local function clamp(v, lo, hi)
-    if v < lo then return lo end
-    if v > hi then return hi end
-    return v
-end
-
 local function ensure_pool()
     if not Notify.Pool or Notify.Pool.Destroyed then
         Notify.Pool = PoolModule.new(nil, MetaModule)
@@ -266,7 +260,7 @@ function Notify.Push(cfg, titleArg, durationArg)
 
     toast.SetProgress = function(a, b)
         local val = (a == toast) and b or a
-        toast.Progress = clamp(tonumber(val) or 0, 0, 1)
+        toast.Progress = math.clamp(tonumber(val) or 0, 0, 1)
     end
     toast.setProgress = toast.SetProgress
 
@@ -309,7 +303,7 @@ end
 function Notify.Update(dt, window, mousePos, m1ClickedArg)
     if #Notify.Active == 0 then return false end
 
-    local delta = clamp(dt or 0.016, 0.001, 0.1)
+    local delta = math.clamp(dt or 0.016, 0.001, 0.1)
     local now = tick()
     local vp = ClampingModule.GetViewportSize()
 
@@ -407,7 +401,7 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         local y = math.floor(toast.CurrentY + 0.5)
         stackOffset = stackOffset + cardH + gapY
 
-        local alpha = clamp(toast.SlideT, 0, 1)
+        local alpha = math.clamp(toast.SlideT, 0, 1)
 
         -- Card shell
         slot.Bg.Position = Vector2.new(x, y)
@@ -533,9 +527,9 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         local ratio = nil
         if toast.Progress ~= nil then
             toast.DisplayProgress = toast.DisplayProgress + (toast.Progress - toast.DisplayProgress) * smooth
-            ratio = clamp(toast.DisplayProgress, 0, 1)
+            ratio = math.clamp(toast.DisplayProgress, 0, 1)
         elseif toast.ExpiresAt and toast.Duration and toast.Duration > 0 then
-            ratio = clamp((toast.ExpiresAt - now) / toast.Duration, 0, 1)
+            ratio = math.clamp((toast.ExpiresAt - now) / toast.Duration, 0, 1)
         end
 
         if ratio ~= nil then

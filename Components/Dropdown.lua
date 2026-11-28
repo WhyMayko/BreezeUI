@@ -188,6 +188,7 @@ function Dropdown.new(section, id, config)
         end)
     end
 
+    self:SetPosition(pos, size)
     return self
 end
 

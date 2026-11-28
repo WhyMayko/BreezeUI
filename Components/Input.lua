@@ -110,6 +110,7 @@ function Input.new(section, id, config)
         section:_register(inp)
     end
 
+    self:SetPosition(pos, size)
     return self
 end
 

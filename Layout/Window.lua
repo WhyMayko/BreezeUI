@@ -202,7 +202,6 @@ function Window.new(config)
         Logo = nil,
         TitleText = nil,
         HeaderText = nil,
-        SubtitleText = nil,
         TitleOffset = 74,
         TitleEndOffset = 220,
 
@@ -416,13 +415,6 @@ function Window:_createChrome()
     self.TitleOffset = titleOffset
     self.TitleEndOffset = titleOffset + MetricsModule.Measure(fitTitle, 13)
     self:_register(titleText)
-
-    local subText = pool:Get("Text")
-    subText.Size = 11
-    subText.Font = fontUI
-    subText.Outline = false
-    subText.Visible = false
-    self.SubtitleText = subText
 
     -- 7. Bottom Drag Pill (Crisp 168x12 anti-aliased PNG matching WindUI BottomDragFrame)
     local pill = pool:Get("Image")
@@ -1158,9 +1150,6 @@ function Window:UpdateTheme(newTheme, skipLayout)
     if self.Border then self.Border.Color = borderCol end
     if self.MainPanelBg then self.MainPanelBg.Color = panelCol end
     if self.TitleText then self.TitleText.Color = textCol end
-    if self.SubtitleText then
-        self.SubtitleText.Color = ThemeModule.Resolve(t, "Text.Secondary")
-    end
     if self.VerticalDivider then
         self.VerticalDivider.Color = ThemeModule.Resolve(t, "Sidebar.Divider")
     end
@@ -1372,6 +1361,83 @@ function Window:_getMouse()
     return nil
 end
 
+local function handle_popups(self, mx, my, m1Pressed, m1Clicked, m2Clicked)
+    if self.OpenKeybindMenu and self.OpenKeybindMenu.ModeMenuOpen then
+        if self.OpenKeybindMenu:UpdateModeMenu(mx, my, m1Clicked, m2Clicked) then
+            return true
+        end
+    end
+
+    if self.OpenColorpicker and self.OpenColorpicker.IsOpen then
+        if self.OpenColorpicker:UpdatePopupInput(mx, my, m1Pressed, m1Clicked) then
+            return true
+        end
+    end
+
+    if self.OpenDropdown and self.OpenDropdown.Opened and self.OpenDropdown.PopupRect then
+        local dd = self.OpenDropdown
+        local r = dd.PopupRect
+        local st = r.ScrollTrack
+        local overScroll = st and mx >= st.X and mx <= st.X + st.W and my >= st.Y and my <= st.Y + st.H
+        if dd.PopupScrollThumb then
+            AnimationsModule.TweenProp(dd.PopupScrollThumb, "Transparency", (overScroll or dd.IsScrollingPopup) and 0.85 or 0.28)
+        end
+        if dd.IsScrollingPopup then
+            if m1Pressed and st then
+                local travel = math.max(1, st.H - st.ThumbH)
+                local ratio = math.clamp((my - st.Y - st.ThumbH * 0.5) / travel, 0, 1)
+                dd:SetScrollRatio(ratio)
+                return true
+            else
+                dd.IsScrollingPopup = false
+            end
+        end
+        local overPopup = mx >= r.X and mx <= r.X + r.W and my >= r.Y and my <= r.Y + r.H
+        if overPopup then
+            if st and mx >= st.X and mx <= st.X + st.W and my >= st.Y and my <= st.Y + st.H then
+                dd:SetPopupHover(nil)
+                if m1Clicked then
+                    dd.IsScrollingPopup = true
+                    local travel = math.max(1, st.H - st.ThumbH)
+                    local ratio = math.clamp((my - st.Y - st.ThumbH * 0.5) / travel, 0, 1)
+                    dd:SetScrollRatio(ratio)
+                    return true
+                end
+            end
+            local sr = r.SearchRect
+            if sr and mx >= sr.X and mx <= sr.X + sr.W and my >= sr.Y and my <= sr.Y + sr.H then
+                dd:SetPopupHover(nil)
+                if m1Clicked then
+                    self.FocusedDropdownSearch = dd
+                    if dd.RefreshSearchDisplay then dd:RefreshSearchDisplay() end
+                    return true
+                end
+            else
+                local listTop = r.ListTop or (r.Y + 4)
+                local idx = math.floor((my - listTop) / r.ItemH) + 1
+                if idx >= 1 and idx <= r.Count then
+                    dd:SetPopupHover(idx)
+                    if m1Clicked then
+                        local realIdx = (dd.ScrollOffset or 0) + idx
+                        local chosen = dd.VisibleItems and dd.VisibleItems[realIdx] or dd.Values[realIdx]
+                        if chosen then dd:Select(chosen) end
+                        return true
+                    end
+                else
+                    dd:SetPopupHover(nil)
+                end
+            end
+            return true
+        else
+            dd:SetPopupHover(nil)
+            if m1Clicked then
+                dd:Close()
+            end
+        end
+    end
+    return false
+end
+
 function Window:Update(rawDt)
     if self.Destroyed or not self.Running then return end
     local curState = UI.GetValue(str_ui_state)
@@ -1578,6 +1644,12 @@ function Window:Update(rawDt)
         if self.MacMax then self.MacMax.Color = ThemeModule.Get(str_mac_max) end
     end
 
+    if not self.Minimized and not self.IsResizing and not self.IsScrolling and not self.IsDragging then
+        if handle_popups(self, mx, my, m1Pressed, m1Clicked, m2Clicked) then
+            return
+        end
+    end
+
     -- 2. Bottom-Right Corner Resize Icon & Hit-Test (strictly disabled in Fullscreen & Minimized)
     local canResizeNow = (not self.Minimized) and (not self.IsMaximized) and (self.CanResize == true)
     local rx = px + sx - 18
@@ -1691,80 +1763,6 @@ function Window:Update(rawDt)
     end
 
     if self.Minimized then return end
-
-    -- 4. Open Colorpicker, Dropdown & Keybind Mode Menu Priority Capture
-    if self.OpenKeybindMenu and self.OpenKeybindMenu.ModeMenuOpen then
-        if self.OpenKeybindMenu:UpdateModeMenu(mx, my, m1Clicked, m2Clicked) then
-            return
-        end
-    end
-
-    if self.OpenColorpicker and self.OpenColorpicker.IsOpen then
-        if self.OpenColorpicker:UpdatePopupInput(mx, my, m1Pressed, m1Clicked) then
-            return
-        end
-    end
-
-    if self.OpenDropdown and self.OpenDropdown.Opened and self.OpenDropdown.PopupRect then
-        local dd = self.OpenDropdown
-        local r = dd.PopupRect
-        local st = r.ScrollTrack
-        local overScroll = st and mx >= st.X and mx <= st.X + st.W and my >= st.Y and my <= st.Y + st.H
-        if dd.PopupScrollThumb then
-            AnimationsModule.TweenProp(dd.PopupScrollThumb, "Transparency", (overScroll or dd.IsScrollingPopup) and 0.85 or 0.28)
-        end
-        if dd.IsScrollingPopup then
-            if m1Pressed and st then
-                local travel = math.max(1, st.H - st.ThumbH)
-                local ratio = math.clamp((my - st.Y - st.ThumbH * 0.5) / travel, 0, 1)
-                dd:SetScrollRatio(ratio)
-                return
-            else
-                dd.IsScrollingPopup = false
-            end
-        end
-        local overPopup = mx >= r.X and mx <= r.X + r.W and my >= r.Y and my <= r.Y + r.H
-        if overPopup then
-            if st and mx >= st.X and mx <= st.X + st.W and my >= st.Y and my <= st.Y + st.H then
-                dd:SetPopupHover(nil)
-                if m1Clicked then
-                    dd.IsScrollingPopup = true
-                    local travel = math.max(1, st.H - st.ThumbH)
-                    local ratio = math.clamp((my - st.Y - st.ThumbH * 0.5) / travel, 0, 1)
-                    dd:SetScrollRatio(ratio)
-                    return
-                end
-            end
-            local sr = r.SearchRect
-            if sr and mx >= sr.X and mx <= sr.X + sr.W and my >= sr.Y and my <= sr.Y + sr.H then
-                dd:SetPopupHover(nil)
-                if m1Clicked then
-                    self.FocusedDropdownSearch = dd
-                    if dd.RefreshSearchDisplay then dd:RefreshSearchDisplay() end
-                    return
-                end
-            else
-                local listTop = r.ListTop or (r.Y + 4)
-                local idx = math.floor((my - listTop) / r.ItemH) + 1
-                if idx >= 1 and idx <= r.Count then
-                    dd:SetPopupHover(idx)
-                    if m1Clicked then
-                        local realIdx = (dd.ScrollOffset or 0) + idx
-                        local chosen = dd.VisibleItems and dd.VisibleItems[realIdx] or dd.Values[realIdx]
-                        if chosen then dd:Select(chosen) end
-                        return
-                    end
-                else
-                    dd:SetPopupHover(nil)
-                end
-            end
-        else
-            dd:SetPopupHover(nil)
-            if m1Clicked then
-                dd:Close()
-            end
-        end
-    end
 
     -- 5. Sidebar Search, ProfileCard & Navigation
     if self.Sidebar and self.Sidebar.Visible then

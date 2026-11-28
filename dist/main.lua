@@ -3410,12 +3410,6 @@ local str_blue    = "Accent.Blue"
 local str_ctrl_bg = "Control.Background"
 local str_ctrl_hv = "Control.Hover"
 
-local function clamp(v, lo, hi)
-    if v < lo then return lo end
-    if v > hi then return hi end
-    return v
-end
-
 local function ensure_pool()
     if not Notify.Pool or Notify.Pool.Destroyed then
         Notify.Pool = PoolModule.new(nil, MetaModule)
@@ -3649,7 +3643,7 @@ function Notify.Push(cfg, titleArg, durationArg)
 
     toast.SetProgress = function(a, b)
         local val = (a == toast) and b or a
-        toast.Progress = clamp(tonumber(val) or 0, 0, 1)
+        toast.Progress = math.clamp(tonumber(val) or 0, 0, 1)
     end
     toast.setProgress = toast.SetProgress
 
@@ -3692,7 +3686,7 @@ end
 function Notify.Update(dt, window, mousePos, m1ClickedArg)
     if #Notify.Active == 0 then return false end
 
-    local delta = clamp(dt or 0.016, 0.001, 0.1)
+    local delta = math.clamp(dt or 0.016, 0.001, 0.1)
     local now = tick()
     local vp = ClampingModule.GetViewportSize()
 
@@ -3790,7 +3784,7 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         local y = math.floor(toast.CurrentY + 0.5)
         stackOffset = stackOffset + cardH + gapY
 
-        local alpha = clamp(toast.SlideT, 0, 1)
+        local alpha = math.clamp(toast.SlideT, 0, 1)
 
         -- Card shell
         slot.Bg.Position = Vector2.new(x, y)
@@ -3916,9 +3910,9 @@ function Notify.Update(dt, window, mousePos, m1ClickedArg)
         local ratio = nil
         if toast.Progress ~= nil then
             toast.DisplayProgress = toast.DisplayProgress + (toast.Progress - toast.DisplayProgress) * smooth
-            ratio = clamp(toast.DisplayProgress, 0, 1)
+            ratio = math.clamp(toast.DisplayProgress, 0, 1)
         elseif toast.ExpiresAt and toast.Duration and toast.Duration > 0 then
-            ratio = clamp((toast.ExpiresAt - now) / toast.Duration, 0, 1)
+            ratio = math.clamp((toast.ExpiresAt - now) / toast.Duration, 0, 1)
         end
 
         if ratio ~= nil then
@@ -4058,12 +4052,6 @@ local str_primary = "Primary"
 local str_ctrl_bg = "Control.Background"
 local str_ctrl_hv = "Control.Hover"
 local str_card_bg = "Card.Background"
-
-local function clamp(v, lo, hi)
-    if v < lo then return lo end
-    if v > hi then return hi end
-    return v
-end
 
 local function ensure_slot()
     if not Dialog.Pool or Dialog.Pool.Destroyed then
@@ -4235,7 +4223,7 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
     local d = Dialog.Active
     if not d then return false end
 
-    local delta = clamp(dt or 0.016, 0.001, 0.1)
+    local delta = math.clamp(dt or 0.016, 0.001, 0.1)
     local smooth = 1 - math.exp(-18 * delta)
 
     if d.Closing then
@@ -4288,9 +4276,9 @@ function Dialog.Update(dt, window, mousePos, m1ClickedArg)
         hostCorner = 0
     end
 
-    local alpha = clamp(d.AnimT, 0, 1)
+    local alpha = math.clamp(d.AnimT, 0, 1)
     local pad = 18
-    local cardW = clamp(d.Width, 260, math.max(260, hostW - 32))
+    local cardW = math.clamp(d.Width, 260, math.max(260, hostW - 32))
     local hasIcon = d.Icon ~= nil and d.Icon ~= ""
     local titleLeft = hasIcon and 32 or 0
     local textW = cardW - pad * 2
@@ -4553,12 +4541,6 @@ local str_accent  = "Accent"
 local str_ctrl_hv = "Control.Hover"
 local str_card_bg = "Card.Background"
 
-local function clamp(v, lo, hi)
-    if v < lo then return lo end
-    if v > hi then return hi end
-    return v
-end
-
 local function ensure_pool()
     if not Overlay.Pool or Overlay.Pool.Destroyed then
         Overlay.Pool = PoolModule.new(nil, MetaModule)
@@ -4806,14 +4788,14 @@ local function update_open_button(window, vp, mx, my, m1Pressed, m1Clicked)
         ob.Position = Vector2.new(math.floor((vp.X - w) * 0.5), 14)
     end
 
-    local px = clamp(ob.Position.X, 8, math.max(8, vp.X - w - 8))
-    local py = clamp(ob.Position.Y, 8, math.max(8, vp.Y - h - 8))
+    local px = math.clamp(ob.Position.X, 8, math.max(8, vp.X - w - 8))
+    local py = math.clamp(ob.Position.Y, 8, math.max(8, vp.Y - h - 8))
 
     local consumed = false
     if ob._dragging then
         if m1Pressed then
-            px = clamp(mx - ob._dragOffX, 8, math.max(8, vp.X - w - 8))
-            py = clamp(my - ob._dragOffY, 8, math.max(8, vp.Y - h - 8))
+            px = math.clamp(mx - ob._dragOffX, 8, math.max(8, vp.X - w - 8))
+            py = math.clamp(my - ob._dragOffY, 8, math.max(8, vp.Y - h - 8))
             ob.Position = Vector2.new(px, py)
         else
             ob._dragging = false
@@ -4911,14 +4893,14 @@ local function update_keybind_menu(window, vp, mx, my, m1Pressed, m1Clicked)
         window.KeybindMenuY = math.floor((vp.Y - h) * 0.5)
     end
 
-    local px = clamp(window.KeybindMenuX, 6, math.max(6, vp.X - w - 6))
-    local py = clamp(window.KeybindMenuY, 6, math.max(6, vp.Y - h - 6))
+    local px = math.clamp(window.KeybindMenuX, 6, math.max(6, vp.X - w - 6))
+    local py = math.clamp(window.KeybindMenuY, 6, math.max(6, vp.Y - h - 6))
 
     local consumed = false
     if window._kmDragging then
         if m1Pressed then
-            px = clamp(mx - window._kmDragOffX, 6, math.max(6, vp.X - w - 6))
-            py = clamp(my - window._kmDragOffY, 6, math.max(6, vp.Y - h - 6))
+            px = math.clamp(mx - window._kmDragOffX, 6, math.max(6, vp.X - w - 6))
+            py = math.clamp(my - window._kmDragOffY, 6, math.max(6, vp.Y - h - 6))
             window.KeybindMenuX, window.KeybindMenuY = px, py
         else
             window._kmDragging = false
@@ -5026,14 +5008,14 @@ local function update_watermark(window, vp, mx, my, m1Pressed, m1Clicked)
     local w = math.max(60, totalTextW + 24)
     local h = 28
 
-    local px = clamp(wm.X or 16, 6, math.max(6, vp.X - w - 6))
-    local py = clamp(wm.Y or 16, 6, math.max(6, vp.Y - h - 6))
+    local px = math.clamp(wm.X or 16, 6, math.max(6, vp.X - w - 6))
+    local py = math.clamp(wm.Y or 16, 6, math.max(6, vp.Y - h - 6))
 
     local consumed = false
     if wm._dragging then
         if m1Pressed then
-            px = clamp(mx - wm._dragOffX, 6, math.max(6, vp.X - w - 6))
-            py = clamp(my - wm._dragOffY, 6, math.max(6, vp.Y - h - 6))
+            px = math.clamp(mx - wm._dragOffX, 6, math.max(6, vp.X - w - 6))
+            py = math.clamp(my - wm._dragOffY, 6, math.max(6, vp.Y - h - 6))
             wm.X, wm.Y = px, py
         else
             wm._dragging = false
@@ -5165,8 +5147,8 @@ function Overlay.RenderTooltip(text, mx, my, window)
     local tw = MetricsModule.Measure(str, 12)
     local w = math.max(56, tw + 18)
     local h = 24
-    local px = clamp((mx or 0) + 14, 6, math.max(6, vp.X - w - 6))
-    local py = clamp((my or 0) + 18, 6, math.max(6, vp.Y - h - 6))
+    local px = math.clamp((mx or 0) + 14, 6, math.max(6, vp.X - w - 6))
+    local py = math.clamp((my or 0) + 18, 6, math.max(6, vp.Y - h - 6))
 
     slot.Bg.Position = Vector2.new(px, py)
     slot.Bg.Size = Vector2.new(w, h)
@@ -6218,7 +6200,7 @@ local function sync_slider_header(self, trackX)
     local badgeX = trackX - 10
     if self.Badge then
         local bw = MetricsModule.Measure(valStr, 12)
-        badgeX = trackX - bw - 10
+        badgeX = trackX - bw - 16
         self.Badge.Text = valStr
         self.Badge.Position = Vector2.new(badgeX, pos.Y + math.floor((size.Y - 12) * 0.5))
     end
@@ -6410,6 +6392,7 @@ function Slider.new(section, id, config)
         section:_register(thumb)
     end
 
+    self:SetPosition(pos, size)
     return self
 end
 
@@ -6776,6 +6759,7 @@ function Dropdown.new(section, id, config)
         end)
     end
 
+    self:SetPosition(pos, size)
     return self
 end
 
@@ -7466,6 +7450,7 @@ function Input.new(section, id, config)
         section:_register(inp)
     end
 
+    self:SetPosition(pos, size)
     return self
 end
 
@@ -7703,15 +7688,6 @@ local MetricsModule = Metrics or MetricsModule
 local Toggle = {}
 Toggle.__index = Toggle
 
-local function lerp_color(c1, c2, t)
-    local r1, g1, b1 = c1.R or 0, c1.G or 0, c1.B or 0
-    local r2, g2, b2 = c2.R or 0, c2.G or 0, c2.B or 0
-    if Color3 and Color3.new then
-        return Color3.new(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t)
-    end
-    return t >= 0.5 and c2 or c1
-end
-
 function Toggle.new(section, id, config)
     local cfg = config or {}
     local desc = cfg.Desc or cfg.Description
@@ -7829,6 +7805,7 @@ function Toggle.new(section, id, config)
         end
     end
 
+    self:SetPosition(pos, size)
     return self
 end
 
@@ -7839,7 +7816,7 @@ function Toggle:_applyAnimVisual(progress, palette)
     local onCol = ThemeModule.Resolve(palette, isCheck and "Accent.Blue" or "Accent.Green")
 
     if self.Track then
-        self.Track.Color = lerp_color(offCol, onCol, progress)
+        self.Track.Color = ThemeModule.Lerp(offCol, onCol, progress)
     end
     if not isCheck and self.Knob and self.Position and self.Size then
         local trackX = self.Position.X + self.Size.X - 42 - 14
@@ -8717,7 +8694,7 @@ function ImageBlock:SetImage(src)
     if self.Source == "" or not self.ImgDrawing then return end
 
     local function apply_data(data)
-        if not data or not self.ImgDrawing then return end
+        if not data or not self.ImgDrawing or (self.Section and self.Section.Destroyed) then return end
         self._imgData = data
         self.ImgDrawing.Data = data
         self.ImgDrawing.Visible = self.Visible
@@ -8823,14 +8800,8 @@ local MetricsModule = Metrics or MetricsModule
 local ProgressBar = {}
 ProgressBar.__index = ProgressBar
 
-local function clamp(v, lo, hi)
-    if v < lo then return lo end
-    if v > hi then return hi end
-    return v
-end
-
 local function format_value(val, minV, maxV, mode, customFmt)
-    local ratio = (maxV > minV) and clamp((val - minV) / (maxV - minV), 0, 1) or 0
+    local ratio = (maxV > minV) and math.clamp((val - minV) / (maxV - minV), 0, 1) or 0
     if type(customFmt) == "string" and customFmt ~= "" then
         local ok, formatted = pcall(string.format, customFmt, math.floor(val + 0.5), maxV)
         if ok and formatted then return formatted end
@@ -8851,7 +8822,7 @@ function ProgressBar.new(section, id, config)
     if minV > maxV then minV, maxV = maxV, minV end
 
     local defV = tonumber(type(cfg.Value) == "number" and cfg.Value or valCfg.Default or cfg.Default) or minV
-    defV = clamp(defV, minV, maxV)
+    defV = math.clamp(defV, minV, maxV)
 
     local desc = cfg.Desc or cfg.Description
     local rowH = (desc and desc ~= "") and 56 or 44
@@ -8977,7 +8948,7 @@ function ProgressBar:_syncVisual()
             self.ValueText.Visible = false
         end
     else
-        local ratio = (self.Max > self.Min) and clamp((self.DisplayValue - self.Min) / (self.Max - self.Min), 0, 1) or 0
+        local ratio = (self.Max > self.Min) and math.clamp((self.DisplayValue - self.Min) / (self.Max - self.Min), 0, 1) or 0
         if self.FillBar then
             local fillW = math.floor(barW * ratio + 0.5)
             self.FillBar.Position = Vector2.new(barX, barY)
@@ -9015,7 +8986,7 @@ function ProgressBar:SetIndeterminate(enabled)
 end
 
 function ProgressBar:SetValue(val)
-    self.Value = clamp(tonumber(val) or self.Min, self.Min, self.Max)
+    self.Value = math.clamp(tonumber(val) or self.Min, self.Min, self.Max)
     self.DisplayValue = self.Value
     self:_syncVisual()
 end
@@ -9046,7 +9017,7 @@ function ProgressBar:SetVisible(vis)
         if self.Indeterminate then
             self.FillBar.Visible = vis
         else
-            local ratio = (self.Max > self.Min) and clamp((self.DisplayValue - self.Min) / (self.Max - self.Min), 0, 1) or 0
+            local ratio = (self.Max > self.Min) and math.clamp((self.DisplayValue - self.Min) / (self.Max - self.Min), 0, 1) or 0
             self.FillBar.Visible = vis and math.floor(math.max(40, self.Size.X - 28) * ratio + 0.5) > 0
         end
     end
@@ -9101,12 +9072,6 @@ local ClampingModule = Clamping or ClampingModule
 local Colorpicker = {}
 Colorpicker.__index = Colorpicker
 
-local function clamp(v, lo, hi)
-    if v < lo then return lo end
-    if v > hi then return hi end
-    return v
-end
-
 local function rgb_to_hsv(col)
     if not col then return 0, 1, 1 end
     local r = tonumber(col.R or col.r) or 1
@@ -9138,14 +9103,14 @@ local hsv_to_rgb = ThemeModule.HSV
 
 local function rgb_to_hex(col)
     if not col then return "#FFFFFF" end
-    local r = math.floor(clamp(tonumber(col.R or col.r) or 1, 0, 1) * 255 + 0.5)
-    local g = math.floor(clamp(tonumber(col.G or col.g) or 1, 0, 1) * 255 + 0.5)
-    local b = math.floor(clamp(tonumber(col.B or col.b) or 1, 0, 1) * 255 + 0.5)
+    local r = math.floor(math.clamp(tonumber(col.R or col.r) or 1, 0, 1) * 255 + 0.5)
+    local g = math.floor(math.clamp(tonumber(col.G or col.g) or 1, 0, 1) * 255 + 0.5)
+    local b = math.floor(math.clamp(tonumber(col.B or col.b) or 1, 0, 1) * 255 + 0.5)
     return string.format("#%02X%02X%02X", r, g, b)
 end
 
 function Colorpicker:_syncSwatchVisual()
-    local opacity = self.HasAlpha and clamp(1 - (self.Transparency or 0), 0, 1) or 1
+    local opacity = self.HasAlpha and math.clamp(1 - (self.Transparency or 0), 0, 1) or 1
     if self.Swatch then
         self.Swatch.Color = self.Value
         self.Swatch.Transparency = opacity
@@ -9174,7 +9139,7 @@ function Colorpicker.new(section, id, config)
         Sat = s,
         Vib = v,
         HasAlpha = cfg.Transparency ~= nil,
-        Transparency = clamp(tonumber(cfg.Transparency) or 0, 0, 1),
+        Transparency = math.clamp(tonumber(cfg.Transparency) or 0, 0, 1),
         Position = pos,
         Size = size,
         Visible = section.Visible,
@@ -9256,7 +9221,7 @@ function Colorpicker.new(section, id, config)
         local sw = pool:Get("Square")
         sw.Size = Vector2.new(32, 18)
         sw.Color = self.Value
-        sw.Transparency = self.HasAlpha and clamp(1 - self.Transparency, 0, 1) or 1
+        sw.Transparency = self.HasAlpha and math.clamp(1 - self.Transparency, 0, 1) or 1
         sw.Filled = true
         sw.Corner = 6
         sw.ZIndex = 6
@@ -9468,7 +9433,7 @@ function Colorpicker:_syncPopup()
     local vp = ClampingModule.GetViewportSize()
     local popW = 216
     local popH = self.HasAlpha and 248 or 222
-    local x = clamp(self.Position.X + self.Size.X - popW, 8, math.max(8, vp.X - popW - 8))
+    local x = math.clamp(self.Position.X + self.Size.X - popW, 8, math.max(8, vp.X - popW - 8))
     local y = self.Position.Y + self.Size.Y + 6
     if y + popH > vp.Y - 8 then
         y = math.max(8, self.Position.Y - popH - 6)
@@ -9508,8 +9473,8 @@ function Colorpicker:_syncPopup()
     pd.SVMap.Visible = self._textures.Sat ~= nil
 
     pd.SVCursor.Position = Vector2.new(
-        clamp(sv.X + math.floor(self.Sat * sv.W - 6), sv.X - 2, sv.X + sv.W - 10),
-        clamp(sv.Y + math.floor((1 - self.Vib) * sv.H - 6), sv.Y - 2, sv.Y + sv.H - 10)
+        math.clamp(sv.X + math.floor(self.Sat * sv.W - 6), sv.X - 2, sv.X + sv.W - 10),
+        math.clamp(sv.Y + math.floor((1 - self.Vib) * sv.H - 6), sv.Y - 2, sv.Y + sv.H - 10)
     )
     pd.SVCursor.Visible = true
 
@@ -9528,7 +9493,7 @@ function Colorpicker:_syncPopup()
     end
     pd.HueImg.Visible = self._textures.Hue ~= nil
 
-    pd.HueCursor.Position = Vector2.new(hb.X - 1, clamp(hb.Y + math.floor(self.Hue * hb.H - 2), hb.Y, hb.Y + hb.H - 4))
+    pd.HueCursor.Position = Vector2.new(hb.X - 1, math.clamp(hb.Y + math.floor(self.Hue * hb.H - 2), hb.Y, hb.Y + hb.H - 4))
     pd.HueCursor.Visible = true
 
     if self.PopupRect.Alpha then
@@ -9561,7 +9526,7 @@ function Colorpicker:_syncPopup()
             seg.Visible = true
         end
 
-        pd.AlphaCursor.Position = Vector2.new(clamp(ab.X + math.floor((1 - self.Transparency) * ab.W - 2), ab.X, ab.X + ab.W - 4), ab.Y - 1)
+        pd.AlphaCursor.Position = Vector2.new(math.clamp(ab.X + math.floor((1 - self.Transparency) * ab.W - 2), ab.X, ab.X + ab.W - 4), ab.Y - 1)
         pd.AlphaCursor.Visible = true
     else
         for _, tile in ipairs(pd.AlphaTiles) do tile.Visible = false end
@@ -9580,7 +9545,7 @@ function Colorpicker:_syncPopup()
 
     pd.Preview.Position = Vector2.new(x + 12, fy)
     pd.Preview.Color = self.Value
-    pd.Preview.Transparency = self.HasAlpha and clamp(1 - self.Transparency, 0, 1) or 1
+    pd.Preview.Transparency = self.HasAlpha and math.clamp(1 - self.Transparency, 0, 1) or 1
     pd.Preview.Visible = true
 
     pd.HexText.Text = rgb_to_hex(self.Value)
@@ -9609,12 +9574,15 @@ function Colorpicker:SetValueRGB(col, alpha)
     self.Value = col
     self.Hue, self.Sat, self.Vib = rgb_to_hsv(col)
     if alpha ~= nil then
-        self.Transparency = clamp(tonumber(alpha) or 0, 0, 1)
+        self.Transparency = math.clamp(tonumber(alpha) or 0, 0, 1)
     end
     self:_syncSwatchVisual()
     self:_syncPopup()
     if self.Callback then
         pcall(self.Callback, self.Value, self.Transparency)
+    end
+    if self.Changed then
+        pcall(self.Changed, self.Value, self.Transparency)
     end
 end
 Colorpicker.Set = Colorpicker.SetValueRGB
@@ -9677,14 +9645,14 @@ function Colorpicker:UpdatePopupInput(mx, my, m1Pressed, m1Clicked)
     if self.DragMode then
         if m1Pressed then
             if self.DragMode == "SV" then
-                self.Sat = clamp((mx - sv.X) / sv.W, 0, 1)
-                self.Vib = 1 - clamp((my - sv.Y) / sv.H, 0, 1)
+                self.Sat = math.clamp((mx - sv.X) / sv.W, 0, 1)
+                self.Vib = 1 - math.clamp((my - sv.Y) / sv.H, 0, 1)
                 self:_applyHSV()
             elseif self.DragMode == "Hue" then
-                self.Hue = clamp((my - hb.Y) / hb.H, 0, 1)
+                self.Hue = math.clamp((my - hb.Y) / hb.H, 0, 1)
                 self:_applyHSV()
             elseif self.DragMode == "Alpha" and ab then
-                self.Transparency = 1 - clamp((mx - ab.X) / ab.W, 0, 1)
+                self.Transparency = 1 - math.clamp((mx - ab.X) / ab.W, 0, 1)
                 self:_applyHSV()
             end
             return true
@@ -9705,16 +9673,16 @@ function Colorpicker:UpdatePopupInput(mx, my, m1Pressed, m1Clicked)
     if m1Clicked then
         if mx >= sv.X and mx <= sv.X + sv.W and my >= sv.Y and my <= sv.Y + sv.H then
             self.DragMode = "SV"
-            self.Sat = clamp((mx - sv.X) / sv.W, 0, 1)
-            self.Vib = 1 - clamp((my - sv.Y) / sv.H, 0, 1)
+            self.Sat = math.clamp((mx - sv.X) / sv.W, 0, 1)
+            self.Vib = 1 - math.clamp((my - sv.Y) / sv.H, 0, 1)
             self:_applyHSV()
         elseif mx >= hb.X and mx <= hb.X + hb.W and my >= hb.Y and my <= hb.Y + hb.H then
             self.DragMode = "Hue"
-            self.Hue = clamp((my - hb.Y) / hb.H, 0, 1)
+            self.Hue = math.clamp((my - hb.Y) / hb.H, 0, 1)
             self:_applyHSV()
         elseif ab and mx >= ab.X and mx <= ab.X + ab.W and my >= ab.Y and my <= ab.Y + ab.H then
             self.DragMode = "Alpha"
-            self.Transparency = 1 - clamp((mx - ab.X) / ab.W, 0, 1)
+            self.Transparency = 1 - math.clamp((mx - ab.X) / ab.W, 0, 1)
             self:_applyHSV()
         end
         return true
@@ -13056,7 +13024,6 @@ function Window.new(config)
         Logo = nil,
         TitleText = nil,
         HeaderText = nil,
-        SubtitleText = nil,
         TitleOffset = 74,
         TitleEndOffset = 220,
 
@@ -13270,13 +13237,6 @@ function Window:_createChrome()
     self.TitleOffset = titleOffset
     self.TitleEndOffset = titleOffset + MetricsModule.Measure(fitTitle, 13)
     self:_register(titleText)
-
-    local subText = pool:Get("Text")
-    subText.Size = 11
-    subText.Font = fontUI
-    subText.Outline = false
-    subText.Visible = false
-    self.SubtitleText = subText
 
     -- 7. Bottom Drag Pill (Crisp 168x12 anti-aliased PNG matching WindUI BottomDragFrame)
     local pill = pool:Get("Image")
@@ -14012,9 +13972,6 @@ function Window:UpdateTheme(newTheme, skipLayout)
     if self.Border then self.Border.Color = borderCol end
     if self.MainPanelBg then self.MainPanelBg.Color = panelCol end
     if self.TitleText then self.TitleText.Color = textCol end
-    if self.SubtitleText then
-        self.SubtitleText.Color = ThemeModule.Resolve(t, "Text.Secondary")
-    end
     if self.VerticalDivider then
         self.VerticalDivider.Color = ThemeModule.Resolve(t, "Sidebar.Divider")
     end
@@ -14226,6 +14183,83 @@ function Window:_getMouse()
     return nil
 end
 
+local function handle_popups(self, mx, my, m1Pressed, m1Clicked, m2Clicked)
+    if self.OpenKeybindMenu and self.OpenKeybindMenu.ModeMenuOpen then
+        if self.OpenKeybindMenu:UpdateModeMenu(mx, my, m1Clicked, m2Clicked) then
+            return true
+        end
+    end
+
+    if self.OpenColorpicker and self.OpenColorpicker.IsOpen then
+        if self.OpenColorpicker:UpdatePopupInput(mx, my, m1Pressed, m1Clicked) then
+            return true
+        end
+    end
+
+    if self.OpenDropdown and self.OpenDropdown.Opened and self.OpenDropdown.PopupRect then
+        local dd = self.OpenDropdown
+        local r = dd.PopupRect
+        local st = r.ScrollTrack
+        local overScroll = st and mx >= st.X and mx <= st.X + st.W and my >= st.Y and my <= st.Y + st.H
+        if dd.PopupScrollThumb then
+            AnimationsModule.TweenProp(dd.PopupScrollThumb, "Transparency", (overScroll or dd.IsScrollingPopup) and 0.85 or 0.28)
+        end
+        if dd.IsScrollingPopup then
+            if m1Pressed and st then
+                local travel = math.max(1, st.H - st.ThumbH)
+                local ratio = math.clamp((my - st.Y - st.ThumbH * 0.5) / travel, 0, 1)
+                dd:SetScrollRatio(ratio)
+                return true
+            else
+                dd.IsScrollingPopup = false
+            end
+        end
+        local overPopup = mx >= r.X and mx <= r.X + r.W and my >= r.Y and my <= r.Y + r.H
+        if overPopup then
+            if st and mx >= st.X and mx <= st.X + st.W and my >= st.Y and my <= st.Y + st.H then
+                dd:SetPopupHover(nil)
+                if m1Clicked then
+                    dd.IsScrollingPopup = true
+                    local travel = math.max(1, st.H - st.ThumbH)
+                    local ratio = math.clamp((my - st.Y - st.ThumbH * 0.5) / travel, 0, 1)
+                    dd:SetScrollRatio(ratio)
+                    return true
+                end
+            end
+            local sr = r.SearchRect
+            if sr and mx >= sr.X and mx <= sr.X + sr.W and my >= sr.Y and my <= sr.Y + sr.H then
+                dd:SetPopupHover(nil)
+                if m1Clicked then
+                    self.FocusedDropdownSearch = dd
+                    if dd.RefreshSearchDisplay then dd:RefreshSearchDisplay() end
+                    return true
+                end
+            else
+                local listTop = r.ListTop or (r.Y + 4)
+                local idx = math.floor((my - listTop) / r.ItemH) + 1
+                if idx >= 1 and idx <= r.Count then
+                    dd:SetPopupHover(idx)
+                    if m1Clicked then
+                        local realIdx = (dd.ScrollOffset or 0) + idx
+                        local chosen = dd.VisibleItems and dd.VisibleItems[realIdx] or dd.Values[realIdx]
+                        if chosen then dd:Select(chosen) end
+                        return true
+                    end
+                else
+                    dd:SetPopupHover(nil)
+                end
+            end
+            return true
+        else
+            dd:SetPopupHover(nil)
+            if m1Clicked then
+                dd:Close()
+            end
+        end
+    end
+    return false
+end
+
 function Window:Update(rawDt)
     if self.Destroyed or not self.Running then return end
     local curState = UI.GetValue(str_ui_state)
@@ -14432,6 +14466,12 @@ function Window:Update(rawDt)
         if self.MacMax then self.MacMax.Color = ThemeModule.Get(str_mac_max) end
     end
 
+    if not self.Minimized and not self.IsResizing and not self.IsScrolling and not self.IsDragging then
+        if handle_popups(self, mx, my, m1Pressed, m1Clicked, m2Clicked) then
+            return
+        end
+    end
+
     -- 2. Bottom-Right Corner Resize Icon & Hit-Test (strictly disabled in Fullscreen & Minimized)
     local canResizeNow = (not self.Minimized) and (not self.IsMaximized) and (self.CanResize == true)
     local rx = px + sx - 18
@@ -14545,80 +14585,6 @@ function Window:Update(rawDt)
     end
 
     if self.Minimized then return end
-
-    -- 4. Open Colorpicker, Dropdown & Keybind Mode Menu Priority Capture
-    if self.OpenKeybindMenu and self.OpenKeybindMenu.ModeMenuOpen then
-        if self.OpenKeybindMenu:UpdateModeMenu(mx, my, m1Clicked, m2Clicked) then
-            return
-        end
-    end
-
-    if self.OpenColorpicker and self.OpenColorpicker.IsOpen then
-        if self.OpenColorpicker:UpdatePopupInput(mx, my, m1Pressed, m1Clicked) then
-            return
-        end
-    end
-
-    if self.OpenDropdown and self.OpenDropdown.Opened and self.OpenDropdown.PopupRect then
-        local dd = self.OpenDropdown
-        local r = dd.PopupRect
-        local st = r.ScrollTrack
-        local overScroll = st and mx >= st.X and mx <= st.X + st.W and my >= st.Y and my <= st.Y + st.H
-        if dd.PopupScrollThumb then
-            AnimationsModule.TweenProp(dd.PopupScrollThumb, "Transparency", (overScroll or dd.IsScrollingPopup) and 0.85 or 0.28)
-        end
-        if dd.IsScrollingPopup then
-            if m1Pressed and st then
-                local travel = math.max(1, st.H - st.ThumbH)
-                local ratio = math.clamp((my - st.Y - st.ThumbH * 0.5) / travel, 0, 1)
-                dd:SetScrollRatio(ratio)
-                return
-            else
-                dd.IsScrollingPopup = false
-            end
-        end
-        local overPopup = mx >= r.X and mx <= r.X + r.W and my >= r.Y and my <= r.Y + r.H
-        if overPopup then
-            if st and mx >= st.X and mx <= st.X + st.W and my >= st.Y and my <= st.Y + st.H then
-                dd:SetPopupHover(nil)
-                if m1Clicked then
-                    dd.IsScrollingPopup = true
-                    local travel = math.max(1, st.H - st.ThumbH)
-                    local ratio = math.clamp((my - st.Y - st.ThumbH * 0.5) / travel, 0, 1)
-                    dd:SetScrollRatio(ratio)
-                    return
-                end
-            end
-            local sr = r.SearchRect
-            if sr and mx >= sr.X and mx <= sr.X + sr.W and my >= sr.Y and my <= sr.Y + sr.H then
-                dd:SetPopupHover(nil)
-                if m1Clicked then
-                    self.FocusedDropdownSearch = dd
-                    if dd.RefreshSearchDisplay then dd:RefreshSearchDisplay() end
-                    return
-                end
-            else
-                local listTop = r.ListTop or (r.Y + 4)
-                local idx = math.floor((my - listTop) / r.ItemH) + 1
-                if idx >= 1 and idx <= r.Count then
-                    dd:SetPopupHover(idx)
-                    if m1Clicked then
-                        local realIdx = (dd.ScrollOffset or 0) + idx
-                        local chosen = dd.VisibleItems and dd.VisibleItems[realIdx] or dd.Values[realIdx]
-                        if chosen then dd:Select(chosen) end
-                        return
-                    end
-                else
-                    dd:SetPopupHover(nil)
-                end
-            end
-        else
-            dd:SetPopupHover(nil)
-            if m1Clicked then
-                dd:Close()
-            end
-        end
-    end
 
     -- 5. Sidebar Search, ProfileCard & Navigation
     if self.Sidebar and self.Sidebar.Visible then

@@ -10,15 +10,6 @@ local MetricsModule = Metrics or require("../Core/Metrics")
 local Toggle = {}
 Toggle.__index = Toggle
 
-local function lerp_color(c1, c2, t)
-    local r1, g1, b1 = c1.R or 0, c1.G or 0, c1.B or 0
-    local r2, g2, b2 = c2.R or 0, c2.G or 0, c2.B or 0
-    if Color3 and Color3.new then
-        return Color3.new(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t)
-    end
-    return t >= 0.5 and c2 or c1
-end
-
 function Toggle.new(section, id, config)
     local cfg = config or {}
     local desc = cfg.Desc or cfg.Description
@@ -136,6 +127,7 @@ function Toggle.new(section, id, config)
         end
     end
 
+    self:SetPosition(pos, size)
     return self
 end
 
@@ -146,7 +138,7 @@ function Toggle:_applyAnimVisual(progress, palette)
     local onCol = ThemeModule.Resolve(palette, isCheck and "Accent.Blue" or "Accent.Green")
 
     if self.Track then
-        self.Track.Color = lerp_color(offCol, onCol, progress)
+        self.Track.Color = ThemeModule.Lerp(offCol, onCol, progress)
     end
     if not isCheck and self.Knob and self.Position and self.Size then
         local trackX = self.Position.X + self.Size.X - 42 - 14

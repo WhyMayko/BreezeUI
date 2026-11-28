@@ -16,7 +16,7 @@ local function sync_slider_header(self, trackX)
     local badgeX = trackX - 10
     if self.Badge then
         local bw = MetricsModule.Measure(valStr, 12)
-        badgeX = trackX - bw - 10
+        badgeX = trackX - bw - 16
         self.Badge.Text = valStr
         self.Badge.Position = Vector2.new(badgeX, pos.Y + math.floor((size.Y - 12) * 0.5))
     end
@@ -208,6 +208,7 @@ function Slider.new(section, id, config)
         section:_register(thumb)
     end
 
+    self:SetPosition(pos, size)
     return self
 end
 

@@ -7,14 +7,8 @@ local MetricsModule = Metrics or require("../Core/Metrics")
 local ProgressBar = {}
 ProgressBar.__index = ProgressBar
 
-local function clamp(v, lo, hi)
-    if v < lo then return lo end
-    if v > hi then return hi end
-    return v
-end
-
 local function format_value(val, minV, maxV, mode, customFmt)
-    local ratio = (maxV > minV) and clamp((val - minV) / (maxV - minV), 0, 1) or 0
+    local ratio = (maxV > minV) and math.clamp((val - minV) / (maxV - minV), 0, 1) or 0
     if type(customFmt) == "string" and customFmt ~= "" then
         local ok, formatted = pcall(string.format, customFmt, math.floor(val + 0.5), maxV)
         if ok and formatted then return formatted end
@@ -35,7 +29,7 @@ function ProgressBar.new(section, id, config)
     if minV > maxV then minV, maxV = maxV, minV end
 
     local defV = tonumber(type(cfg.Value) == "number" and cfg.Value or valCfg.Default or cfg.Default) or minV
-    defV = clamp(defV, minV, maxV)
+    defV = math.clamp(defV, minV, maxV)
 
     local desc = cfg.Desc or cfg.Description
     local rowH = (desc and desc ~= "") and 56 or 44
@@ -161,7 +155,7 @@ function ProgressBar:_syncVisual()
             self.ValueText.Visible = false
         end
     else
-        local ratio = (self.Max > self.Min) and clamp((self.DisplayValue - self.Min) / (self.Max - self.Min), 0, 1) or 0
+        local ratio = (self.Max > self.Min) and math.clamp((self.DisplayValue - self.Min) / (self.Max - self.Min), 0, 1) or 0
         if self.FillBar then
             local fillW = math.floor(barW * ratio + 0.5)
             self.FillBar.Position = Vector2.new(barX, barY)
@@ -199,7 +193,7 @@ function ProgressBar:SetIndeterminate(enabled)
 end
 
 function ProgressBar:SetValue(val)
-    self.Value = clamp(tonumber(val) or self.Min, self.Min, self.Max)
+    self.Value = math.clamp(tonumber(val) or self.Min, self.Min, self.Max)
     self.DisplayValue = self.Value
     self:_syncVisual()
 end
@@ -230,7 +224,7 @@ function ProgressBar:SetVisible(vis)
         if self.Indeterminate then
             self.FillBar.Visible = vis
         else
-            local ratio = (self.Max > self.Min) and clamp((self.DisplayValue - self.Min) / (self.Max - self.Min), 0, 1) or 0
+            local ratio = (self.Max > self.Min) and math.clamp((self.DisplayValue - self.Min) / (self.Max - self.Min), 0, 1) or 0
             self.FillBar.Visible = vis and math.floor(math.max(40, self.Size.X - 28) * ratio + 0.5) > 0
         end
     end

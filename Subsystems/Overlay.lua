@@ -24,12 +24,6 @@ local str_accent  = "Accent"
 local str_ctrl_hv = "Control.Hover"
 local str_card_bg = "Card.Background"
 
-local function clamp(v, lo, hi)
-    if v < lo then return lo end
-    if v > hi then return hi end
-    return v
-end
-
 local function ensure_pool()
     if not Overlay.Pool or Overlay.Pool.Destroyed then
         Overlay.Pool = PoolModule.new(nil, MetaModule)
@@ -277,14 +271,14 @@ local function update_open_button(window, vp, mx, my, m1Pressed, m1Clicked)
         ob.Position = Vector2.new(math.floor((vp.X - w) * 0.5), 14)
     end
 
-    local px = clamp(ob.Position.X, 8, math.max(8, vp.X - w - 8))
-    local py = clamp(ob.Position.Y, 8, math.max(8, vp.Y - h - 8))
+    local px = math.clamp(ob.Position.X, 8, math.max(8, vp.X - w - 8))
+    local py = math.clamp(ob.Position.Y, 8, math.max(8, vp.Y - h - 8))
 
     local consumed = false
     if ob._dragging then
         if m1Pressed then
-            px = clamp(mx - ob._dragOffX, 8, math.max(8, vp.X - w - 8))
-            py = clamp(my - ob._dragOffY, 8, math.max(8, vp.Y - h - 8))
+            px = math.clamp(mx - ob._dragOffX, 8, math.max(8, vp.X - w - 8))
+            py = math.clamp(my - ob._dragOffY, 8, math.max(8, vp.Y - h - 8))
             ob.Position = Vector2.new(px, py)
         else
             ob._dragging = false
@@ -382,14 +376,14 @@ local function update_keybind_menu(window, vp, mx, my, m1Pressed, m1Clicked)
         window.KeybindMenuY = math.floor((vp.Y - h) * 0.5)
     end
 
-    local px = clamp(window.KeybindMenuX, 6, math.max(6, vp.X - w - 6))
-    local py = clamp(window.KeybindMenuY, 6, math.max(6, vp.Y - h - 6))
+    local px = math.clamp(window.KeybindMenuX, 6, math.max(6, vp.X - w - 6))
+    local py = math.clamp(window.KeybindMenuY, 6, math.max(6, vp.Y - h - 6))
 
     local consumed = false
     if window._kmDragging then
         if m1Pressed then
-            px = clamp(mx - window._kmDragOffX, 6, math.max(6, vp.X - w - 6))
-            py = clamp(my - window._kmDragOffY, 6, math.max(6, vp.Y - h - 6))
+            px = math.clamp(mx - window._kmDragOffX, 6, math.max(6, vp.X - w - 6))
+            py = math.clamp(my - window._kmDragOffY, 6, math.max(6, vp.Y - h - 6))
             window.KeybindMenuX, window.KeybindMenuY = px, py
         else
             window._kmDragging = false
@@ -497,14 +491,14 @@ local function update_watermark(window, vp, mx, my, m1Pressed, m1Clicked)
     local w = math.max(60, totalTextW + 24)
     local h = 28
 
-    local px = clamp(wm.X or 16, 6, math.max(6, vp.X - w - 6))
-    local py = clamp(wm.Y or 16, 6, math.max(6, vp.Y - h - 6))
+    local px = math.clamp(wm.X or 16, 6, math.max(6, vp.X - w - 6))
+    local py = math.clamp(wm.Y or 16, 6, math.max(6, vp.Y - h - 6))
 
     local consumed = false
     if wm._dragging then
         if m1Pressed then
-            px = clamp(mx - wm._dragOffX, 6, math.max(6, vp.X - w - 6))
-            py = clamp(my - wm._dragOffY, 6, math.max(6, vp.Y - h - 6))
+            px = math.clamp(mx - wm._dragOffX, 6, math.max(6, vp.X - w - 6))
+            py = math.clamp(my - wm._dragOffY, 6, math.max(6, vp.Y - h - 6))
             wm.X, wm.Y = px, py
         else
             wm._dragging = false
@@ -636,8 +630,8 @@ function Overlay.RenderTooltip(text, mx, my, window)
     local tw = MetricsModule.Measure(str, 12)
     local w = math.max(56, tw + 18)
     local h = 24
-    local px = clamp((mx or 0) + 14, 6, math.max(6, vp.X - w - 6))
-    local py = clamp((my or 0) + 18, 6, math.max(6, vp.Y - h - 6))
+    local px = math.clamp((mx or 0) + 14, 6, math.max(6, vp.X - w - 6))
+    local py = math.clamp((my or 0) + 18, 6, math.max(6, vp.Y - h - 6))
 
     slot.Bg.Position = Vector2.new(px, py)
     slot.Bg.Size = Vector2.new(w, h)
